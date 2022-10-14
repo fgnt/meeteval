@@ -7,7 +7,7 @@ from hypothesis import given, strategies as st
 # Set up hypothesis strategies
 # Limit alphabet to ensure a few correct matches. Every character represents
 # a word
-utterance = st.text(alphabet='abcdefg', min_size=1)
+utterance = st.text(alphabet='abcdefg', min_size=0, max_size=10)
 reference = lambda max_size: st.lists(utterance, min_size=0, max_size=max_size)
 hypothesis = lambda max_size: st.lists(utterance, min_size=1, max_size=max_size)
 

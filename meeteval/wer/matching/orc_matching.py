@@ -69,7 +69,15 @@ def orc_matching_v2(ref, hyps):
     import itertools
     change_token = object()
 
+    # Handle trivial edge cases
+    if len(hyps) == 0:
+        return sum(len(r) for r in ref), (None,) * len(ref)
+    if len(ref) == 0:
+        return sum(len(h) for h in hyps), ()
+
+    # Insert change tokens between reference utterances
     ref = list(itertools.chain.from_iterable([list(r) + [change_token] for r in ref]))
+    ref.pop()   # Remove last change token
     hyps = [list(h) for h in hyps]
 
     # This cache caches pairs of (cost, partial_assignment) for each element
@@ -87,11 +95,12 @@ def orc_matching_v2(ref, hyps):
         if key in cache:
             return cache[key]
 
-        if ref_len and ref[ref_len - 1] == change_token:
+        if idx is not None and ref_len and ref[ref_len - 1] == change_token:
             # We reached a change token. Allow a channel switch. We set idx=None
             # here for caching of the result.
             # The reference index is decremented already here. That's arbitrary
-            return lev(ref_len - 1, hyps_len, idx=None)
+            cache[key] = lev(ref_len - 1, hyps_len, idx=None)
+            return cache[key]
 
         if idx is None:
             # Handle a channel switch
@@ -102,15 +111,9 @@ def orc_matching_v2(ref, hyps):
                 for i in range(len(hyps))
             ]
             index = argmin(tmp)
-            if ref_len == 0:
-                # Edge case: idx is None in the first call of this inner
-                # function. When the reference is empty, we don't want to
-                # output an assignment
-                cache[key] = tmp[index]
-            else:
-                # If we are not at that edge case: append the index of the best
-                # match to the partial assignment
-                cache[key] = tmp[index][0], tmp[index][1] + (index, )
+
+            # Append the index of the best match to the partial assignment
+            cache[key] = tmp[index][0], tmp[index][1] + (index, )
             return cache[key]
         else:
             # A normal Levenshtein distance update
@@ -142,6 +145,9 @@ def orc_matching_v2(ref, hyps):
             return cache[key]
 
     out = lev(len(ref), [len(h) for h in hyps])
+
+    # from pprint import pprint
+    # pprint(cache)
 
     return out
 

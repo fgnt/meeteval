@@ -101,6 +101,14 @@ def cy_orc_matching(ref: vector[uint], hyps: vector[vector[uint]]):
         vector[uint] index_factors
         vector[uint] assignment
 
+    if hyps.size() == 0:
+        # Shortcut
+        v = 0
+        for i in ref:
+            if i != 0:
+                v += 1
+        return v, ()
+
     # Initialize indices
     len_a = hyps.size()
     len_r = ref.size() + 1
