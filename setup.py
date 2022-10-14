@@ -14,6 +14,9 @@ setup(
     author="Thilo von Neumann",
     ext_modules=ext_modules,
     packages=["meeteval"],
+    install_requires=[
+        'editdistance'
+    ],
     extras_require={
         'test': [
             'pytest',
