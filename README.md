@@ -3,7 +3,7 @@
 
 <p align="center">:warning: This repository is under construction! :warning:</p>
 
-![GitHub Actions](https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg)
+<a href="https://github.com/fgnt/meeteval/actions"><img src="https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg"/></a>
 
 ## Installation
 
