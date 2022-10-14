@@ -62,67 +62,88 @@ def orc_matching_v2(ref, hyps):
     A Python implementation of the Dynamic Programming variant of the
     ORC matching algorithm.
 
-    TODO: fix assignment!
-    # This is wrong:
-    >>> orc_matching_v2(['a', 'a'], ['a', 'b'])
-    (1, [0, 0])
+    This recursive implementation is slow (slower than brute-force for small
+    examples, becuase the brute-force variant computes the Levenshtein
+    distance in optimized C code), but displays the algorithm nicely.
     """
     import itertools
     change_token = object()
 
     ref = list(itertools.chain.from_iterable([list(r) + [change_token] for r in ref]))
     hyps = [list(h) for h in hyps]
+
+    # This cache caches pairs of (cost, partial_assignment) for each element
+    # in the Levenshtein tensor
     cache = {}
 
     def argmin(iterable):
+        """A pure-Python argmin"""
         return min(enumerate(iterable), key=lambda x: x[1])[0]
-
-    assignments = {}
 
     def lev(ref_len, hyps_len, idx=None):
         key = (ref_len, *hyps_len, idx)
 
+        # Shortcut if we already computed this value
         if key in cache:
             return cache[key]
 
-        if ref_len and ref[ref_len-1] == change_token:
-            # Allow a channel switch
-            return lev(ref_len-1, hyps_len, idx=None)
+        if ref_len and ref[ref_len - 1] == change_token:
+            # We reached a change token. Allow a channel switch. We set idx=None
+            # here for caching of the result.
+            # The reference index is decremented already here. That's arbitrary
+            return lev(ref_len - 1, hyps_len, idx=None)
 
         if idx is None:
+            # Handle a channel switch
+            # The reference index is already decremented. Find the minimum
+            # over all hyps
             tmp = [
                 lev(ref_len, hyps_len, idx=i)
                 for i in range(len(hyps))
             ]
             index = argmin(tmp)
-
-            if ref_len not in assignments or assignments[ref_len][0] > tmp[index]:
-                assignments[ref_len] = (tmp[index], index, tmp)
-            return tmp[index]
-        else:
             if ref_len == 0:
-                cost = sum(hyps_len)
+                # Edge case: idx is None in the first call of this inner
+                # function. When the reference is empty, we don't want to
+                # output an assignment
+                cache[key] = tmp[index]
+            else:
+                # If we are not at that edge case: append the index of the best
+                # match to the partial assignment
+                cache[key] = tmp[index][0], tmp[index][1] + (index, )
+            return cache[key]
+        else:
+            # A normal Levenshtein distance update
+            if ref_len == 0:
+                # Corner case: empty reference
+                cost = sum(hyps_len), ()
             elif hyps_len[idx] == 0:
-                cost = 1 + lev(ref_len-1, hyps_len, idx)
-            elif ref[ref_len-1] == hyps[idx][hyps_len[idx]-1]:
+                # Corner case: empty hypothesis
+                cost, assignment = lev(ref_len - 1, hyps_len, idx)
+                cost = 1 + cost, assignment
+            elif ref[ref_len - 1] == hyps[idx][hyps_len[idx] - 1]:
+                # Correct match: diagonal update
                 hyps_len[idx] -= 1
-                cost = lev(ref_len-1, hyps_len, idx)
+                cost = lev(ref_len - 1, hyps_len, idx)
                 hyps_len[idx] += 1
             else:
+                # No correct match. This is a substitution/insertion/deletion.
+                # Find the min
                 a = lev(ref_len - 1, hyps_len, idx)
                 hyps_len[idx] -= 1
                 b = lev(ref_len, hyps_len, idx)
                 c = lev(ref_len - 1, hyps_len, idx)
                 hyps_len[idx] += 1
 
-                cost = 1 + min(a, b, c)
+                cost, assignment = min(a, b, c)
+                cost = 1 + cost, assignment
 
             cache[key] = cost
             return cache[key]
 
     out = lev(len(ref), [len(h) for h in hyps])
 
-    return out, [a[1] for a in assignments.values()]
+    return out
 
 
 def orc_matching_v3(
@@ -142,7 +163,7 @@ def orc_matching_v3(
         seen.update(set(utterance))
     for channel in hyps:
         seen.update(set(channel))
-    mapping = {t: i + 1 for i, t in enumerate(seen)}    # 0 is the change token
+    mapping = {t: i + 1 for i, t in enumerate(seen)}  # 0 is the change token
     ref = [[mapping[t] for t in utterance] + [0] for utterance in ref]
     ref = list(itertools.chain.from_iterable(ref))
     hyps = [[mapping[t] for t in channel] for channel in hyps]
