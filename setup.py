@@ -1,5 +1,5 @@
-from setuptools import Extension, setup
-# for development
+from setuptools import setup
+
 from Cython.Build import cythonize
 ext_modules = cythonize(
     [
@@ -14,4 +14,10 @@ setup(
     author="Thilo von Neumann",
     ext_modules=ext_modules,
     packages=["meeteval"],
+    extras_require={
+        'test': [
+            'pytest',
+            'hypothesis',
+        ]
+    }
 )
