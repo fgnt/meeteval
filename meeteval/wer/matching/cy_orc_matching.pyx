@@ -237,6 +237,7 @@ def cy_orc_matching(ref: vector[uint], hyps: vector[vector[uint]]):
         v = filler
         j = filler
         diagonal_update = False
+
         # Updates in this direction only possible when there is a symbol
         if index[1] > 0:
             ref_symbol = ref[index[1] - 1]
@@ -281,4 +282,4 @@ def cy_orc_matching(ref: vector[uint], hyps: vector[vector[uint]]):
 
     v = lev_matrix[matrix_size - 1]
     free(lev_matrix)
-    return v, assignment
+    return v, assignment[::-1]
