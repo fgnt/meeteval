@@ -146,9 +146,6 @@ def orc_matching_v2(ref, hyps):
 
     out = lev(len(ref), [len(h) for h in hyps])
 
-    # from pprint import pprint
-    # pprint(cache)
-
     return out
 
 
