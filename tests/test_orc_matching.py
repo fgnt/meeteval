@@ -1,8 +1,7 @@
 import pytest
 
 from meeteval.wer.matching import orc_matching
-from hypothesis import given, strategies as st
-
+from hypothesis import given, strategies as st, reproduce_failure, settings
 
 # Set up hypothesis strategies
 # Limit alphabet to ensure a few correct matches. Every character represents
@@ -23,6 +22,7 @@ def _check_output(distance, assignment, ref, hyps):
 
 
 @given(reference(6), hypothesis(4))
+@settings(deadline=None)    # The tests take longer on the GitHub actions test servers
 def test_orc_matching_v1_burn(ref, hyps):
     """Burn-test. Brute-force is exponential in the number of reference
     utterances, so choose a small number."""
@@ -31,6 +31,7 @@ def test_orc_matching_v1_burn(ref, hyps):
 
 
 @given(reference(7), hypothesis(3))
+@settings(deadline=None)    # The tests take longer on the GitHub actions test servers
 def test_orc_matching_v2_burn(ref, hyps):
     """Burn-test. This algorithm is slow, so we can only test for small
     numbers of reference utterances/hypothesis"""
@@ -39,6 +40,7 @@ def test_orc_matching_v2_burn(ref, hyps):
 
 
 @given(reference(10), hypothesis(4))
+@settings(deadline=None)    # The tests take longer on the GitHub actions test servers
 def test_orc_matching_v3_burn(ref, hyps):
     """Burn-test."""
     distance, assignment = orc_matching.orc_matching_v3(ref, hyps)
@@ -50,6 +52,7 @@ def test_orc_matching_v3_burn(ref, hyps):
     (orc_matching.orc_matching_v2, orc_matching.orc_matching_v3)
 )
 @given(ref=reference(7), hyps=hypothesis(3))
+@settings(deadline=None)    # The tests take longer on the GitHub actions test servers
 def test_orclevenshtein_against_brute_force(matching_function, ref, hyps):
     """Test brute-force algorithm against DP algorithm for smaller examples"""
     distance, assignment = matching_function(ref, hyps)
