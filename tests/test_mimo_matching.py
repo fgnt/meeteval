@@ -79,6 +79,9 @@ def test_against_orc(ref, hyps):
     orc_distance, orc_assignment = orc_matching.orc_matching_v3(ref[0], hyps)
 
     assert mimo_distance == orc_distance
-    assert tuple([x[1] for x in mimo_assignment]) == tuple(orc_assignment)
+    assert tuple([x[1] for x in mimo_assignment]) == tuple(orc_assignment) or (
+            mimo_matching._levensthein_distance_for_assignment(ref, hyps, mimo_assignment) ==
+            orc_matching._levensthein_distance_for_assignment(ref[0], hyps, orc_assignment)
+    )
 
 
