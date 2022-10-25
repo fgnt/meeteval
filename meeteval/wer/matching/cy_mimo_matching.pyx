@@ -214,7 +214,10 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
     # memory layout
     for ref_utterance_index in range(1, refs_metaindex.total_size):
         for i in range(ref_indices.size()):
-            ref_indices[i] = index_for_element(refs_metaindex, ref_utterance_index, i)
+            ref_indices[i] += 1
+            if ref_indices[i] < refs_metaindex.index_lengths[i]:
+                break
+            ref_indices[i] = 0
 
         # Get the destination storage
         state = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
