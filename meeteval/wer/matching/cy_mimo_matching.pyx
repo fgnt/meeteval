@@ -11,26 +11,29 @@ cdef uint update_lev_row(uint * row, uint * from_index_buffer, vector[uint] ref,
     """
     Updates the levenshtein matrix row `row` with symbols from `ref`.
     The row must have size `hyp.size() + 1`.
-
-    Variable names are named after the relative positions in the 2D 
-    levenshtein matrix.
+    
+    Also fills `from_index_buffer` with the indices into the beginning row 
+    that the perfect paths go through. That means that the matching path
+    that goes through `i` in the output row goes through `from_index_buffer[i]`
+    in the input row. This is ues to track the assignment.
     """
     cdef:
         uint ref_symbol
         uint r, h, v
+        # The variables below are named after the relative positions in the 2D
+        # levenshtein matrix
         uint left, up, diagonal
         uint left_from, up_from, diagonal_from, v_from
 
+    # Initialize from_index_buffer with a range
     for h in range(hyp.size() + 1):
         from_index_buffer[h] = h
 
     # We assume that row is already initialized
     for r in range(ref.size()):
-
         ref_symbol = ref[r]
         diagonal = row[0]
         diagonal_from = from_index_buffer[0]
-
 
         # The first entry of row counts the deletions when no symbol from ref is matched.
         # Simply count it up. Doing this here saves us an if statement in the loop
@@ -38,17 +41,18 @@ cdef uint update_lev_row(uint * row, uint * from_index_buffer, vector[uint] ref,
         left = row[0]
         left_from = from_index_buffer[0]
 
-
         for h in range(1, hyp.size() + 1):
-            # print('---', h)
             hyp_symbol = hyp[h - 1]
 
             up = row[h]
             up_from = from_index_buffer[h]
 
+            # Take the diagonal update first. This is likely the correct path
             v = diagonal
             v_from = diagonal_from
 
+            # If the symbols don't match (no correct diagonal update), check
+            # whether an update from above or left is better than diagonal
             if ref_symbol != hyp_symbol:
                 if up < v:
                     v = up
@@ -56,7 +60,10 @@ cdef uint update_lev_row(uint * row, uint * from_index_buffer, vector[uint] ref,
                 if left < v:
                     v = left
                     v_from = left_from
+
+                # Add costs: 1 for all operations here
                 v += 1
+
             # Re-use left. The current value in this cell becomes the next cell's "left".
             left = v
             left_from = v_from
@@ -68,6 +75,12 @@ cdef uint update_lev_row(uint * row, uint * from_index_buffer, vector[uint] ref,
             from_index_buffer[h] = left_from
 
 def cy_levenshtein_distance(vector[uint] ref, vector[uint] hyp):
+    """
+    Computes the levenshtein distance between `ref` and `hyp`.
+
+    This function mainly exists for testing the levenshtein distance algorithm
+    against known libraries.
+    """
     cdef:
         uint * lev_row
         uint v
@@ -82,6 +95,8 @@ def cy_levenshtein_distance(vector[uint] ref, vector[uint] hyp):
     return v
 
 
+# This "MetaIndex" collects information about the dimension strides and
+# sizes. Not sure if this is a good name for this construct
 cdef struct MetaIndex:
     vector[uint] index_lengths
     vector[uint] index_factors
@@ -92,6 +107,8 @@ cdef inline MetaIndex make_meta_index(vector[uint] index_lengths):
         uint i, j
         vector[uint] index_factors
 
+    # Get the factors needed to find the index into the tensor from the indices
+    # into the dimensions
     index_factors = vector[uint]()
     j = 1
     for i in index_lengths:
@@ -106,6 +123,7 @@ cdef inline MetaIndex make_meta_index(vector[uint] index_lengths):
 
 @cython.cdivision(True)
 cdef inline uint index_for_element(MetaIndex metaindex, uint index, uint element):
+    """Gets the index along a dimension from the tensor index"""
     return (index // metaindex.index_factors[element]) % metaindex.index_lengths[element]
 
 def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyps):
@@ -128,17 +146,30 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
         uint ** ref_utterance_storage
         vector[pair[uint, uint]] assignment
 
+    ###########################################################################
+    # Initialization
+    ###########################################################################
+
+    # Initialize the hypothesis metaindex
     hyps_index_lengths = vector[uint]()
     for h in hyps:
         hyps_index_lengths.push_back(h.size() + 1)  # +1 because of "only insertions" field
     hyps_metaindex = make_meta_index(hyps_index_lengths)
 
-    # Store all full-utterance states TODO: discard as much data as possible
-    ref_indices = vector[uint](refs.size(), 0)
+    # Initialize the reference metaindex
     ref_utterance_index_lengths = vector[uint]()
     for r in refs:
         ref_utterance_index_lengths.push_back(r.size() + 1)
     refs_metaindex = make_meta_index(ref_utterance_index_lengths)
+
+    # Initialize storage along reference dimensions.
+    #
+    # We have to store the cost at each reference combination and a link to
+    # the place we came from to obtain this value so that we can reconstruct
+    # the assignment.
+    #
+    # Store all full-utterance states TODO: discard as much data as possible
+    ref_indices = vector[uint](refs.size(), 0)
     ref_utterance_storage = <unsigned int**> malloc(sizeof(unsigned int *) * refs_metaindex.total_size)
     ref_utterance_storage_ref_link = <unsigned int**> malloc(sizeof(unsigned int *) * refs_metaindex.total_size)
     ref_utterance_storage_active_hyp = <unsigned int**> malloc(sizeof(unsigned int *) * refs_metaindex.total_size)
@@ -163,7 +194,9 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
         state_hyp_link[i] = 0
         state_active_hyp[i] = 0
 
-    # Tmp for row of the levenshtein matrix for a hypothesis. Must be size of at least max size of all hypotheses
+    # Temp variable for row of the levenshtein matrix for a hypothesis.
+    # These are the buffers passed to `update_lev_row`
+    # Must be size of at least max size of all hypotheses
     i = hyps_metaindex.index_lengths[0]
     for j in hyps_metaindex.index_lengths:
         if i < j:
@@ -171,7 +204,14 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
     tmp_row = <unsigned int *> malloc(sizeof(unsigned int) * i)
     tmp_index_row = <unsigned int *> malloc(sizeof(unsigned int) * i)
 
-    # Walk through assignments and update lev states
+    ###########################################################################
+    # Algorithm: Main loop
+    ###########################################################################
+
+    # Walk through assignments and update lev states.
+    # We can guarantee that all previous cells have been filled by running
+    # through the tensor indices incrementally, given the way we defined our
+    # memory layout
     for ref_utterance_index in range(1, refs_metaindex.total_size):
         for i in range(ref_indices.size()):
             ref_indices[i] = index_for_element(refs_metaindex, ref_utterance_index, i)
@@ -189,26 +229,34 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
         first_update = True
 
         # Loop through all adjacent reference combinations and advance to this one
-        # TODO: make this the inner loop
         for active_ref_index in range(ref_indices.size()):
             # i is the active reference
             if ref_indices[active_ref_index] == 0:
                 continue
 
+            # Get the previous state, only based on the current assignment of
+            # references
             prev_state = ref_utterance_storage[ref_utterance_index - refs_metaindex.index_factors[active_ref_index]]
             active_reference = refs[active_ref_index][ref_indices[active_ref_index] - 1]
 
+            # Forward the Levenshtein row for this reference assignment for
+            # each active hypothesis and keep the min values
             for active_hypothesis in range(hyps.size()):
                 # Advance state vector for every hyp entry
                 for i in range(hyps_metaindex.total_size):
                     if index_for_element(hyps_metaindex, i, active_hypothesis) != 0:
                         continue
 
+                    # Copy the Levenshtein row into the buffer. This gives us
+                    # cache locality and a fast algorithm for Levenshtein
+                    # updates
                     for j in range(hyps_metaindex.index_lengths[active_hypothesis]):
                         tmp_row[j] = prev_state[i + j * hyps_metaindex.index_factors[active_hypothesis]]
 
+                    # Apply Levenshtein algorithm
                     update_lev_row(tmp_row, tmp_index_row, active_reference, hyps[active_hypothesis])
 
+                    # Keep only the min value in the state
                     for j in range(hyps_metaindex.index_lengths[active_hypothesis]):
                         if first_update or state[i + j * hyps_metaindex.index_factors[active_hypothesis]] > tmp_row[j]:
                             state[i + j * hyps_metaindex.index_factors[active_hypothesis]] = tmp_row[j]
@@ -220,21 +268,28 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
 
                 first_update = False
 
+    # The distance value is the last entry
     v = ref_utterance_storage[refs_metaindex.total_size - 1][hyps_metaindex.total_size - 1]
+
+    ###########################################################################
+    # Backtracking for assignment
+    ###########################################################################
 
     assignment = vector[pair[uint, uint]]()
     ref_utterance_index = refs_metaindex.total_size - 1
     hyp_index = hyps_metaindex.total_size - 1
     j = 0
     while ref_utterance_index != 0:
-        for i in range(ref_indices.size()):
-            ref_indices[i] = index_for_element(refs_metaindex, ref_utterance_index, i)
         active_ref_index = ref_utterance_storage_ref_link[ref_utterance_index][hyp_index]
         active_hypothesis = ref_utterance_storage_active_hyp[ref_utterance_index][hyp_index]
         hyp_index = ref_utterance_storage_hyp_link[ref_utterance_index][hyp_index]
         assignment.push_back(pair[uint, uint](active_ref_index, active_hypothesis))
         ref_utterance_index -= refs_metaindex.index_factors[active_ref_index]
         j += 1
+
+    ###########################################################################
+    # Cleanup
+    ###########################################################################
 
     free(tmp_row)
     free(tmp_index_row)
