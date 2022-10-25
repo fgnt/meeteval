@@ -1,11 +1,13 @@
 # distutils: language = c++
+#cython: language_level=3
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, free
+from libcpp.pair cimport pair
 cimport cython
 
 ctypedef unsigned int uint
 
-cdef uint update_lev_row(uint * row, vector[uint] ref, vector[uint] hyp):
+cdef uint update_lev_row(uint * row, uint * from_index_buffer, vector[uint] ref, vector[uint] hyp):
     """
     Updates the levenshtein matrix row `row` with symbols from `ref`.
     The row must have size `hyp.size() + 1`.
@@ -15,36 +17,55 @@ cdef uint update_lev_row(uint * row, vector[uint] ref, vector[uint] hyp):
     """
     cdef:
         uint ref_symbol
-        uint r, h
-        uint left
-        uint diagonal
-        uint up
+        uint r, h, v
+        uint left, up, diagonal
+        uint left_from, up_from, diagonal_from, v_from
+
+    for h in range(hyp.size() + 1):
+        from_index_buffer[h] = h
 
     # We assume that row is already initialized
     for r in range(ref.size()):
 
         ref_symbol = ref[r]
         diagonal = row[0]
+        diagonal_from = from_index_buffer[0]
+
 
         # The first entry of row counts the deletions when no symbol from ref is matched.
         # Simply count it up. Doing this here saves us an if statement in the loop
         row[0] = row[0] + 1
         left = row[0]
+        left_from = from_index_buffer[0]
+
 
         for h in range(1, hyp.size() + 1):
+            # print('---', h)
             hyp_symbol = hyp[h - 1]
 
             up = row[h]
+            up_from = from_index_buffer[h]
 
+            v = diagonal
+            v_from = diagonal_from
+
+            if ref_symbol != hyp_symbol:
+                if up < v:
+                    v = up
+                    v_from = up_from
+                if left < v:
+                    v = left
+                    v_from = left_from
+                v += 1
             # Re-use left. The current value in this cell becomes the next cell's "left".
-            if ref_symbol == hyp_symbol:
-                left = diagonal
-            else:
-                left = 1 + min(diagonal, min(left, up))
+            left = v
+            left_from = v_from
 
             # When moving right one cell, this cell's up becomes the next cell's diagonal
             diagonal = up
+            diagonal_from = up_from
             row[h] = left
+            from_index_buffer[h] = left_from
 
 def cy_levenshtein_distance(vector[uint] ref, vector[uint] hyp):
     cdef:
@@ -52,20 +73,19 @@ def cy_levenshtein_distance(vector[uint] ref, vector[uint] hyp):
         uint v
 
     lev_row = <uint*>malloc(sizeof(uint)*(hyp.size() + 1))
+    lev_index_row = <uint*>malloc(sizeof(uint)*(hyp.size() + 1))
     for i in range(hyp.size() + 1):
         lev_row[i] = i
-    update_lev_row(lev_row, ref, hyp)
+    update_lev_row(lev_row, lev_index_row, ref, hyp)
     v = lev_row[hyp.size()]
     free(lev_row)
     return v
-
 
 
 cdef struct MetaIndex:
     vector[uint] index_lengths
     vector[uint] index_factors
     uint total_size
-
 
 cdef inline MetaIndex make_meta_index(vector[uint] index_lengths):
     cdef:
@@ -84,11 +104,9 @@ cdef inline MetaIndex make_meta_index(vector[uint] index_lengths):
         j *= i
     return MetaIndex(index_lengths, index_factors, j)
 
-
 @cython.cdivision(True)
 cdef inline uint index_for_element(MetaIndex metaindex, uint index, uint element):
     return (index // metaindex.index_factors[element]) % metaindex.index_lengths[element]
-
 
 def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyps):
     cdef:
@@ -105,6 +123,10 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
         uint ref_utterance_index
         uint * tmp_row
         uint * prev_state
+        uint ** ref_utterance_storage_ref_link
+        uint ** ref_utterance_storage_active_hyp
+        uint ** ref_utterance_storage
+        vector[pair[uint, uint]] assignment
 
     hyps_index_lengths = vector[uint]()
     for h in hyps:
@@ -118,22 +140,36 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
         ref_utterance_index_lengths.push_back(r.size() + 1)
     refs_metaindex = make_meta_index(ref_utterance_index_lengths)
     ref_utterance_storage = <unsigned int**> malloc(sizeof(unsigned int *) * refs_metaindex.total_size)
+    ref_utterance_storage_ref_link = <unsigned int**> malloc(sizeof(unsigned int *) * refs_metaindex.total_size)
+    ref_utterance_storage_active_hyp = <unsigned int**> malloc(sizeof(unsigned int *) * refs_metaindex.total_size)
+    ref_utterance_storage_hyp_link = <unsigned int**> malloc(sizeof(unsigned int *) * refs_metaindex.total_size)
 
     # Initialize first element
     hyps_state = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
+    state_ref_link = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
+    state_hyp_link = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
+    state_active_hyp = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
     ref_utterance_storage[0] = hyps_state
+    ref_utterance_storage_active_hyp[0] = state_active_hyp
+    ref_utterance_storage_hyp_link[0] = state_hyp_link
+    ref_utterance_storage_ref_link[0] = state_ref_link
     for i in range(hyps_metaindex.total_size):
         j = 0
         for v in range(hyps_metaindex.index_lengths.size()):
             j += index_for_element(hyps_metaindex, i, v)
         hyps_state[i] = j
 
+        state_ref_link[i] = 0
+        state_hyp_link[i] = 0
+        state_active_hyp[i] = 0
+
     # Tmp for row of the levenshtein matrix for a hypothesis. Must be size of at least max size of all hypotheses
     i = hyps_metaindex.index_lengths[0]
     for j in hyps_metaindex.index_lengths:
         if i < j:
             i = j
-    tmp_row = <unsigned int *> malloc(sizeof(unsigned int) * (i + 100))
+    tmp_row = <unsigned int *> malloc(sizeof(unsigned int) * i)
+    tmp_index_row = <unsigned int *> malloc(sizeof(unsigned int) * i)
 
     # Walk through assignments and update lev states
     for ref_utterance_index in range(1, refs_metaindex.total_size):
@@ -142,8 +178,14 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
 
         # Get the destination storage
         state = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
+        state_ref_link = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
+        state_hyp_link = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
+        state_active_hyp = <unsigned int *> malloc(sizeof(unsigned int) * hyps_metaindex.total_size)
 
         ref_utterance_storage[ref_utterance_index] = state
+        ref_utterance_storage_ref_link[ref_utterance_index] = state_ref_link
+        ref_utterance_storage_hyp_link[ref_utterance_index] = state_hyp_link
+        ref_utterance_storage_active_hyp[ref_utterance_index] = state_active_hyp
         first_update = True
 
         # Loop through all adjacent reference combinations and advance to this one
@@ -165,19 +207,43 @@ def cy_mimo_matching(vector[vector[vector[uint]]] refs, vector[vector[uint]] hyp
                     for j in range(hyps_metaindex.index_lengths[active_hypothesis]):
                         tmp_row[j] = prev_state[i + j * hyps_metaindex.index_factors[active_hypothesis]]
 
-                    update_lev_row(tmp_row, active_reference, hyps[active_hypothesis])
+                    update_lev_row(tmp_row, tmp_index_row, active_reference, hyps[active_hypothesis])
 
                     for j in range(hyps_metaindex.index_lengths[active_hypothesis]):
                         if first_update or state[i + j * hyps_metaindex.index_factors[active_hypothesis]] > tmp_row[j]:
                             state[i + j * hyps_metaindex.index_factors[active_hypothesis]] = tmp_row[j]
+                            state_hyp_link[i + j * hyps_metaindex.index_factors[active_hypothesis]] = i + tmp_index_row[
+                                j] * hyps_metaindex.index_factors[active_hypothesis]
+                            state_ref_link[i + j * hyps_metaindex.index_factors[active_hypothesis]] = active_ref_index
+                            state_active_hyp[
+                                i + j * hyps_metaindex.index_factors[active_hypothesis]] = active_hypothesis
 
                 first_update = False
 
     v = ref_utterance_storage[refs_metaindex.total_size - 1][hyps_metaindex.total_size - 1]
 
+    assignment = vector[pair[uint, uint]]()
+    ref_utterance_index = refs_metaindex.total_size - 1
+    hyp_index = hyps_metaindex.total_size - 1
+    j = 0
+    while ref_utterance_index != 0:
+        for i in range(ref_indices.size()):
+            ref_indices[i] = index_for_element(refs_metaindex, ref_utterance_index, i)
+        active_ref_index = ref_utterance_storage_ref_link[ref_utterance_index][hyp_index]
+        active_hypothesis = ref_utterance_storage_active_hyp[ref_utterance_index][hyp_index]
+        hyp_index = ref_utterance_storage_hyp_link[ref_utterance_index][hyp_index]
+        assignment.push_back(pair[uint, uint](active_ref_index, active_hypothesis))
+        ref_utterance_index -= refs_metaindex.index_factors[active_ref_index]
+        j += 1
+
     free(tmp_row)
+    free(tmp_index_row)
     for i in range(refs_metaindex.total_size):
+        free(ref_utterance_storage_active_hyp[i])
+        free(ref_utterance_storage_ref_link[i])
         free(ref_utterance_storage[i])
+    free(ref_utterance_storage_active_hyp)
+    free(ref_utterance_storage_ref_link)
     free(ref_utterance_storage)
 
-    return v, None
+    return v, assignment[::-1]
