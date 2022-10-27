@@ -1,5 +1,8 @@
+"""
+This file contains python wrapper functions for different WER definitions
+"""
 from dataclasses import dataclass, field
-from typing import Hashable, List
+from typing import Hashable, List, Tuple, Optional
 
 
 @dataclass(frozen=True)
@@ -22,7 +25,7 @@ class ErrorRate:
         The "neutral element" for error rates.
         Useful as a starting point in sum.
         """
-        return cls(0, 0)
+        return ErrorRate(0, 0)
 
     def __post_init__(self):
         if self.errors < 0:
@@ -41,7 +44,7 @@ class ErrorRate:
 
     def __add__(self, other: 'ErrorRate'):
         """Combines two error rates"""
-        if not isinstance(other, self.__class__):
+        if not isinstance(other, ErrorRate):
             raise ValueError()
         # Return the base class here. Meta information can become
         # meaningless and should be handled in subclasses
@@ -60,6 +63,8 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     >>> combine_error_rates(*([ErrorRate(10, 10)]*10))
     ErrorRate(errors=100, length=100, error_rate=1.0)
     """
+    if len(error_rates) == 1:
+        return error_rates[0]
     return sum(error_rates, start=error_rates[0].zero())
 
 
@@ -137,39 +142,45 @@ def mimo_word_error_rate(
         for ref_chn in reference
     ])
     hypothesis = [h.split() for h in hypothesis]
-    return ErrorRate(
-        mimo_matching_v3(reference, hypothesis)[0],
-        length,
-    )
+    distance, assignment = mimo_matching_v3(reference, hypothesis)
+    return OrcErrorRate(distance, length, assignment)
+
+
+@dataclass(frozen=True)
+class OrcErrorRate(ErrorRate):
+    """
+    >>> OrcErrorRate(0, 10, (0, 1)) + OrcErrorRate(10, 10, (1, 0, 1))
+    ErrorRate(errors=10, length=20, error_rate=0.5)
+    """
+    assignment: Tuple[int, ...]
 
 
 def orc_word_error_rate(
-    reference: List[str],
-    hypothesis: List[str],
+        reference: List[str],
+        hypothesis: List[str],
 ):
     """
     The Optimal Reference Combination (ORC) WER, implemented efficiently.
 
     # All correct on a single channel
     >>> orc_word_error_rate(['a b', 'c d', 'e f'], ['a b c d e f'])
-    ErrorRate(errors=0, length=6, error_rate=0.0)
+    OrcErrorRate(errors=0, length=6, error_rate=0.0, assignment=(0, 0, 0))
 
     # All correct on two channels
     >>> orc_word_error_rate(['a b', 'c d', 'e f'], ['a b', 'c d e f'])
-    ErrorRate(errors=0, length=6, error_rate=0.0)
+    OrcErrorRate(errors=0, length=6, error_rate=0.0, assignment=(0, 1, 1))
 
     # One utterance is split
     >>> orc_word_error_rate(['a', 'c d', 'e'], ['a c', 'd e'])
-    ErrorRate(errors=2, length=4, error_rate=0.5)
+    OrcErrorRate(errors=2, length=4, error_rate=0.5, assignment=(0, 0, 1))
     """
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
     reference = [r.split() for r in reference]
     length = sum([len(r) for r in reference])
     hypothesis = [h.split() for h in hypothesis]
-    return ErrorRate(
-        mimo_matching_v3([reference], hypothesis)[0],
-        length,
-    )
+    distance, assignment = mimo_matching_v3([reference], hypothesis)
+    assignment = tuple([x[1] for x in assignment])
+    return OrcErrorRate(distance, length, assignment)
 
 
 @dataclass(frozen=True)
@@ -184,6 +195,7 @@ class CPErrorRate(ErrorRate):
     missed_speaker: int
     falarm_speaker: int
     scored_speaker: int
+    assignment: Optional[Tuple[int, ...]] = None
 
     @classmethod
     def zero(cls):
@@ -203,21 +215,28 @@ class CPErrorRate(ErrorRate):
 
 
 def cp_word_error_rate(
-    reference: List[str],
-    hypothesis: List[str],
+        reference: List[str],
+        hypothesis: List[str],
 ) -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
 
+    Each element in `reference` represents a reference speaker.
+    Each element in `hypothesis` represents an estimated speaker.
+
     This implementation uses the Hungarian algorithm, so it works for large
     numbers of speakers.
+
+    The number of over- / under-estimated speakers is tracked and returned
+    by the CPErrorRate class. When returned from this function, only one
+    (missed_speaker or falarm_speaker) can be unequal to 0, but tracking them
+    individually makes when averaging over multiple examples.
 
     >>> cp_word_error_rate(['a b c', 'd e f'], ['a b c', 'd e f'])
     CPErrorRate(errors=0, length=6, error_rate=0.0, missed_speaker=0, falarm_speaker=0, scored_speaker=2)
     >>> cp_word_error_rate(['a b', 'c d'], ['a b', 'c d', 'e f'])
     CPErrorRate(errors=2, length=4, error_rate=0.5, missed_speaker=0, falarm_speaker=1, scored_speaker=2)
     >>> cp_word_error_rate(['a', 'b', 'c d'], ['a', 'b'])
-    CPErrorRate(errors=2, length=4, error_rate=0.5, missed_speaker=1, falarm_speaker=0, scored_speaker=3)
     """
     import editdistance
     import scipy.optimize
@@ -255,8 +274,9 @@ def cp_word_error_rate(
     length = sum(map(len, reference))
 
     return CPErrorRate(
-        distance, length,
+        int(distance), length,
         missed_speaker=max(0, len(reference) - len(hypothesis)),
         falarm_speaker=max(0, len(hypothesis) - len(reference)),
         scored_speaker=len(reference),
+        assignment=tuple(map(int, col_ind)),
     )
