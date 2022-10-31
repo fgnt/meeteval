@@ -24,16 +24,26 @@ pip install -e ./meeteval
 
 ## Computing WERs
 
-`MeetEval` supports `STM` files as input. Each line in an `STM` file represents one "utterance" and is defined as
+`MeetEval` supports [Segmental Time Mark](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75) (`STM`) files as input.
+Each line in an `STM` file represents one "utterance" and is defined as
 
 ```STM
 STM :== <filename> <channel> <speaker_id> <begin_time> <end_time> <transcript>
 ```
+e.g.
+```
+recording1 0 Alice 0 0 Hello Bob.
+recording1 0 Bob 1 0 Hello Alice.
+recording1 0 Alice 2 0 How are you?
+...
+recording2 0 Alice 0 0 Hello Carol.
+...
+```
 where
 - `filename`: name of the recording
 - `channel`: ignored
-- `speaker_id`: ID of the speaker or channel
-- `begin_time`: in seconds (can also be an int counter)
+- `speaker_id`: ID of the speaker or system output stream/channel (not microphone channel)
+- `begin_time`: in seconds, used to find the order of the utterances (can also be an int counter)
 - `end_time`: in seconds (currently ignored)
 - `transcript`: space-separated list of words
 
