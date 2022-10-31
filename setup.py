@@ -25,7 +25,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'meeteval-wer=meeteval.cli.wer:main'
+            'meeteval-wer=meeteval.wer.__main__:main'
         ]
     }
 )
