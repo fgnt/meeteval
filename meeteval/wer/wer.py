@@ -113,10 +113,19 @@ def siso_character_error_rate(
     )
 
 
+@dataclass(frozen=True)
+class MimoErrorRate(ErrorRate):
+    """
+    >>> OrcErrorRate(0, 10, (0, 1)) + OrcErrorRate(10, 10, (1, 0, 1))
+    ErrorRate(errors=10, length=20, error_rate=0.5)
+    """
+    assignment: Tuple[int, ...]
+
+
 def mimo_word_error_rate(
         reference: List[List[str]],
         hypothesis: List[str],
-):
+) -> MimoErrorRate:
     """
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
 
@@ -143,7 +152,7 @@ def mimo_word_error_rate(
     ])
     hypothesis = [h.split() for h in hypothesis]
     distance, assignment = mimo_matching_v3(reference, hypothesis)
-    return OrcErrorRate(distance, length, assignment)
+    return MimoErrorRate(distance, length, assignment)
 
 
 @dataclass(frozen=True)
