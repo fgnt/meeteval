@@ -1,4 +1,5 @@
 """Computes the Concatenated minimum Permutation Word Error Rate (cpWER)"""
+import sys
 import argparse
 import dataclasses
 import json
@@ -8,6 +9,22 @@ from meeteval.cli.file_io.ctm import CTMGroup
 from meeteval.cli.file_io.stm import STM
 from meeteval.wer.wer import cp_word_error_rate, orc_word_error_rate, mimo_word_error_rate, combine_error_rates
 from paderbox.utils.nested import nested_merge
+
+
+def dump(obj, fd):
+    """
+    Dumps the obj to fd. Parses the suffix to find the file type.
+    When a suffix is missing, use json.
+    """
+    suffix = Path(fd.name).suffix
+    if suffix == '.json' or suffix == '':
+        json.dump(obj, fd, indent=2, sort_keys=False)
+    elif suffix == '.yaml':
+        import yaml
+        yaml.dump(obj, fd, sort_keys=False)
+    else:
+        raise NotImplemented(f'Unknown file ext: {suffix}')
+    print(f'Wrote: {fd.name}', file=sys.stderr)
 
 
 def main():
@@ -40,8 +57,16 @@ def main():
         default=False, action='store_true',
     )
     parser.add_argument(
+        '--json', help='Activate json print format (default: Human readable)',
+        default=False, action='store_true',
+    )
+    parser.add_argument(
+        '--yaml', help='Activate yaml print format (default: Human readable)',
+        default=False, action='store_true',
+    )
+    parser.add_argument(
         '--output-details',
-        help='Output file for deatailed WER statistics for each example in JSON format',
+        help='Output file for detailed WER statistics for each example in JSON format',
         type=argparse.FileType('w'),
         default='details.json',
     )
@@ -105,29 +130,54 @@ def main():
             )
         details[example_id] = result
 
-    # Save details as JSON
-    if args.output_details:
-        json.dump({
-            example_id: {
-                key: dataclasses.asdict(error_rate)
-                for key, error_rate in error_rates.items()
-            }
-            for example_id, error_rates in details.items()
-        }, args.output_details, indent=2, sort_keys=True)
-
     # Average
     average = {
         key: combine_error_rates(*[error_rates[key] for error_rates in details.values()])
         for key in wers
     }
-    from pprint import pprint
-    pprint(average)
 
-    if args.output_average:
-        json.dump({
+    if args.json and args.yaml:
+        raise RuntimeError(
+            'You cannot request to print as --json and --yaml.\n'
+            'Select one of them.')
+    elif args.json:
+        print(json.dumps({
             key: dataclasses.asdict(error_rate)
             for key, error_rate in average.items()
-        }, args.output_average, indent=2, sort_keys=True)
+        }, sort_keys=False, indent=2))
+    elif args.yaml:
+        import yaml
+        print(yaml.dump({
+            key: dataclasses.asdict(error_rate)
+            for key, error_rate in average.items()
+        }, sort_keys=False))
+    else:
+        from pprint import pprint
+        for k, v in average.items():
+            print(f'{k}: ', end='')
+            pprint(v)
+        if not args.output_average and not args.output_details:
+            print('For machine readable output use --json or --yaml.',
+                  file=sys.stderr)
+            print('Alternatively, use --output-average <file> or '
+                  '--output-details <file> to write additionally to a file.',
+                  file=sys.stderr)
+
+    if args.output_average:
+        dump({
+            key: dataclasses.asdict(error_rate)
+            for key, error_rate in average.items()
+        }, args.output_average)
+
+    # Save details as JSON/YAML
+    if args.output_details:
+        dump({
+            example_id: {
+                key: dataclasses.asdict(error_rate)
+                for key, error_rate in error_rates.items()
+            }
+            for example_id, error_rates in details.items()
+        }, args.output_details)
 
 
 if __name__ == '__main__':
