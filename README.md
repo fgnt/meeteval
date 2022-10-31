@@ -56,7 +56,7 @@ The speaker-ID field in the hypothesis encodes the output channel for MIMO and O
 Once you created an `STM` file, the tool can be called like this:
 
 ```shell
-meeteval-wer -h hypothesis.stm -r reference.stm --orc --mimo --cp
+meeteval-wer -h example_files/hyp.stm -r example_files/ref.stm --orc --mimo --cp
 ```
 
 The switches `--orc`, `--mimo` and `--cp` allow selecting the WER definition to use.
