@@ -24,6 +24,40 @@ pip install -e ./meeteval
 
 ## Computing WERs
 
+### Python interface
+
+`MeetEval` provides a Python-based interface to compute WERs for pairs of reference and hypothesis.
+
+```python
+>>> from meeteval.wer import wer
+>>> wer.siso_word_error_rate('The quick brown fox jumps over the lazy dog', 'The kwik browne focks jumps over the lay dock')
+ErrorRate(errors=5, length=9, error_rate=0.5555555555555556)
+>>> wer.orc_word_error_rate(['a b', 'c d', 'e'], ['a b e f', 'c d'])
+OrcErrorRate(errors=1, length=5, error_rate=0.2, assignment=(0, 1, 0))
+```
+
+The results are wrapped in frozen `ErrorRate` objects.
+This class bundles statistics (errors, total number of words) and potential auxiliary information (e.g., assignment for ORC WER) together with the WER.
+
+To compute an "overall" WER over multiple examples, use the `combine_error_rates` function:
+
+```python
+>>> form meeteval.wer import wer
+>>> wer1 = wer.siso_word_error_rate('The quick brown fox jumps over the lazy dog', 'The kwik browne focks jumps over the lay dock')
+>>> wer1
+ErrorRate(errors=5, length=9, error_rate=0.5555555555555556)
+>>> wer2 = wer.siso_word_error_rate('Hello World', 'Goodbye')
+>>> wer2
+ErrorRate(errors=2, length=2, error_rate=1.0)
+>>> wer.combine_error_rates(wer1, wer2)
+ErrorRate(errors=7, length=11, error_rate=0.6363636363636364)
+```
+
+Note that the combined WER is _not_ the average over the error rates, but the error rate that results from combining the errors and lengths of all error rates.
+`combine_error_rates` also discards any information that cannot be aggregated over multiple examples (such as the ORC WER assignment).
+
+### Command-line interface
+
 `MeetEval` supports [Segmental Time Mark](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75) (`STM`) files as input.
 Each line in an `STM` file represents one "utterance" and is defined as
 
@@ -56,11 +90,25 @@ The speaker-ID field in the hypothesis encodes the output channel for MIMO and O
 Once you created an `STM` file, the tool can be called like this:
 
 ```shell
+python -m meeteval.wer -h hypothesis.stm -r reference.stm --orc --mimo --cp
+# or
 meeteval-wer -h hypothesis.stm -r reference.stm --orc --mimo --cp
 ```
 
 The switches `--orc`, `--mimo` and `--cp` allow selecting the WER definition to use.
 Multiple definitions can be selected simultaneously.
+
+The tool also supports [time marked conversation input  files](https://github.com/usnistgov/SCTK/blob/f48376a203ab17f0d479995d87275db6772dcb4a/doc/infmts.htm#L285) (`CTM`) for the hypothesis.
+The time marks in the `CTM` file are only used to find the order of words.
+Detailed timing information is not used.
+You have to supply one `CTM` file for each channel using multiple `-h` arguments since `CTM` files don't encode speaker or channel information (the `channel` field has a different meaning).
+For example:
+
+```shell
+meeteval-wer -h hyp1.ctm -h hyp2.ctm -r reference.stm --orc
+```
+
+Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away.
 
 ## Cite
 
