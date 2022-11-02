@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from itertools import groupby
+from pathlib import Path
 from typing import TextIO, Dict, List, NamedTuple
 
 
@@ -43,12 +44,13 @@ class STM:
     lines: List[STMLine]
 
     @classmethod
-    def load(cls, stm_file: TextIO) -> 'STM':
-        return cls([
-            STMLine.parse(line)
-            for line in stm_file
-            if len(line.strip()) > 0 and not line.strip().startswith(';')
-        ])
+    def load(cls, stm_file: Path) -> 'STM':
+        with stm_file.open('r') as f:
+            return cls([
+                STMLine.parse(line)
+                for line in f
+                if len(line.strip()) > 0 and not line.strip().startswith(';')
+            ])
 
     def grouped_by_filename(self) -> Dict[str, 'STM']:
         return {

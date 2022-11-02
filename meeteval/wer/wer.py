@@ -42,7 +42,7 @@ class ErrorRate:
         )
         assert self.length == 0 or self.error_rate >= 0
 
-    def __add__(self, other: 'ErrorRate'):
+    def __add__(self, other: 'ErrorRate') -> 'ErrorRate':
         """Combines two error rates"""
         if not isinstance(other, ErrorRate):
             raise ValueError()
@@ -103,7 +103,7 @@ def siso_word_error_rate(
 def siso_character_error_rate(
         reference: str,
         hypothesis: str,
-):
+) -> ErrorRate:
     """
     >>> siso_character_error_rate('abc', 'abc')
     ErrorRate(errors=0, length=3, error_rate=0.0)
@@ -130,15 +130,15 @@ def mimo_word_error_rate(
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
 
     >>> mimo_word_error_rate([['a b c d e f']], ['a b c d e f'])
-    ErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0)
 
     # All correct, utterance order between speakers can change
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['a b', 'e f c d'])
-    ErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0)
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['a b', 'c d e f'])
-    ErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0)
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['c d', 'a b e f'])
-    ErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0)
 
     """
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
@@ -167,7 +167,7 @@ class OrcErrorRate(ErrorRate):
 def orc_word_error_rate(
         reference: List[str],
         hypothesis: List[str],
-):
+) -> OrcErrorRate:
     """
     The Optimal Reference Combination (ORC) WER, implemented efficiently.
 

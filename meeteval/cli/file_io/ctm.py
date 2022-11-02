@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from itertools import groupby
+from pathlib import Path
 from typing import TextIO, Dict, List, Optional
 from typing import NamedTuple
 
@@ -44,8 +45,9 @@ class CTM:
     lines: List[CTMLine]
 
     @classmethod
-    def load(cls, ctm_file: TextIO) -> 'CTM':
-        return cls([CTMLine.parse(line) for line in ctm_file if len(line) > 0])
+    def load(cls, ctm_file: Path) -> 'CTM':
+        with ctm_file.open('r') as f:
+            return cls([CTMLine.parse(line) for line in f if len(line) > 0])
 
     def grouped_by_filename(self) -> Dict[str, 'CTM']:
         return {
