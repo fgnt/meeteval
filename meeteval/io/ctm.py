@@ -72,26 +72,26 @@ class CTM:
 
 @dataclass(frozen=True)
 class CTMGroup:
-    ctms: List[CTM]
+    ctms: 'Dict[str, CTM]'
 
     @classmethod
     def load(cls, ctm_files):
-        return cls([CTM.load(ctm_file) for ctm_file in ctm_files])
+        return cls({str(ctm_file): CTM.load(ctm_file) for ctm_file in ctm_files})
 
     def grouped_by_filename(self) -> Dict[str, 'CTMGroup']:
-        groups = [
-            ctm.grouped_by_filename() for ctm in self.ctms
-        ]
-        keys = groups[0].keys()
+        groups = {
+            k: ctm.grouped_by_filename() for k, ctm in self.ctms.items()
+        }
+        keys = next(iter(groups.values())).keys()
 
-        for group in groups:
+        for group in groups.values():
             if group.keys() != keys:
                 raise ValueError('Example IDs must match across CTM files!')
 
         return {
-            key: CTMGroup([
-                g[key] for g in groups
-            ])
+            key: CTMGroup({
+                k: g[key] for k, g in groups.items()
+            })
             for key in keys
         }
 
