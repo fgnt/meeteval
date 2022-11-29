@@ -27,6 +27,8 @@ setup(
             'pytest',
             'hypothesis',
             'click',
+            'coverage',
+            'pytest-cov',
         ]
     },
     entry_points={
