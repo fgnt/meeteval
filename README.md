@@ -98,17 +98,23 @@ meeteval-wer -h hypothesis.stm -r reference.stm --orc --mimo --cp
 The switches `--orc`, `--mimo` and `--cp` allow selecting the WER definition to use.
 Multiple definitions can be selected simultaneously.
 
-The tool also supports [time marked conversation input  files](https://github.com/usnistgov/SCTK/blob/f48376a203ab17f0d479995d87275db6772dcb4a/doc/infmts.htm#L285) (`CTM`) for the hypothesis.
+The tool also supports [time marked conversation input  files](https://github.com/usnistgov/SCTK/blob/f48376a203ab17f0d479995d87275db6772dcb4a/doc/infmts.htm#L285) (`CTM`)
+
+```CTM
+CTM :== <filename> <channel> <begin_time> <duration> <word> [<confidence>]
+```
+
+for the hypothesis (one file per speaker).
 The time marks in the `CTM` file are only used to find the order of words.
 Detailed timing information is not used.
-You have to supply one `CTM` file for each channel using multiple `-h` arguments since `CTM` files don't encode speaker or channel information (the `channel` field has a different meaning).
+You have to supply one `CTM` file for each system output channel using multiple `-h` arguments since `CTM` files don't encode speaker or system output channel information (the `channel` field has a different meaning: microphone).
 For example:
 
 ```shell
 meeteval-wer -h hyp1.ctm -h hyp2.ctm -r reference.stm --orc
 ```
 
-Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away.
+Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away. We recommend to use `STM` files.
 
 ## Cite
 
