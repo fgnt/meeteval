@@ -313,7 +313,7 @@ def mimower(reference, hypothesis):
 @cli.command(
     help='Computes the average WER over a per-reco file'
 )
-@click.argument(  # CB: Why does this return bytes?
+@click.argument(
     'files', required=True,
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, allow_dash=True, path_type=Path),
@@ -327,8 +327,13 @@ def merge(files: 'List[bytes]', out: 'io.TextIOBase' = None):
     return _merge(**locals(), average=None)
 
 
-def _merge(files: 'List[bytes]', out: 'io.TextIOBase' = None, average: bool = None):
-    files = [Path(f.decode()) for f in files]
+def _merge(files: 'List[bytes | str | Path]', out: 'io.TextIOBase' = None, average: bool = None):
+    files = [
+        Path(f.decode())  # CB: Why is this on my system bytes and on GitHub Actions a Path?
+        if isinstance(f, bytes) else
+        Path(f)
+        for f in files
+    ]
     if out.name == '<stdout>':
         file_ext = list({file.suffix for file in files})
         assert len(file_ext) == 1, (file_ext, files)
