@@ -1,8 +1,16 @@
 """
 This file contains python wrapper functions for different WER definitions
 """
+import itertools
+import typing
+import string
+import collections
+
 from dataclasses import dataclass, field
-from typing import Hashable, List, Tuple, Optional
+from typing import Hashable, List, Tuple, Optional, Dict
+
+if typing.TYPE_CHECKING:
+    from meeteval.cli.file_io.stm import STM
 
 
 @dataclass(frozen=True)
@@ -130,18 +138,28 @@ def mimo_word_error_rate(
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
 
     >>> mimo_word_error_rate([['a b c d e f']], ['a b c d e f'])
-    MimoErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0, assignment=[(0, 0)])
 
     # All correct, utterance order between speakers can change
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['a b', 'e f c d'])
-    MimoErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0, assignment=[(1, 1), (0, 0), (0, 1)])
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['a b', 'c d e f'])
-    MimoErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0, assignment=[(0, 0), (0, 1), (1, 1)])
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['c d', 'a b e f'])
-    MimoErrorRate(errors=0, length=6, error_rate=0.0)
+    MimoErrorRate(errors=0, length=6, error_rate=0.0, assignment=[(0, 1), (1, 1), (0, 0)])
 
     """
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
+
+    def to_list(obj):
+        if isinstance(obj, dict):
+            return obj.values()
+        else:
+            return obj
+
+    reference = [to_list(r) for r in to_list(reference)]
+    hypothesis = to_list(hypothesis)
+
     reference = [
         [u.split() for u in ref_chn]
         for ref_chn in reference
@@ -158,15 +176,55 @@ def mimo_word_error_rate(
 @dataclass(frozen=True)
 class OrcErrorRate(ErrorRate):
     """
+    >>> OrcErrorRate(0, 10, (0, 1))
+    OrcErrorRate(errors=0, length=10, error_rate=0.0, assignment=(0, 1))
     >>> OrcErrorRate(0, 10, (0, 1)) + OrcErrorRate(10, 10, (1, 0, 1))
     ErrorRate(errors=10, length=20, error_rate=0.5)
     """
     assignment: Tuple[int, ...]
 
+    def apply_assignment(self, reference, hypothesis):
+        ref = collections.defaultdict(list)
+
+        assert len(reference) == len(self.assignment), (len(reference), len(self.assignment))
+        for r, a in zip(reference, self.assignment):
+            ref[a].append(r)
+
+        if isinstance(hypothesis, dict):
+            ref = dict(ref)
+        elif isinstance(hypothesis, list):
+            ref = list(ref.values())
+        elif isinstance(hypothesis, tuple):
+            ref = list(ref.values())
+        else:
+            raise TypeError(type(hypothesis), hypothesis)
+
+        return ref, hypothesis
+
+
+def orc_word_error_rate_stm(
+        reference_stm: 'STM',
+        hypothesis_stm: 'STM',
+) -> 'Dict[OrcErrorRate]':
+    reference = reference_stm.grouped_by_filename()
+    hypothesis = hypothesis_stm.grouped_by_filename()
+    assert reference.keys() == hypothesis.keys(), (reference.keys(), hypothesis.keys())
+
+    ret = {}
+    for filename in reference_stm:
+        r = reference[filename].utterance_transcripts()
+        h = {
+            speaker_id: h_.merged_transcripts()
+            for speaker_id, h_ in hypothesis[filename].grouped_by_speaker_id().items()
+        }
+        ret[filename] = orc_word_error_rate(reference=r, hypothesis=h)
+
+    return ret
+
 
 def orc_word_error_rate(
-        reference: List[str],
-        hypothesis: List[str],
+        reference: 'List[str]',
+        hypothesis: 'List[str] | dict[str]',
 ) -> OrcErrorRate:
     """
     The Optimal Reference Combination (ORC) WER, implemented efficiently.
@@ -180,15 +238,25 @@ def orc_word_error_rate(
     OrcErrorRate(errors=0, length=6, error_rate=0.0, assignment=(0, 1, 1))
 
     # One utterance is split
-    >>> orc_word_error_rate(['a', 'c d', 'e'], ['a c', 'd e'])
+    >>> er = orc_word_error_rate(['a', 'c d', 'e'], ['a c', 'd e'])
+    >>> er
     OrcErrorRate(errors=2, length=4, error_rate=0.5, assignment=(0, 0, 1))
+    >>> er.apply_assignment(['a', 'c d', 'e'], ['a c', 'd e'])
+    ([['a', 'c d'], ['e']], ['a c', 'd e'])
+
+    >>> er = orc_word_error_rate(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
+    >>> er
+    OrcErrorRate(errors=2, length=4, error_rate=0.5, assignment=('A', 'A', 'B'))
+    >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
+    ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
     """
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
     reference = [r.split() for r in reference]
     length = sum([len(r) for r in reference])
-    hypothesis = [h.split() for h in hypothesis]
+    hypothesis_keys, hypothesis = zip(*[
+        (k, h.split()) for k, h in _items(hypothesis)])
     distance, assignment = mimo_matching_v3([reference], hypothesis)
-    assignment = tuple([x[1] for x in assignment])
+    assignment = tuple([hypothesis_keys[x[1]] for x in assignment])
     return OrcErrorRate(distance, length, assignment)
 
 
@@ -198,13 +266,16 @@ class CPErrorRate(ErrorRate):
     Error rate statistics wrapper for the cpWER. Tracks the number of missed,
     false-allarm and scored speakers in addition to word-level errors.
 
+    >>> CPErrorRate(0, 10, 1, 0, 3)
+    CPErrorRate(errors=0, length=10, error_rate=0.0, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=None)
     >>> combine_error_rates(CPErrorRate(0, 10, 1, 0, 3), CPErrorRate(5, 10, 0, 1, 3))
-    CPErrorRate(errors=5, length=20, error_rate=0.25, missed_speaker=1, falarm_speaker=1, scored_speaker=6)
+    CPErrorRate(errors=5, length=20, error_rate=0.25, missed_speaker=1, falarm_speaker=1, scored_speaker=6, assignment=None)
     """
     missed_speaker: int
     falarm_speaker: int
     scored_speaker: int
-    assignment: Optional[Tuple[int, ...]] = None
+    # assignment: Optional[Tuple[int, ...]] = None
+    assignment: Optional[Tuple['int | str', ...]] = None
 
     @classmethod
     def zero(cls):
@@ -222,10 +293,50 @@ class CPErrorRate(ErrorRate):
             self.scored_speaker + other.scored_speaker,
         )
 
+    def apply_assignment(
+            self,
+            reference: dict,
+            hypothesis: dict,
+            style: '"hyp" | "ref"' = 'ref',
+            fallback_keys=string.ascii_letters,
+            missing='',
+    ):
+        """
+        Apply the assignment, so that reference and hypothesis have the same
+        keys.
+
+        >>> from IPython.lib.pretty import pprint
+
+        # The assignment is not valid, but contains all tests (e.g. 'O2' and 'C'
+          could be assigned to each other to reduce the cpWER).
+        >>> assignment = [('A', 'O1'), ('B', 'O3'), (None, 'O2'), ('C', None)]
+
+        >>> er = CPErrorRate(1, 1, 1, 1, 1, assignment)
+        >>> reference = {'A': 'Atext', 'B': 'Btext', 'C': 'Ctext'}
+        >>> hypothesis = {'O1': 'O1text', 'O2': 'O2text', 'O3': 'O3text'}
+        >>> pprint(er.apply_assignment(reference, hypothesis, style='hyp'))
+        ({'O1': 'Atext', 'O3': 'Btext', 'O2': '', 'a': 'Ctext'},
+         {'O1': 'O1text', 'O3': 'O3text', 'O2': 'O2text', 'a': ''})
+
+        >>> pprint(er.apply_assignment(reference, hypothesis, style='ref'))
+        ({'A': 'Atext', 'B': 'Btext', 'a': '', 'C': 'Ctext'},
+         {'A': 'O1text', 'B': 'O3text', 'a': 'O2text', 'C': ''})
+
+        """
+        from meeteval.wer.assignment import apply_cp_assignment
+        return apply_cp_assignment(
+            self.assignment,
+            reference=reference,
+            hypothesis=hypothesis,
+            style=style,
+            fallback_keys=fallback_keys,
+            missing=missing,
+        )
+
 
 def cp_word_error_rate(
-        reference: List[str],
-        hypothesis: List[str],
+        reference: 'List[str] | Dict[str, str]',
+        hypothesis: 'List[str] | Dict[str, str]',
 ) -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
@@ -242,14 +353,35 @@ def cp_word_error_rate(
     individually makes when averaging over multiple examples.
 
     >>> cp_word_error_rate(['a b c', 'd e f'], ['a b c', 'd e f'])
-    CPErrorRate(errors=0, length=6, error_rate=0.0, missed_speaker=0, falarm_speaker=0, scored_speaker=2)
+    CPErrorRate(errors=0, length=6, error_rate=0.0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     >>> cp_word_error_rate(['a b', 'c d'], ['a b', 'c d', 'e f'])
-    CPErrorRate(errors=2, length=4, error_rate=0.5, missed_speaker=0, falarm_speaker=1, scored_speaker=2)
+    CPErrorRate(errors=2, length=4, error_rate=0.5, missed_speaker=0, falarm_speaker=1, scored_speaker=2, assignment=((0, 0), (1, 1), (None, 2)))
     >>> cp_word_error_rate(['a', 'b', 'c d'], ['a', 'b'])
+    CPErrorRate(errors=2, length=4, error_rate=0.5, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=((0, 0), (1, 1), (2, None)))
+
+    >>> cp_word_error_rate({'r0': 'a', 'r1': 'b', 'r2': 'c d'}, {'h0': 'a', 'h1': 'b'})
+    CPErrorRate(errors=2, length=4, error_rate=0.5, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=(('r0', 'h0'), ('r1', 'h1'), ('r2', None)))
+    >>> er = cp_word_error_rate({'r0': 'a', 'r1': 'b', 'r2': 'c'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
+    >>> er
+    CPErrorRate(errors=1, length=3, error_rate=0.3333333333333333, missed_speaker=0, falarm_speaker=1, scored_speaker=3, assignment=(('r0', 'h3'), ('r1', 'h0'), ('r2', 'h1'), (None, 'h2')))
+    >>> er.apply_assignment({'r0': 'a', 'r1': 'b', 'r2': 'c'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
+    ({'h0': 'b', 'h1': 'c', 'h2': '', 'h3': 'a'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
+
     """
     import editdistance
     import scipy.optimize
     import numpy as np
+
+    if isinstance(hypothesis, dict):
+        hypothesis_keys = list(hypothesis.keys())
+        hypothesis = list(hypothesis.values())
+    else:
+        hypothesis_keys = list(range(len(hypothesis)))
+    if isinstance(reference, dict):
+        reference_keys = list(reference.keys())
+        reference = list(reference.values())
+    else:
+        reference_keys = list(range(len(reference)))
 
     reference = [r.split() for r in reference]
     hypothesis = [h.split() for h in hypothesis]
@@ -271,21 +403,43 @@ def cp_word_error_rate(
     if len(hypothesis) > len(reference):
         # Over-estimation: Add full length of over-estimated hypotheses
         # to distance
-        for i in sorted(set(range(len(hypothesis))) - set(col_ind)):
+        none_assigned = sorted(set(range(len(hypothesis))) - set(col_ind))
+        for i in none_assigned:
             distances.append(len(hypothesis[i]))
+        col_ind = [*col_ind, *none_assigned]
     elif len(hypothesis) < len(reference):
         # Under-estimation: Add full length of the unused references
-        for i in sorted(set(range(len(reference))) - set(row_ind)):
+        none_assigned = sorted(set(range(len(reference))) - set(row_ind))
+        for i in none_assigned:
             distances.append(len(reference[i]))
+        row_ind = [*row_ind, *none_assigned]
 
     # Compute WER from distance
     distance = sum(distances)
-    length = sum(map(len, reference))
+    length = sum([len(v) for v in reference])
+
+    assignment = tuple([
+        (
+            reference_keys[r] if r is not None else r,
+            hypothesis_keys[c] if c is not None else c,
+        )
+        for r, c in itertools.zip_longest(row_ind, col_ind)
+    ])
 
     return CPErrorRate(
         int(distance), length,
         missed_speaker=max(0, len(reference) - len(hypothesis)),
         falarm_speaker=max(0, len(hypothesis) - len(reference)),
         scored_speaker=len(reference),
-        assignment=tuple(map(int, col_ind)),
+        assignment=assignment,
+        # assignment=tuple(map(int, col_ind)),
     )
+
+
+def _items(obj):
+    if isinstance(obj, dict):
+        return obj.items()
+    elif isinstance(obj, (tuple, list)):
+        return enumerate(obj)
+    else:
+        raise TypeError(type(obj), obj)
