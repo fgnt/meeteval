@@ -139,7 +139,7 @@ def apply_cp_assignment(
             return obj.get(key, default)
 
     elif isinstance(reference, (tuple, list)) and isinstance(hypothesis, (tuple, list)):
-        max_len = len(){k for ks in assignment for k in ks if k is not None})
+        max_len = len({k for ks in assignment for k in ks if k is not None})
         reference_new = [missing] * max_len
         hypothesis_new = [missing] * max_len
 
