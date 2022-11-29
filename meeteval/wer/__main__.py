@@ -5,9 +5,9 @@ import os
 import glob
 from functools import wraps
 from pathlib import Path
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
-from meeteval.io.ctm import CTMGroup
+from meeteval.io.ctm import CTMGroup, CTM
 from meeteval.io.stm import STM
 from meeteval.wer.wer import (
     cp_word_error_rate,
@@ -82,7 +82,10 @@ def _load_hypothesis(hypothesis: Tuple[Path, ...]):
     # print(type(hypothesis), repr(hypothesis), hypothesis, filename)
 
     if filename.endswith('.ctm'):
-        return CTMGroup.load([hypothesis])
+        if isinstance(hypothesis, list):
+            return CTMGroup.load(hypothesis)
+        else:
+            return CTMGroup.load([hypothesis])
     elif filename.endswith('.stm'):
         return STM.load(hypothesis)
     elif filename.startswith('/dev/fd/'):
@@ -148,8 +151,8 @@ def _get_parent_stem(hypothesis_paths):
         print('hypothesis_paths', hypothesis_paths)
         stem = f'{prefix}{postfix}'
 
-    parent = str(parent).replace('*', '')
-    stem = stem.replace('*', '')
+    parent = str(parent).replace('*', '').replace('?', '')
+    stem = stem.replace('*', '').replace('?', '')
 
     return parent, stem
 
@@ -293,7 +296,7 @@ def cpwer(reference, hypothesis):
 def orcwer(reference, hypothesis):
     return orc_word_error_rate(
         reference=reference.utterance_transcripts(),
-        hypothesis=[h_.merged_transcripts() for h_ in hypothesis.grouped_by_speaker_id()],
+        hypothesis={k: h_.merged_transcripts() for k, h_ in hypothesis.grouped_by_speaker_id().items()},
     )
 
 
@@ -302,101 +305,103 @@ def orcwer(reference, hypothesis):
 )
 def mimower(reference, hypothesis):
     return mimo_word_error_rate(
-        reference=[r_.utterance_transcripts() for r_ in reference.grouped_by_speaker_id()],
-        hypothesis=[h_.merged_transcripts() for h_ in hypothesis.grouped_by_speaker_id()],
+        reference={k: r_.utterance_transcripts() for k, r_ in reference.grouped_by_speaker_id().items()},
+        hypothesis={k: h_.merged_transcripts() for k, h_ in hypothesis.grouped_by_speaker_id().items()},
     )
 
 
 @cli.command(
     help='Computes the average WER over a per-reco file'
 )
-@click.argument(
-    'per_reco_file', required=True,
-    type=click.Path(exists=True, dir_okay=False, allow_dash=True, path_type=Path),
-)
-@click.argument(
-    'out', required=False,
-    type=click.Path(writable=True, allow_dash=True, path_type=Path),
-)
-@click.option(
-    '--wer-type', type=click.Choice(['wer', 'cpwer']), default='wer',
-    help='WER type (as this cannot easily be inferred from the file). '
-         'Specifies which information is tracked. Choose "cpwer" for cpWER and'
-         '"wer" for other WERs.'
-)
-def average_per_reco(per_reco_file: Path, out: Path = None, wer_type='wer'):
-    if out is None:
-        out = per_reco_file.with_stem(per_reco_file.stem.replace('per_reco', ''))
-        assert out != per_reco_file
-
-    if wer_type == 'wer':
-        def error_rate(v):
-            return ErrorRate(v['errors'], v['length'])
-    elif wer_type == 'cpwer':
-        def error_rate(v):
-            return CPErrorRate(**v)
-    else:
-        # Can never happen (error should be caught by click)
-        RuntimeError()
-
-    with per_reco_file.open('r') as f:
-        per_reco = {
-            key: error_rate(v)
-            for key, v in json.load(f).items()
-        }
-    _average(per_reco.values(), out)
-
-
-@cli.command(
-    help='Compute the average of multiple average files'
-)
-@click.argument(
+@click.argument(  # CB: Why does this return bytes?
     'files', required=True,
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, allow_dash=True, path_type=Path),
 )
-@click.argument(
-    'out', required=True,
-    type=click.Path(writable=True, allow_dash=True, path_type=Path),
+@click.option(
+    '-o', '--out', required=False, default='-',
+    # type=click.Path(writable=True, allow_dash=True, path_type=Path),
+    type=click.File(mode='w', atomic=True),
 )
-def average(files, out, wer_type='cpwer'):
-    if wer_type == 'wer':
-        def error_rate(v):
-            return ErrorRate(v['errors'], v['length'])
-    elif wer_type == 'cpwer':
-        def error_rate(v):
-            v.pop('error_rate', None)
-            return CPErrorRate(**v)
-    else:
-        # Can never happen (error should be caught by click)
-        raise RuntimeError()
+def merge(files: 'List[bytes]', out: 'io.TextIOBase' = None):
+    return _merge(**locals(), average=None)
 
-    files = [error_rate(_load(f)) for f in files]
-    _average(files, out)
+
+def _merge(files: 'List[bytes]', out: 'io.TextIOBase' = None, average: bool = None):
+    files = [Path(f.decode()) for f in files]
+    if out.name == '<stdout>':
+        file_ext = list({file.suffix for file in files})
+        assert len(file_ext) == 1, (file_ext, files)
+        file_ext, = file_ext
+        assert file_ext in ['.json', '.yaml'], (file_ext, files)
+    else:
+        # print(repr(out), out, out.name)
+        file_ext = Path(out.name).suffix
+        assert file_ext in ['.json', '.yaml'], (file_ext, out)
+
+    def load(file: Path):
+        if file.suffix == '.json':
+            return json.loads(file.read_text())
+        elif file.suffix == '.json':
+            import yaml
+            return yaml.load(file)
+        else:
+            raise RuntimeError(file)
+
+    data = [load(f) for f in files]
+
+    # types = [average_or_per_reco(d) for d in data]
+    # average = False
+
+    import meeteval
+    ers = []
+
+    for d in data:
+        if 'errors' in d:  # Average file
+            assert average is not False, average
+            average = True  # A single average file forces to do an average
+            ers.append([None, ErrorRate.from_dict(d)])
+        else:
+            for k, v in d.items():  # Details file
+                if 'errors' in v:
+                    ers.append([k, ErrorRate.from_dict(v)])
+
+    if average:
+        er = meeteval.wer.combine_error_rates(*[er for _, er in ers])
+        out_data = dataclasses.asdict(er)
+    else:
+        out_data = {
+            k: dataclasses.asdict(er)
+            for k, er in ers
+        }
+        assert len(out_data) == len(ers), (len(out_data), len(ers), 'Duplicate filenames')
+
+    if file_ext == '.json':
+        out_data = json.dumps(out_data, indent=2, sort_keys=False)
+    elif file_ext == '.yaml':
+        import yaml
+        out_data = yaml.dump(out_data)
+    else:
+        raise RuntimeError(file_ext, 'Cannot happen.')
+
+    print(out_data, file=out)
 
 
 @cli.command(
-    help='Merges multiple per-reco files'
+    help='Computes the average WER over a per-reco file'
 )
-@click.argument('average_files', required=True, nargs=-1, type=click.Path(dir_okay=False, path_type=Path))
-@click.argument('out', required=True, type=click.Path(dir_okay=False, path_type=Path, writable=True, allow_dash=True))
-def merge_per_reco(average_files, out):
-    files = [_load(f) for f in average_files]
-
-    # Make sure that example IDs do not overlap
-    seen_ids = set()
-    for file in files:
-        example_ids = set(file.keys())
-        if seen_ids & example_ids:
-            # Overlap detected
-            raise RuntimeError(
-                f'Found duplicate example IDs: '
-                f'{seen_ids & example_ids}'
-            )
-    merged = {}
-    for file in files:
-        merged.update(file)
-    _dump(merged, out)
+@click.argument(  # CB: Why does this return bytes?
+    'files', required=True,
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, allow_dash=True, path_type=Path),
+)
+@click.option(
+    '-o', '--out', required=False, default='-',
+    # type=click.Path(writable=True, allow_dash=True, path_type=Path),
+    type=click.File(mode='w', atomic=True),
+)
+def average(files: 'List[bytes]', out: 'io.TextIOBase' = None):
+    _merge(files, out, average=True)
 
 
 if __name__ == '__main__':
