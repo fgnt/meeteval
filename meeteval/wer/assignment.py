@@ -147,29 +147,53 @@ def apply_cp_assignment(
     ({'M': 'Aref', 'a': 'Mref'}, {'M': 'Mhyp', 'a': ''})
     ({'A': 'Aref', 'M': 'Mref'}, {'A': 'Mhyp', 'M': ''})
 
+    >>> def test_list(assignment):
+    ...     reference = {k: f'{k}ref' for k, _ in assignment if k is not None}
+    ...     hypothesis = {k: f'{k}hyp' for _, k in assignment if k is not None}
+    ...     reference = list(dict(sorted(reference.items())).values())
+    ...     hypothesis = list(dict(sorted(hypothesis.items())).values())
+    ...     pprint(apply_cp_assignment(assignment, reference, hypothesis, style='hyp'))
+    ...     pprint(apply_cp_assignment(assignment, reference, hypothesis, style='ref'))
 
-    >>> test([(0, 0)])  #
+    >>> test_list([(0, 0)])
+    (['0ref'], ['0hyp'])
+    (['0ref'], ['0hyp'])
+    >>> test_list([(0, 0), (1, None)])
+    (['0ref', '1ref'], ['0hyp', ''])
+    (['0ref', '1ref'], ['0hyp', ''])
+    >>> test_list([(0, 0), (None, 1)])
+    (['0ref', ''], ['0hyp', '1hyp'])
+    (['0ref', ''], ['0hyp', '1hyp'])
     """
     assert assignment, assignment
 
-    assert None not in reference, reference.keys()
-    assert None not in hypothesis, hypothesis.keys()
+    if isinstance(reference, dict) and isinstance(hypothesis, dict):
+        # Check for valid keys
+        assert None not in reference, reference.keys()
+        assert None not in hypothesis, hypothesis.keys()
 
-    r_keys, h_keys = zip(*assignment)
-    r_keys = set(filter(None, r_keys))
-    h_keys = set(filter(None, h_keys))
-    assert r_keys == set(reference.keys()), (r_keys, reference.keys(), assignment)
-    assert h_keys == set(hypothesis.keys()), (h_keys, hypothesis.keys(), assignment)
+        r_keys, h_keys = zip(*assignment)
+        r_keys = set(filter(None, r_keys))
+        h_keys = set(filter(None, h_keys))
+        assert r_keys == set(reference.keys()), (r_keys, reference.keys(), assignment)
+        assert h_keys == set(hypothesis.keys()), (h_keys, hypothesis.keys(), assignment)
+
+        fallback_keys = iter([
+            k
+            for k in fallback_keys
+            if k not in reference.keys()
+            if k not in hypothesis.keys()
+        ])
+    elif isinstance(reference, (tuple, list)) and isinstance(hypothesis, (tuple, list)):
+        fallback_keys = iter(range(
+            min(len(reference), len(hypothesis)),
+            max(len(reference), len(hypothesis)),
+        ))
+    else:
+        raise TypeError(type(reference), type(hypothesis))
 
     for r_key, h_key in assignment:
         assert r_key is not None or h_key is not None, (r_key, h_key)
-
-    fallback_keys = iter([
-        k
-        for k in fallback_keys
-        if k not in reference.keys()
-        if k not in hypothesis.keys()
-    ])
 
     if style == 'hyp':
         # Change the keys of the reference to those of the hypothesis
@@ -198,13 +222,15 @@ def apply_cp_assignment(
         hypothesis_new = [missing] * max_len
 
         def get(obj, key, default):
-            return obj[key] if len(obj) < key else default
+            if key is None:
+                return default
+            return obj[key] if len(obj) > key else default
     else:
         raise TypeError(type(reference), type(hypothesis))
 
     for r_key, h_key in assignment:
         k = get_key(r_key, h_key)
-        reference_new[k] = reference.get(r_key, missing)
-        hypothesis_new[k] = hypothesis.get(h_key, missing)
+        reference_new[k] = get(reference, r_key, missing)
+        hypothesis_new[k] = get(hypothesis, h_key, missing)
 
     return reference_new, hypothesis_new
