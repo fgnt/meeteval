@@ -7,7 +7,7 @@ import string
 import collections
 
 from dataclasses import dataclass, field
-from typing import Hashable, List, Tuple, Optional, Dict
+from typing import Hashable, List, Tuple, Optional, Dict, Literal
 
 if typing.TYPE_CHECKING:
     from meeteval.io.stm import STM
@@ -312,7 +312,7 @@ class CPErrorRate(ErrorRate):
             self,
             reference: dict,
             hypothesis: dict,
-            style: '"hyp" | "ref"' = 'ref',
+            style: 'Literal["hyp", "ref"]' = 'ref',
             fallback_keys=string.ascii_letters,
             missing='',
     ):
