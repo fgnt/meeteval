@@ -19,9 +19,13 @@ setup(
         "typing_extensions; python_version<'3.8'",  # Missing Literal in py37
     ],
     extras_require={
+        'cli': [
+            'click',
+        ],
         'test': [
             'pytest',
             'hypothesis',
+            'click',
         ]
     },
     entry_points={

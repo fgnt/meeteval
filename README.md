@@ -19,8 +19,11 @@ Then:
 ```shell
 pip install cython
 git clone git@github.com:fgnt/meeteval.git
-pip install -e ./meeteval
+pip install -e ./meeteval[cli]
 ```
+
+The `[cli]` is optional, except when you want to use the command line
+interface, that uses `click`.
 
 ## Computing WERs
 
