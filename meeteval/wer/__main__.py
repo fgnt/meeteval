@@ -1,5 +1,8 @@
 import dataclasses
 import json
+import io
+import os
+import glob
 from functools import wraps
 from pathlib import Path
 from typing import Tuple, List
@@ -60,17 +63,28 @@ def _load_hypothesis(hypothesis: Tuple[Path, ...]):
     if len(hypothesis) > 1:
         # We have multiple, only supported for ctm files
         hypothesis = list(map(Path, hypothesis))
-        assert all(h.suffixes[-1] == '.ctm' for h in hypothesis)
+        suffix = {h.suffixes[-1] for h in hypothesis}
+        assert len(suffix) == 1, suffix
+        filename = suffix.pop()
+    else:
+        hypothesis = hypothesis[0]
+        if isinstance(hypothesis, io.TextIOBase):
+            filename = hypothesis.name
+        else:
+            filename = str(hypothesis)
 
-        return CTMGroup.load(hypothesis)
+    # print(type(hypothesis), repr(hypothesis), hypothesis, filename)
 
-    hypothesis = hypothesis[0]
-    if hypothesis.suffixes[-1] == '.ctm':
+    if filename.endswith('.ctm'):
         return CTMGroup.load([hypothesis])
-    elif hypothesis.suffixes[-1] == '.stm':
+    elif filename.endswith('.stm'):
+        return STM.load(hypothesis)
+    elif filename.startswith('/dev/fd/'):
+        # This is a pipe, i.e. python -m ... <(cat ...)
+        # For now, assume it is an STM file
         return STM.load(hypothesis)
     else:
-        raise RuntimeError()
+        raise RuntimeError(hypothesis, filename)
 
 
 def _load_texts(reference, hypothesis):
@@ -91,30 +105,72 @@ def _load_texts(reference, hypothesis):
 
     # Check that the input is valid
     if reference.keys() != hypothesis.keys():
-        raise RuntimeError()
+        if len(reference.keys()) != len(hypothesis.keys()):
+            raise RuntimeError(
+                f'Length of reference ({len(reference)}) and hypothesis ({len(hypothesis)}) should be equal.')
+        else:
+            raise RuntimeError(
+                'Keys of reference and hypothesis differ\n'
+                f'hypothesis - reference: e.g. {list(set(hypothesis.keys()) - set(reference.keys()))[:5]}'
+                f'reference - hypothesis: e.g. {list(set(reference.keys()) - set(hypothesis.keys()))[:5]}'
+            )
 
     return reference, hypothesis
 
 
+def _get_parent_stem(hypothesis_paths):
+
+    hypothesis_paths = [
+        Path(p.name).resolve()
+        if isinstance(p, io.TextIOBase) else
+        Path(p).resolve()
+        for p in hypothesis_paths
+    ]
+
+    if len(hypothesis_paths) == 1:
+        parent, stem = hypothesis_paths[0].parent, hypothesis_paths[0].stem
+    else:
+        parent = os.path.commonpath(hypothesis_paths)
+
+        stems = [p.stem for p in hypothesis_paths]
+        prefix = os.path.commonprefix(stems)
+        postfix = os.path.commonprefix([s[::-1] for s in stems])[::-1]
+
+        print('parent', parent)
+        print('prefix', prefix)
+        print('postfix', postfix)
+        print('hypothesis_paths', hypothesis_paths)
+        stem = f'{prefix}{postfix}'
+
+    parent = str(parent).replace('*', '')
+    stem = stem.replace('*', '')
+
+    return parent, stem
+
+
 def _save_results(
         per_reco,
-        reference_path: Path,
+        hypothesis_paths: Path,
         wer_suffix: str,
         per_reco_out: str,
         average_out: str,
 ):
     """Saves the results.
     """
+
+    parent, stem = _get_parent_stem(hypothesis_paths)
+
+
     average_output = Path(average_out.format(
-        parent=f'{reference_path.resolve().parent}/',
+        parent=f'{parent}/',
         wer=wer_suffix,
-        stem=reference_path.stem,
+        stem=stem,
     ))
 
     per_reco_output = Path(per_reco_out.format(
-        parent=f'{reference_path.resolve().parent}/',
+        parent=f'{parent}/',
         wer=wer_suffix,
-        stem=reference_path.stem,
+        stem=stem,
     ))
 
     # Save details as JSON
@@ -160,15 +216,19 @@ def wer_command(help=None):
     def _wer_command(f):
         @cli.command(help=help)
         @click.option(
-            '--reference', '-r', required=True,
-            type=click.Path(exists=True, dir_okay=False, path_type=Path),
-            help='The reference file. Currently only support an STM file.'
+            '--reference', '-r', required=True, multiple=True,
+            # type=click.File('r'),
+            type=click.Path(exists=False, dir_okay=False),
+            help='The reference file. Currently only support STM file(s). '
+                 'To use glob you have to escape the string, '
+                 'e.g. -r "eval*.stm"'
         )
         @click.option(
             '--hypothesis', '-h', multiple=True, required=True,
-            type=click.Path(exists=True, dir_okay=False, path_type=Path),
-            help='The hypothesis file(s). Support either one STM file or multiple CTM '
-                 'files (one per hypothesis output)'
+            # type=click.File('r'),
+            type=click.Path(exists=False, dir_okay=False),
+            help='The hypothesis file(s). Support either STM file(s) or'
+                 'multiple CTM files (one per hypothesis output)'
         )
         @click.option(
             '--per-reco-out', default='{parent}/{stem}_{wer}_per_reco.json',
@@ -179,8 +239,20 @@ def wer_command(help=None):
         )
         @average_out_option
         @wraps(f)
-        def f_command(reference: Path, hypothesis: Path, per_reco_out, average_out, **kwargs):
+        def f_command(reference: 'list[str]', hypothesis: 'list[str]', per_reco_out, average_out, **kwargs):
+            def _glob(pathname):
+                match = list(glob.glob(pathname))
+                assert match, (pathname, match)
+                return match
+
             reference_path = reference
+            hypothesis_path = hypothesis
+
+            reference = [
+                file for r in reference for file in _glob(r)]
+            hypothesis = [
+                file for h in hypothesis for file in _glob(h)]
+
             reference, hypothesis = _load_texts(reference, hypothesis)
 
             # Compute cpWER for all examples
@@ -191,7 +263,7 @@ def wer_command(help=None):
                     hypothesis=(hypothesis[example_id]),
                     **kwargs
                 )
-            _save_results(per_reco, reference_path, f_command.name, per_reco_out, average_out)
+            _save_results(per_reco, hypothesis_path, f_command.name, per_reco_out, average_out)
 
         return f_command
 
@@ -204,8 +276,8 @@ def wer_command(help=None):
 )
 def cpwer(reference, hypothesis):
     return cp_word_error_rate(
-        reference=[r_.merged_transcripts() for r_ in reference.grouped_by_speaker_id()],
-        hypothesis=[h_.merged_transcripts() for h_ in hypothesis.grouped_by_speaker_id()],
+        reference={k: r_.merged_transcripts() for k, r_ in reference.grouped_by_speaker_id().items()},
+        hypothesis={k: h_.merged_transcripts() for k, h_ in hypothesis.grouped_by_speaker_id().items()},
     )
 
 
