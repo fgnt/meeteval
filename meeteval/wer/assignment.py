@@ -14,7 +14,7 @@ __all__ = [
 def apply_mimo_assignment(
         assignment: 'List[tuple]',
         reference: 'List[str]',
-        hypothesis: 'List[str] | dict[str]',
+        hypothesis: 'List[str] | Dict[str]',
 ):
     """
     >>> assignment = [('A', 'O2'), ('B', 'O2'), ('A', 'O1')]

@@ -15,7 +15,8 @@ setup(
     ext_modules=ext_modules,
     packages=["meeteval"],
     install_requires=[
-        'editdistance'
+        'editdistance',
+        "typing_extensions; python_version<'3.8'",  # Missing Literal in py37
     ],
     extras_require={
         'test': [
