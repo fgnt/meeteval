@@ -90,13 +90,18 @@ The speaker-ID field in the hypothesis encodes the output channel for MIMO and O
 Once you created an `STM` file, the tool can be called like this:
 
 ```shell
-python -m meeteval.wer -h hypothesis.stm -r reference.stm --orc --mimo --cp
+python -m meeteval.wer [orcwer|mimower|cpwer] -h hyp.stm -r ref.stm
 # or
-meeteval-wer -h hypothesis.stm -r reference.stm --orc --mimo --cp
+meeteval-wer [orcwer|mimower|cpwer] -h hypothesis.stm -r reference.stm
 ```
 
-The switches `--orc`, `--mimo` and `--cp` allow selecting the WER definition to use.
-Multiple definitions can be selected simultaneously.
+The command `orcwer`, `mimower` and `cpwer` allow selecting the WER definition to use.
+By default, the hypothesis files is used to create the template for the average
+(e.g. `hypothesis.json`) and per_reco `hypothesis_per_reco.json` file.
+They can be changed with `--average-out` and `--per-reco-out`.
+`.json` and `.yaml` are the supported suffixes.
+
+More examples can be found in [tests/test_cli.py](tests/test_cli.py).
 
 The tool also supports [time marked conversation input  files](https://github.com/usnistgov/SCTK/blob/f48376a203ab17f0d479995d87275db6772dcb4a/doc/infmts.htm#L285) (`CTM`)
 
