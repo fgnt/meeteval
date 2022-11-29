@@ -132,7 +132,7 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
     if len(error_rates) == 1:
         return error_rates[0]
-    return sum(error_rates, start=error_rates[0].zero())
+    return sum(error_rates, error_rates[0].zero())
 
 
 def _siso_error_rate(
