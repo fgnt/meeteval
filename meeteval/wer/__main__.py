@@ -7,10 +7,16 @@ from functools import wraps
 from pathlib import Path
 from typing import Tuple, List
 
-from meeteval.cli.file_io.ctm import CTMGroup
-from meeteval.cli.file_io.stm import STM
-from meeteval.wer.wer import cp_word_error_rate, orc_word_error_rate, mimo_word_error_rate, combine_error_rates, \
-    ErrorRate, CPErrorRate
+from meeteval.io.ctm import CTMGroup
+from meeteval.io.stm import STM
+from meeteval.wer.wer import (
+    cp_word_error_rate,
+    orc_word_error_rate,
+    mimo_word_error_rate,
+    combine_error_rates,
+    ErrorRate,
+    CPErrorRate,
+)
 import sys
 
 import click

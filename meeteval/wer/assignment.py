@@ -2,6 +2,21 @@ import string
 import collections
 
 
+__all__ = [
+    'apply_mimo_assignment',
+    'apply_orc_assignment',
+    'apply_cp_assignment',
+]
+
+
+def apply_mimo_assignment(
+        assignment: 'list[tuple]',
+        reference: 'List[str]',
+        hypothesis: 'List[str] | dict[str]',
+):
+    raise NotImplementedError('ToDo')
+
+
 def apply_orc_assignment(
         assignment: 'list[tuple]',
         reference: 'List[str]',

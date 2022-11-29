@@ -4,6 +4,11 @@ from pathlib import Path
 import io
 from typing import TextIO, Dict, List, NamedTuple
 
+__all__ = [
+    'STMLine',
+    'STM',
+]
+
 
 class STMLine(NamedTuple):
     """

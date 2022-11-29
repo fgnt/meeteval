@@ -5,6 +5,13 @@ from typing import TextIO, Dict, List, Optional
 from typing import NamedTuple
 
 
+__all__ = [
+    'CTMLine',
+    'CTM',
+    'CTMGroup',
+]
+
+
 class CTMLine(NamedTuple):
     """
     Represents one line of a CTM file, which is an ordered list of fields.

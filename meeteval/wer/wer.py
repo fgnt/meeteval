@@ -10,7 +10,22 @@ from dataclasses import dataclass, field
 from typing import Hashable, List, Tuple, Optional, Dict
 
 if typing.TYPE_CHECKING:
-    from meeteval.cli.file_io.stm import STM
+    from meeteval.io.stm import STM
+
+
+__all__ = [
+    'ErrorRate',
+    'mimo_word_error_rate',
+    'orc_word_error_rate',
+    'orc_word_error_rate_stm',
+    'cp_word_error_rate',
+    'siso_word_error_rate',
+    'siso_character_error_rate',
+    'MimoErrorRate',
+    'OrcErrorRate',
+    'CPErrorRate',
+    'combine_error_rates',
+]
 
 
 @dataclass(frozen=True)
