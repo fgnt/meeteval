@@ -120,6 +120,7 @@ class ErrorRate:
             )
         raise ValueError(d.keys(), d)
 
+
 def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
     >>> combine_error_rates(ErrorRate(10, 10), ErrorRate(0, 10))
@@ -442,7 +443,7 @@ def cp_word_error_rate(
     >>> er
     CPErrorRate(errors=1, length=3, error_rate=0.3333333333333333, missed_speaker=0, falarm_speaker=1, scored_speaker=3, assignment=(('r0', 'h3'), ('r1', 'h0'), ('r2', 'h1'), (None, 'h2')))
     >>> er.apply_assignment({'r0': 'a', 'r1': 'b', 'r2': 'c'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
-    ({'h0': 'b', 'h1': 'c', 'h2': '', 'h3': 'a'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
+    ({'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': ''}, {'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': 'd'})
 
     """
     import editdistance
