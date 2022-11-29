@@ -1,7 +1,7 @@
 import pytest
 
 from meeteval.wer.matching import orc_matching, mimo_matching
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, strategies as st, settings  # pip install hypothesis
 
 # Set up hypothesis strategies
 # Limit alphabet to ensure a few correct matches. Every character represents
