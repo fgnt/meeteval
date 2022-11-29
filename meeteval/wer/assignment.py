@@ -1,5 +1,7 @@
 import string
 import collections
+import typing
+from typing import Hashable, List, Tuple, Optional, Dict, Literal
 
 
 __all__ = [
@@ -10,7 +12,7 @@ __all__ = [
 
 
 def apply_mimo_assignment(
-        assignment: 'list[tuple]',
+        assignment: 'List[tuple]',
         reference: 'List[str]',
         hypothesis: 'List[str] | dict[str]',
 ):
@@ -18,7 +20,7 @@ def apply_mimo_assignment(
 
 
 def apply_orc_assignment(
-        assignment: 'list[tuple]',
+        assignment: 'List[tuple]',
         reference: 'List[str]',
         hypothesis: 'List[str] | dict[str]',
 ):
@@ -50,10 +52,10 @@ def apply_orc_assignment(
 
 
 def apply_cp_assignment(
-        assignment: 'list[tuple]',
+        assignment: 'List[tuple]',
         reference: dict,
         hypothesis: dict,
-        style: '"hyp" | "ref"' = 'ref',
+        style: 'Literal["hyp", "ref"]' = 'ref',
         fallback_keys=string.ascii_letters,
         missing='',
 ):
