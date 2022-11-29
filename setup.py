@@ -16,6 +16,7 @@ setup(
     packages=["meeteval"],
     install_requires=[
         'editdistance',
+        'scipy',  # scipy.optimize.linear_sum_assignment
         "typing_extensions; python_version<'3.8'",  # Missing Literal in py37
     ],
     extras_require={
