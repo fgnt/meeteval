@@ -7,7 +7,7 @@ import string
 import collections
 
 from dataclasses import dataclass, field
-from typing import Hashable, List, Tuple, Optional, Dict, Literal
+from meeteval._typing import Hashable, List, Tuple, Optional, Dict, Literal
 
 if typing.TYPE_CHECKING:
     from meeteval.io.stm import STM
@@ -163,6 +163,10 @@ def mimo_word_error_rate(
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['c d', 'a b e f'])
     MimoErrorRate(errors=0, length=6, error_rate=0.0, assignment=[(0, 1), (1, 1), (0, 0)])
 
+    >>> mimo_word_error_rate({'A': ['a b', 'c d'], 'B': ['e f']},
+    ...                      {'O1': 'c d', 'O2': 'a b e f'})
+    MimoErrorRate(errors=0, length=6, error_rate=0.0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
+
     """
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
 
@@ -171,6 +175,15 @@ def mimo_word_error_rate(
             return obj.values()
         else:
             return obj
+
+    def get_keys(obj):
+        if isinstance(obj, dict):
+            return list(obj.keys())
+        else:
+            return list(range(len(obj)))
+
+    reference_keys = get_keys(reference)
+    hypothesis_keys = get_keys(hypothesis)
 
     reference = [to_list(r) for r in to_list(reference)]
     hypothesis = to_list(hypothesis)
@@ -185,6 +198,10 @@ def mimo_word_error_rate(
     ])
     hypothesis = [h.split() for h in hypothesis]
     distance, assignment = mimo_matching_v3(reference, hypothesis)
+
+    assignment = [
+        (reference_keys[r], hypothesis_keys[h]) for r, h in assignment]
+
     return MimoErrorRate(distance, length, assignment)
 
 

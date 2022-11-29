@@ -1,7 +1,7 @@
 import string
 import collections
 import typing
-from typing import Hashable, List, Tuple, Optional, Dict, Literal
+from meeteval._typing import Hashable, List, Tuple, Optional, Dict, Literal
 
 
 __all__ = [
@@ -16,7 +16,44 @@ def apply_mimo_assignment(
         reference: 'List[str]',
         hypothesis: 'List[str] | dict[str]',
 ):
-    raise NotImplementedError('ToDo')
+    """
+    >>> assignment = [('A', 'O2'), ('B', 'O2'), ('A', 'O1')]
+    >>> reference = {'A': ['a b', 'c d'], 'B': ['e f']}
+    >>> hypothesis = {'O1': 'c d', 'O2': 'a b e f'}
+    >>> apply_mimo_assignment(assignment, reference, hypothesis)
+    ({'O1': ['c d'], 'O2': ['a b', 'e f']}, {'O1': 'c d', 'O2': 'a b e f'})
+
+    >>> assignment = [(0, 1), (1, 1), (0, 0)]
+    >>> reference = [['a b', 'c d'], ['e f']]
+    >>> hypothesis = ['c d', 'a b e f']
+    >>> apply_mimo_assignment(assignment, reference, hypothesis)
+    ([['c d'], ['a b', 'e f']], ['c d', 'a b e f'])
+    """
+    if isinstance(reference, (tuple, list)):
+        reference = {
+            k: list(v)  # convert to list and copy
+            for k, v in enumerate(reference)
+        }
+        reference_new = [
+            []
+            for _ in hypothesis
+        ]
+    else:
+        reference = {
+            k: list(v)  # convert to list and copy
+            for k, v in reference.items()
+        }
+        reference_new = {
+            k: []
+            for k in hypothesis.keys()
+        }
+
+    for r, h in assignment:
+        reference_new[h].append(reference[r].pop(0))
+
+    return reference_new, hypothesis
+
+
 
 
 def apply_orc_assignment(
