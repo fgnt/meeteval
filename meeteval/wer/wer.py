@@ -6,6 +6,7 @@ import typing
 import string
 import collections
 
+import dataclasses
 from dataclasses import dataclass, field
 from meeteval._typing import Hashable, List, Tuple, Optional, Dict, Literal
 
@@ -76,6 +77,48 @@ class ErrorRate:
             self.length + other.length,
         )
 
+    @classmethod
+    def from_dict(self, d):
+        """
+        >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1)))
+        ErrorRate(errors=1, length=1, error_rate=1.0)
+        >>> ErrorRate.from_dict(dataclasses.asdict(CPErrorRate(1, 1, 1, 1, 1)))
+        CPErrorRate(errors=1, length=1, error_rate=1.0, missed_speaker=1, falarm_speaker=1, scored_speaker=1, assignment=None)
+        >>> ErrorRate.from_dict(dataclasses.asdict(OrcErrorRate(1, 1, (0, 1))))
+        OrcErrorRate(errors=1, length=1, error_rate=1.0, assignment=(0, 1))
+        >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, [(0, 1)])))
+        MimoErrorRate(errors=1, length=1, error_rate=1.0, assignment=[(0, 1)])
+        """
+        if d.keys() == {'errors', 'length', 'error_rate'}:
+            return ErrorRate(errors=d['errors'], length=d['length'])
+
+        if d.keys() == {
+            'errors', 'length', 'error_rate',
+            'missed_speaker', 'falarm_speaker', 'scored_speaker',
+            'assignment',
+        }:
+            return CPErrorRate(
+                errors=d['errors'], length=d['length'],
+                missed_speaker=d['missed_speaker'],
+                falarm_speaker=d['falarm_speaker'],
+                scored_speaker=d['scored_speaker'],
+                assignment=d['assignment'],
+            )
+
+        if d.keys() == {
+            'errors', 'length', 'error_rate',
+            'assignment',
+        }:
+            if isinstance(d['assignment'][0], (tuple, list)):
+                XErrorRate = MimoErrorRate
+            else:
+                XErrorRate = OrcErrorRate
+
+            return XErrorRate(
+                errors=d['errors'], length=d['length'],
+                assignment=d['assignment'],
+            )
+        raise ValueError(d.keys(), d)
 
 def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
@@ -139,15 +182,17 @@ def siso_character_error_rate(
 @dataclass(frozen=True)
 class MimoErrorRate(ErrorRate):
     """
-    >>> OrcErrorRate(0, 10, (0, 1)) + OrcErrorRate(10, 10, (1, 0, 1))
+    >>> MimoErrorRate(0, 10, [(0, 0)])
+    MimoErrorRate(errors=0, length=10, error_rate=0.0, assignment=[(0, 0)])
+    >>> MimoErrorRate(0, 10, [(0, 0)]) + MimoErrorRate(10, 10, [(0, 0)])
     ErrorRate(errors=10, length=20, error_rate=0.5)
     """
     assignment: Tuple[int, ...]
 
 
 def mimo_word_error_rate(
-        reference: List[List[str]],
-        hypothesis: List[str],
+        reference: 'List[List[str]] | Dict[List[str]]',
+        hypothesis: 'List[str] | Dict[str]',
 ) -> MimoErrorRate:
     """
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
