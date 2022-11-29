@@ -29,6 +29,7 @@ setup(
             'click',
             'coverage',
             'pytest-cov',
+            'ipython',  # IPython.lib.pretty.pprint
         ]
     },
     entry_points={
