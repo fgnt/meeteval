@@ -130,5 +130,10 @@ The MIMO WER and efficient implementation of ORC WER are presented in the paper 
 their Efficient Computation for Multi-Speaker Speech Recognition Systems".
 
 ```bibtex
-TODO!
+@Article{MeetEval22,
+  author    = {von Neumann, Thilo and Boeddeker, Christoph and Kinoshita, Keisuke and Delcroix, Marc and Haeb-Umbach, Reinhold},
+  title     = {On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems},
+  journal   = {arXiv preprint arXiv:2211.16112},
+  year      = {2022},
+}
 ```
