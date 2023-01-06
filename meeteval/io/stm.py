@@ -48,7 +48,7 @@ class STMLine(NamedTuple):
             int(channel) if begin_time.isdigit() else channel,
             speaker_id,
             int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
-            int(end_time) if begin_time.isdigit() else float(end_time),  # Keep type, int or float
+            int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float
             transcript
         )
         assert stm_line.begin_time >= 0, stm_line
@@ -120,6 +120,22 @@ class STM:
             for line in self.lines:
                 fd.write(line.serialize() + '\n')
 
+    def to_rttm(self):
+        from meeteval.io.rttm import RTTM, RTTMLine
+
+        return RTTM([
+            RTTMLine(
+                filename=line.filename,
+                channel=line.channel,
+                begin_time=line.begin_time,
+                duration_time=line.end_time - line.begin_time,
+                speaker_id=line.speaker_id,
+                # line.transcript  RTTM doesn't support transcript
+                # hence this information is dropped.
+            )
+            for line in self.lines
+        ])
+
     def __getitem__(self, item):
         if isinstance(item, int):
             return self.lines[item]
@@ -130,6 +146,12 @@ class STM:
 
     def __iter__(self):
         return iter(self.lines)
+
+    def groupby(self, key) -> Dict[str, 'STM']:
+        return {
+            filename: STM(list(group))
+            for filename, group in groupby(sorted(self.lines), key=key)
+        }
 
     def grouped_by_filename(self) -> Dict[str, 'STM']:
         return {
@@ -143,6 +165,25 @@ class STM:
             for speaker_id, speaker_group in
             groupby(sorted(self.lines, key=lambda x: x.speaker_id), key=lambda x: x.speaker_id)
         }
+
+    def sorted(self, key=None):
+        """
+        This wrapper of sorted.
+
+        Often a sort based on filename and begin_time is useful.
+        Reason: filename matches between ref and hyp and begin_time
+                should be similar. Using no key, sorts by
+                filename, channel, speaker_id, begin_time, ...
+                so speaker_id is used before begin_time.
+                Since the true speaker_id is not known in hyp,
+                it is likely that ref and hyp are hard to compare
+                with simple tools (e.g. check first lines of ref and hyp.)
+
+        Here, an example to get a reasonable sort:
+            new = stm.sorted(key=lambda x: (x.filename, x.begin_time))
+
+        """
+        return STM(sorted(self.lines, key=key))
 
     def sorted_by_begin_time(self):
         return STM(sorted(self.lines, key=lambda x: x.begin_time))

@@ -28,7 +28,7 @@ class CTMLine(NamedTuple):
     CTM file format definition: https://www.nist.gov/system/files/documents/2021/08/03/OpenASR20_EvalPlan_v1_5.pdf
     """
     filename: str
-    channel: int
+    channel: 'str | int'
     begin_time: float
     duration: float
     word: str
@@ -39,8 +39,12 @@ class CTMLine(NamedTuple):
         filename, channel, begin_time, duration, word, *confidence = line.strip().split()
         assert len(confidence) < 2, confidence
         ctm_line = CTMLine(
-            filename, int(channel), float(begin_time), float(duration), word,
-            confidence[0] if confidence else 0
+            filename,
+            int(channel) if begin_time.isdigit() else channel,
+            int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
+            int(duration) if duration.isdigit() else float(duration),  # Keep type, int or float
+            word,
+            confidence[0] if confidence else None
         )
         assert ctm_line.begin_time >= 0, ctm_line
         assert ctm_line.duration >= 0, ctm_line
@@ -54,7 +58,12 @@ class CTM:
     @classmethod
     def load(cls, ctm_file: Path) -> 'CTM':
         with ctm_file.open('r') as f:
-            return cls([CTMLine.parse(line) for line in f if len(line) > 0])
+            return cls([
+                CTMLine.parse(line)
+                for line in map(str.strip, f)
+                if len(line) > 0
+                if not line.startswith(';;')
+            ])
 
     def grouped_by_filename(self) -> Dict[str, 'CTM']:
         return {
