@@ -99,14 +99,14 @@ class ErrorRate:
     @classmethod
     def from_dict(self, d: dict):
         """
-        >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1)))
-        ErrorRate(errors=1, length=1, error_rate=1.0)
-        >>> ErrorRate.from_dict(dataclasses.asdict(CPErrorRate(1, 1, 1, 1, 1)))
-        CPErrorRate(errors=1, length=1, error_rate=1.0, missed_speaker=1, falarm_speaker=1, scored_speaker=1, assignment=None)
-        >>> ErrorRate.from_dict(dataclasses.asdict(OrcErrorRate(1, 1, (0, 1))))
-        OrcErrorRate(errors=1, length=1, error_rate=1.0, assignment=(0, 1))
-        >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, [(0, 1)])))
-        MimoErrorRate(errors=1, length=1, error_rate=1.0, assignment=[(0, 1)])
+        >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1)))
+        ErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0)
+        >>> ErrorRate.from_dict(dataclasses.asdict(CPErrorRate(1, 1, 0, 0, 1, 1, 1, 1)))
+        CPErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, missed_speaker=1, falarm_speaker=1, scored_speaker=1, assignment=None)
+        >>> ErrorRate.from_dict(dataclasses.asdict(OrcErrorRate(1, 1, 0, 0, 1, (0, 1))))
+        OrcErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, assignment=(0, 1))
+        >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, 0, 0, 1, [(0, 1)])))
+        MimoErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, assignment=[(0, 1)])
         """
         # For backward compatibility, set default values.
         d.setdefault('insertions', None)
@@ -114,10 +114,16 @@ class ErrorRate:
         d.setdefault('substitutions', None)
 
         if d.keys() == {
-                'errors', 'length', 'error_rate'
+                'errors', 'length', 'error_rate',
                 'insertions', 'deletions', 'substitutions',
         }:
-            return ErrorRate(errors=d['errors'], length=d['length'])
+            return ErrorRate(
+                errors=d['errors'],
+                length=d['length'],
+                insertions=d['insertions'],
+                deletions=d['deletions'],
+                substitutions=d['substitutions'],
+            )
 
         if d.keys() == {
             'errors', 'length', 'error_rate',
@@ -147,7 +153,8 @@ class ErrorRate:
                 XErrorRate = OrcErrorRate
 
             return XErrorRate(
-                errors=d['errors'], length=d['length'],
+                errors=d['errors'],
+                length=d['length'],
                 insertions=d['insertions'],
                 deletions=d['deletions'],
                 substitutions=d['substitutions'],
@@ -158,12 +165,12 @@ class ErrorRate:
 
 def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
-    >>> combine_error_rates(ErrorRate(10, 10), ErrorRate(0, 10))
-    ErrorRate(errors=10, length=20, error_rate=0.5)
-    >>> combine_error_rates(ErrorRate(10, 10))
-    ErrorRate(errors=10, length=10, error_rate=1.0)
-    >>> combine_error_rates(*([ErrorRate(10, 10)]*10))
-    ErrorRate(errors=100, length=100, error_rate=1.0)
+    >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10), ErrorRate(0, 10, 0, 0, 0))
+    ErrorRate(errors=10, length=20, insertions=0, deletions=0, substitutions=10, error_rate=0.5)
+    >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10))
+    ErrorRate(errors=10, length=10, insertions=0, deletions=0, substitutions=10, error_rate=1.0)
+    >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10)]*10))
+    ErrorRate(errors=100, length=100, insertions=0, deletions=0, substitutions=100, error_rate=1.0)
     """
     if len(error_rates) == 1:
         return error_rates[0]
@@ -225,7 +232,7 @@ def siso_character_error_rate(
 ) -> ErrorRate:
     """
     >>> siso_character_error_rate('abc', 'abc')
-    ErrorRate(errors=0, length=3, error_rate=0.0)
+    ErrorRate(errors=0, length=3, insertions=0, deletions=0, substitutions=0, error_rate=0.0)
     """
     return _siso_error_rate(
         list(reference), list(hypothesis)
