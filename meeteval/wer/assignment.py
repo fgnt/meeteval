@@ -13,7 +13,7 @@ __all__ = [
 
 def apply_mimo_assignment(
         assignment: 'List[tuple]',
-        reference: 'List[str]',
+        reference: 'List[List[str]] | Dict[List[str]]',
         hypothesis: 'List[str] | Dict[str]',
 ):
     """
