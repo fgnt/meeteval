@@ -41,16 +41,18 @@ class STMLine(NamedTuple):
         elif len(transcript) == 0:
             transcript = ''  # empty transcript
         else:
-            raise ValueError(line)
-
-        stm_line = STMLine(
-            filename,
-            int(channel) if begin_time.isdigit() else channel,
-            speaker_id,
-            int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
-            int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float
-            transcript
-        )
+            raise ValueError(f'Unable to parse STM line: {line}')
+        try:
+            stm_line = STMLine(
+                filename,
+                int(channel) if begin_time.isdigit() else channel,
+                speaker_id,
+                int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
+                int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float
+                transcript
+            )
+        except Exception as e:
+            raise ValueError(f'Unable to parse STM line: {line}') from e
         assert stm_line.begin_time >= 0, stm_line
         # We currently ignore the end time, so it's fine when it's before begin_time
         # assert stm_line.end_time >= stm_line.begin_time, stm_line
