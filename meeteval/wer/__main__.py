@@ -176,80 +176,6 @@ def _save_results(
     )
 
 
-# Define argument parser and commands
-parser = argparse.ArgumentParser()
-parser.add_argument('--version', action='store_true', help='Show version')
-commands = parser.add_subparsers(title='Subcommands')
-
-
-def command(fn):
-    command_parser = commands.add_parser(
-        fn.__name__,
-        add_help=False,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        help=fn.__doc__,
-    )
-    command_parser.add_argument(
-        '--help', help='show this help message and exit',
-        action='help',
-        default=argparse.SUPPRESS,
-    )
-    # Get arguments from signature
-    import inspect
-    parameters = inspect.signature(fn).parameters
-
-    for name, p in parameters.items():
-        if name == 'reference':
-            command_parser.add_argument(
-                '-r', '--reference',
-                help='Reference file(s) in STM or CTM format',
-                nargs='+', action='extend',
-            )
-        elif name == 'hypothesis':
-            command_parser.add_argument(
-                '-h', '--hypothesis',
-                help='Hypothesis file(s) in STM or CTM format',
-                nargs='+', action='extend',
-            )
-        elif name == 'average_out':
-            command_parser.add_argument(
-                '--average-out',
-                help='Output file for the average file. {stem} is replaced '
-                     'with the stem of the (first) hypothesis file. '
-                     '"-" is interpreted as stdout. For example: "-.yaml" '
-                     'prints to stdout in yaml format.'
-            )
-        elif name == 'per_reco_out':
-            command_parser.add_argument(
-                '--per-reco-out',
-                help='Output file for the per_reco file. {stem} is replaced '
-                     'with the stem of the (first) hypothesis file. '
-                     '"-" is interpreted as stdout. For example: "-.yaml" '
-                     'prints to stdout in yaml format.'
-            )
-        elif name == 'out':
-            command_parser.add_argument(
-                '-o', '--out',
-                required=False, default='-',
-            )
-        elif name == 'files':
-            command_parser.add_argument('files', nargs='+')
-        else:
-            raise AssertionError("Error in command definition")
-
-    # Get defaults from signature
-    command_parser.set_defaults(
-        func=fn,
-        **{
-            name: p.default
-            for name, p in parameters.items()
-            if p.default is not inspect.Parameter.empty
-        }
-    )
-    return fn
-
-
-@command
 def orcwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_orcwer.json',
@@ -269,7 +195,6 @@ def orcwer(
     }, hypothesis_paths, per_reco_out, average_out)
 
 
-@command
 def cpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_cpwer.json',
@@ -293,7 +218,6 @@ def cpwer(
     }, hypothesis_paths, per_reco_out, average_out)
 
 
-@command
 def mimower(
         reference, hypothesis,
         average_out='{parent}/{stem}_mimower.json',
@@ -351,19 +275,94 @@ def _merge(
     _dump(out_data, Path(out), default_suffix=files[0].suffix)
 
 
-@command
 def merge(files, out):
     """Merges multiple (per-reco or averaged) files"""
     return _merge(files, out, average=None)
 
 
-@command
 def average(files, out):
     """Computes the average over one or multiple per-reco files"""
     return _merge(files, out, average=True)
 
 
 def cli():
+    # Define argument parser and commands
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--version', action='store_true', help='Show version')
+    commands = parser.add_subparsers(title='Subcommands')
+
+    def add_command(fn):
+        command_parser = commands.add_parser(
+            fn.__name__,
+            add_help=False,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            help=fn.__doc__,
+        )
+        command_parser.add_argument(
+            '--help', help='show this help message and exit',
+            action='help',
+            default=argparse.SUPPRESS,
+        )
+        # Get arguments from signature
+        import inspect
+        parameters = inspect.signature(fn).parameters
+
+        for name, p in parameters.items():
+            if name == 'reference':
+                command_parser.add_argument(
+                    '-r', '--reference',
+                    help='Reference file(s) in STM or CTM format',
+                    nargs='+', action='append',
+                )
+            elif name == 'hypothesis':
+                command_parser.add_argument(
+                    '-h', '--hypothesis',
+                    help='Hypothesis file(s) in STM or CTM format',
+                    nargs='+', action='append',
+                )
+            elif name == 'average_out':
+                command_parser.add_argument(
+                    '--average-out',
+                    help='Output file for the average file. {stem} is replaced '
+                         'with the stem of the (first) hypothesis file. '
+                         '"-" is interpreted as stdout. For example: "-.yaml" '
+                         'prints to stdout in yaml format.'
+                )
+            elif name == 'per_reco_out':
+                command_parser.add_argument(
+                    '--per-reco-out',
+                    help='Output file for the per_reco file. {stem} is replaced '
+                         'with the stem of the (first) hypothesis file. '
+                         '"-" is interpreted as stdout. For example: "-.yaml" '
+                         'prints to stdout in yaml format.'
+                )
+            elif name == 'out':
+                command_parser.add_argument(
+                    '-o', '--out',
+                    required=False, default='-',
+                )
+            elif name == 'files':
+                command_parser.add_argument('files', nargs='+')
+            else:
+                raise AssertionError("Error in command definition")
+
+        # Get defaults from signature
+        command_parser.set_defaults(
+            func=fn,
+            **{
+                name: p.default
+                for name, p in parameters.items()
+                if p.default is not inspect.Parameter.empty
+            }
+        )
+        return fn
+
+    add_command(cpwer)
+    add_command(orcwer)
+    add_command(mimower)
+    add_command(merge)
+    add_command(average)
+
     # Parse arguments and find command to execute
     args = parser.parse_args()
 
@@ -373,6 +372,14 @@ def cli():
         # Pop also removes from args namespace
         kwargs.pop('func')
         kwargs.pop('version')
+        if 'reference' in kwargs:
+            kwargs['reference'] = [
+                r for reference in kwargs['reference'] for r in reference
+            ]
+        if 'hypothesis' in kwargs:
+            kwargs['hypothesis'] = [
+                h for hypothesis in kwargs['hypothesis'] for h in hypothesis
+            ]
         return fn(**kwargs)
 
     if getattr(args, 'version', False):
