@@ -1,8 +1,5 @@
 import string
-import collections
-import typing
-from meeteval._typing import Hashable, List, Tuple, Optional, Dict, Literal
-
+from meeteval._typing import List, Dict, Literal
 
 __all__ = [
     'apply_mimo_assignment',
@@ -28,32 +25,21 @@ def apply_mimo_assignment(
     >>> hypothesis = ['c d', 'a b e f']
     >>> apply_mimo_assignment(assignment, reference, hypothesis)
     ([['c d'], ['a b', 'e f']], ['c d', 'a b e f'])
+
+    >>> assignment = [('A', 'O1'), ('A', 'O1')]
+    >>> reference = {'A': ['a b', 'c d']}
+    >>> hypothesis = {'O1': 'c d', 'O2': 'a b e f'}
+    >>> apply_mimo_assignment(assignment, reference, hypothesis)
+    ({'O1': ['a b', 'c d'], 'O2': []}, {'O1': 'c d', 'O2': 'a b e f'})
     """
-    if isinstance(reference, (tuple, list)):
-        reference = {
-            k: list(v)  # convert to list and copy
-            for k, v in enumerate(reference)
-        }
-        reference_new = [
-            []
-            for _ in hypothesis
-        ]
-    else:
-        reference = {
-            k: list(v)  # convert to list and copy
-            for k, v in reference.items()
-        }
-        reference_new = {
-            k: []
-            for k in hypothesis.keys()
-        }
+    reference_new = {k: [] for k in _keys(hypothesis)}
+    # convert to list and copy
+    reference = {k: list(v) for k, v in _items(reference)}
 
     for r, h in assignment:
         reference_new[h].append(reference[r].pop(0))
 
-    return reference_new, hypothesis
-
-
+    return _to_type(reference_new, hypothesis), hypothesis
 
 
 def apply_orc_assignment(
@@ -69,23 +55,18 @@ def apply_orc_assignment(
     >>> assignment = (0, 0, 1)
     >>> apply_orc_assignment(assignment, ['a', 'c d', 'e'], ['a c', 'd e'])
     ([['a', 'c d'], ['e']], ['a c', 'd e'])
+
+    >>> assignment = ('A', )
+    >>> apply_orc_assignment(assignment, ['a'], {'A': 'b', 'B': 'c'})
+    ({'A': ['a'], 'B': []}, {'A': 'b', 'B': 'c'})
     """
-    ref = collections.defaultdict(list)
+    reference_new = {k: [] for k in _keys(hypothesis)}
 
     assert len(reference) == len(assignment), (len(reference), len(assignment))
     for r, a in zip(reference, assignment):
-        ref[a].append(r)
+        reference_new[a].append(r)
 
-    if isinstance(hypothesis, dict):
-        ref = dict(ref)
-    elif isinstance(hypothesis, list):
-        ref = list(ref.values())
-    elif isinstance(hypothesis, tuple):
-        ref = list(ref.values())
-    else:
-        raise TypeError(type(hypothesis), hypothesis)
-
-    return ref, hypothesis
+    return _to_type(reference_new, hypothesis), hypothesis
 
 
 def apply_cp_assignment(
@@ -184,11 +165,26 @@ def apply_cp_assignment(
             if k not in reference.keys()
             if k not in hypothesis.keys()
         ])
+
+        reference_new = {}
+        hypothesis_new = {}
+
+        def get(obj, key, default):
+            return obj.get(key, default)
     elif isinstance(reference, (tuple, list)) and isinstance(hypothesis, (tuple, list)):
         fallback_keys = iter(range(
             min(len(reference), len(hypothesis)),
             max(len(reference), len(hypothesis)),
         ))
+
+        max_len = len({k for ks in assignment for k in ks if k is not None})
+        reference_new = [missing] * max_len
+        hypothesis_new = [missing] * max_len
+
+        def get(obj, key, default):
+            if key is None or key >= len(obj):
+                return default
+            return obj[key]
     else:
         raise TypeError(type(reference), type(hypothesis))
 
@@ -209,28 +205,34 @@ def apply_cp_assignment(
     else:
         raise ValueError(f'{style!r} not in ["ref", "hyp"]')
 
-    if isinstance(reference, dict) and isinstance(hypothesis, dict):
-        reference_new = {}
-        hypothesis_new = {}
-
-        def get(obj, key, default):
-            return obj.get(key, default)
-
-    elif isinstance(reference, (tuple, list)) and isinstance(hypothesis, (tuple, list)):
-        max_len = len({k for ks in assignment for k in ks if k is not None})
-        reference_new = [missing] * max_len
-        hypothesis_new = [missing] * max_len
-
-        def get(obj, key, default):
-            if key is None:
-                return default
-            return obj[key] if len(obj) > key else default
-    else:
-        raise TypeError(type(reference), type(hypothesis))
-
     for r_key, h_key in assignment:
         k = get_key(r_key, h_key)
         reference_new[k] = get(reference, r_key, missing)
         hypothesis_new[k] = get(hypothesis, h_key, missing)
 
     return reference_new, hypothesis_new
+
+
+def _to_type(reference_new, hypothesis):
+    if isinstance(hypothesis, dict):
+        return dict(reference_new)
+    elif isinstance(hypothesis, (list, tuple)):
+        return type(hypothesis)(reference_new.values())
+    else:
+        raise TypeError(type(hypothesis), hypothesis)
+
+
+def _keys(obj):
+    if isinstance(obj, dict):
+        return list(obj.keys())
+    else:
+        return list(range(len(obj)))
+
+
+def _items(obj):
+    if isinstance(obj, dict):
+        return obj.items()
+    elif isinstance(obj, (tuple, list)):
+        return enumerate(obj)
+    else:
+        raise TypeError(type(obj), obj)

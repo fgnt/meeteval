@@ -196,12 +196,6 @@ def _siso_error_rate(
         substitutions=result['sub'],
     )
 
-    import editdistance
-    return ErrorRate(
-        editdistance.distance(reference, hypothesis),
-        len(reference)
-    )
-
 
 def siso_word_error_rate(
         reference: str,

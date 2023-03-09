@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from itertools import groupby
 from pathlib import Path
-import io
-from typing import TextIO, Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple
 
 __all__ = [
     'STMLine',
@@ -41,16 +40,18 @@ class STMLine(NamedTuple):
         elif len(transcript) == 0:
             transcript = ''  # empty transcript
         else:
-            raise ValueError(line)
-
-        stm_line = STMLine(
-            filename,
-            int(channel) if begin_time.isdigit() else channel,
-            speaker_id,
-            int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
-            int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float
-            transcript
-        )
+            raise ValueError(f'Unable to parse STM line: {line}')
+        try:
+            stm_line = STMLine(
+                filename,
+                int(channel) if begin_time.isdigit() else channel,
+                speaker_id,
+                int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
+                int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float
+                transcript
+            )
+        except Exception as e:
+            raise ValueError(f'Unable to parse STM line: {line}') from e
         assert stm_line.begin_time >= 0, stm_line
         # We currently ignore the end time, so it's fine when it's before begin_time
         # assert stm_line.end_time >= stm_line.begin_time, stm_line
@@ -83,29 +84,16 @@ class STM:
     lines: List[STMLine]
 
     @classmethod
-    def load(cls, stm_file: [Path, str, io.TextIOBase, tuple, list]) -> 'STM':
-        def get_parsed_lines(fd):
-            return [
+    def load(cls, stm_file: [Path, str, tuple, list]) -> 'STM':
+        if isinstance(stm_file, (tuple, list)):
+            return STM.merge(*[STM.load(f) for f in stm_file])
+
+        with open(stm_file, 'r') as fd:
+            return cls([
                 STMLine.parse(line)
                 for line in fd
                 if len(line.strip()) > 0 and not line.strip().startswith(';')
-            ]
-
-        if not isinstance(stm_file, (tuple, list)):
-            stm_file = [stm_file]
-
-        parsed_lines = []
-
-        for file in stm_file:
-            if isinstance(file, io.TextIOBase):
-                parsed_lines.extend(get_parsed_lines(file))
-            elif isinstance(file, (str, Path)):
-                with open(file, 'r') as fd:
-                    parsed_lines.extend(get_parsed_lines(fd))
-            else:
-                raise TypeError(file, type(file), stm_file)
-
-        return cls(parsed_lines)
+            ])
 
     def _repr_pretty_(self, p, cycle):
         name = self.__class__.__name__
@@ -114,6 +102,10 @@ class STM:
                 p.text('...')
             elif len(self.lines):
                 p.pretty(list(self.lines))
+
+    @classmethod
+    def merge(cls, *stms) -> 'STM':
+        return cls([line for stm in stms for line in stm.lines])
 
     def dump(self, stm_file):
         with open(stm_file, 'w') as fd:

@@ -36,18 +36,21 @@ class CTMLine(NamedTuple):
 
     @classmethod
     def parse(cls, line: str) -> 'CTMLine':
-        filename, channel, begin_time, duration, word, *confidence = line.strip().split()
-        assert len(confidence) < 2, confidence
-        ctm_line = CTMLine(
-            filename,
-            int(channel) if begin_time.isdigit() else channel,
-            int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
-            int(duration) if duration.isdigit() else float(duration),  # Keep type, int or float
-            word,
-            confidence[0] if confidence else None
-        )
-        assert ctm_line.begin_time >= 0, ctm_line
-        assert ctm_line.duration >= 0, ctm_line
+        try:
+            filename, channel, begin_time, duration, word, *confidence = line.strip().split()
+            assert len(confidence) < 2, confidence
+            ctm_line = CTMLine(
+                filename,
+                int(channel) if begin_time.isdigit() else channel,
+                int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
+                int(duration) if duration.isdigit() else float(duration),  # Keep type, int or float
+                word,
+                confidence[0] if confidence else None
+            )
+            assert ctm_line.begin_time >= 0, ctm_line
+            assert ctm_line.duration >= 0, ctm_line
+        except Exception as e:
+            raise ValueError(f'Unable to parse CTM line: {line}') from e
         return ctm_line
 
 
