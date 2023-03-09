@@ -22,7 +22,7 @@ setup(
     ],
     extras_require={
         'cli': [
-            'click',
+            'pyyaml',
         ],
         'test': [
             'pytest',
@@ -31,6 +31,7 @@ setup(
             'coverage',
             'pytest-cov',
             'ipython',  # IPython.lib.pretty.pprint
+            'pyyaml',
         ]
     },
     entry_points={
