@@ -37,16 +37,29 @@ def test_burn_orc():
 
     # Multiple stm files
     run(f"python -m meeteval.wer orcwer -h hypA.stm -h hypB.stm -r refA.stm -r refB.stm")
+    run(f"python -m meeteval.wer orcwer -h hyp.stm -h hypA.stm hypB.stm -r refA.stm refB.stm")
 
-    # Test with glob. Note: '?' and '*' are escaped.
+    # Test with glob (backwards compatibility). Note: '?' and '*' are escaped.
     # Be careful, that the glob only matches the desired files.
     # The 'hyp*.stm' will here match 'hyp.stm', 'hypA.stm' and 'hypB.stm'.
     run(f"python -m meeteval.wer orcwer -h 'hyp*.stm' -r 'ref*.stm'")
     run(f"python -m meeteval.wer orcwer -h 'hyp?.stm' -r 'ref?.stm'")
 
+    # Test with shell glob
+    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm")
+    run(f"python -m meeteval.wer orcwer -h hyp?.stm -r ref?.stm")
+
     # Test with ctm files
     run(f'python -m meeteval.wer orcwer -h hyp1.ctm -h hyp2.ctm -r ref.stm')
     run(f"python -m meeteval.wer orcwer -h 'hyp*.ctm' -r ref.stm")
+
+    # Test output formats
+    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out average-out.json")
+    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out '{{parent}}-{{stem}}-average-out.yaml'")
+    # Output to stdout. Specifying the format requires =
+    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out -")
+    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out=-.yaml")
+    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out=-.json")
 
     # Test with pipes. Makes "--average-out" file and "--per-reco-out" file
     # mandatory.
