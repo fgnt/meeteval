@@ -55,7 +55,7 @@ def test_burn_orc():
 
     # Test output formats
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out average-out.json")
-    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out '{{parent}}-{{stem}}-average-out.yaml'")
+    run("python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out '{parent}-{stem}-average-out.yaml'")
     # Output to stdout. Specifying the format requires =
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out -")
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out=-.yaml")

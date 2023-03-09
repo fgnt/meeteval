@@ -354,7 +354,6 @@ def cli():
                 if p.default is not inspect.Parameter.empty
             }
         )
-        return fn
 
     add_command(cpwer)
     add_command(orcwer)
