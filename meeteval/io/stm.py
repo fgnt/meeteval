@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from itertools import groupby
 from pathlib import Path
-import io
-from typing import TextIO, Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple
 
 __all__ = [
     'STMLine',
@@ -85,29 +84,16 @@ class STM:
     lines: List[STMLine]
 
     @classmethod
-    def load(cls, stm_file: [Path, str, io.TextIOBase, tuple, list]) -> 'STM':
-        def get_parsed_lines(fd):
-            return [
+    def load(cls, stm_file: [Path, str, tuple, list]) -> 'STM':
+        if isinstance(stm_file, (tuple, list)):
+            return STM.merge(*[STM.load(f) for f in stm_file])
+
+        with open(stm_file, 'r') as fd:
+            return cls([
                 STMLine.parse(line)
                 for line in fd
                 if len(line.strip()) > 0 and not line.strip().startswith(';')
-            ]
-
-        if not isinstance(stm_file, (tuple, list)):
-            stm_file = [stm_file]
-
-        parsed_lines = []
-
-        for file in stm_file:
-            if isinstance(file, io.TextIOBase):
-                parsed_lines.extend(get_parsed_lines(file))
-            elif isinstance(file, (str, Path)):
-                with open(file, 'r') as fd:
-                    parsed_lines.extend(get_parsed_lines(fd))
-            else:
-                raise TypeError(file, type(file), stm_file)
-
-        return cls(parsed_lines)
+            ])
 
     def _repr_pretty_(self, p, cycle):
         name = self.__class__.__name__
@@ -116,6 +102,10 @@ class STM:
                 p.text('...')
             elif len(self.lines):
                 p.pretty(list(self.lines))
+
+    @classmethod
+    def merge(cls, *stms) -> 'STM':
+        return cls([line for stm in stms for line in stm.lines])
 
     def dump(self, stm_file):
         with open(stm_file, 'w') as fd:
