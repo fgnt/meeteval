@@ -200,8 +200,7 @@ def cpwer(
         average_out='{parent}/{stem}_cpwer.json',
         per_reco_out='{parent}/{stem}_cpwer_per_reco.json',
 ):
-    """Computes the Concatenated minimum-Permutation Word Error Rate '
-         '(cpWER)"""
+    """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
     _save_results({
         example_id: cp_word_error_rate(
