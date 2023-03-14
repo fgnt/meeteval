@@ -1,20 +1,11 @@
 <h1 align="center">MeetEval</h1> 
 <h3 align="center">A meeting transcription evaluation toolkit</h3>
 
-<p align="center">:warning: This repository is under construction! :warning:</p>
-
 <a href="https://github.com/fgnt/meeteval/actions"><img src="https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg"/></a>
 
 ## Installation
 
-### Binaries
-
-TODO!
-
-### Development
-
 You need to have [Cython](https://cython.org/) installed.
-Then:
 
 ```shell
 pip install cython
@@ -23,7 +14,7 @@ pip install -e ./meeteval[cli]
 ```
 
 The `[cli]` is optional, except when you want to use the command line
-interface, that uses `click`.
+interface, that uses `pyyaml`.
 
 ## Computing WERs
 
@@ -90,6 +81,7 @@ We chose the `STM` format as the default because it contains all information req
 `MeetEval` currently does not support use of detailed timing information, so `begin_time` is only used to determine the correct utterance order and `end_time` is ignored.
 This may change in future versions.
 The speaker-ID field in the hypothesis encodes the output channel for MIMO and ORC WER.
+`MeetEval` does not support alternate transcripts (e.g., `"i've { um / uh / @ } as far as i'm concerned"`).
 Once you created an `STM` file, the tool can be called like this:
 
 ```shell
@@ -119,7 +111,7 @@ You have to supply one `CTM` file for each system output channel using multiple 
 For example:
 
 ```shell
-meeteval-wer -h hyp1.ctm -h hyp2.ctm -r reference.stm --orc
+meeteval-wer orcwer -h hyp1.ctm -h hyp2.ctm -r reference.stm
 ```
 
 Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away. We recommend to use `STM` files.
