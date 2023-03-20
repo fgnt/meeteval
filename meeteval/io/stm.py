@@ -1,7 +1,12 @@
+import typing
 from dataclasses import dataclass
 from itertools import groupby
 from pathlib import Path
 from typing import Dict, List, NamedTuple
+
+if typing.TYPE_CHECKING:
+    from meeteval.io.uem import UEM, UEMLine
+
 
 __all__ = [
     'STMLine',
@@ -112,6 +117,12 @@ class STM:
             for line in self.lines:
                 fd.write(line.serialize() + '\n')
 
+    def dumps(self):
+        return ''.join([
+            line.serialize() + '\n'
+            for line in self.lines
+        ])
+
     def to_rttm(self):
         from meeteval.io.rttm import RTTM, RTTMLine
 
@@ -138,6 +149,9 @@ class STM:
 
     def __iter__(self):
         return iter(self.lines)
+
+    def __len__(self):
+        return len(self.lines)
 
     def groupby(self, key) -> Dict[str, 'STM']:
         return {
@@ -185,3 +199,50 @@ class STM:
 
     def merged_transcripts(self) -> str:
         return ' '.join(self.utterance_transcripts())
+
+    @staticmethod
+    def _filter_by_uem_keep(line, uem: 'UEM'):
+        """
+        >>> from meeteval.io.uem import UEM, UEMLine
+        >>> uem = UEM([UEMLine('file', '1', 4, 8)])
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 1, 3, ''), uem)
+        False
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 9, 10, ''), uem)
+        False
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 5, 7, ''), uem)
+        True
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 3, 5, ''), uem)
+        True
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 7, 9, ''), uem)
+        True
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 3, 4, ''), uem)
+        False
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 4, 5, ''), uem)
+        True
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 7, 8, ''), uem)
+        True
+        >>> STM._filter_by_uem_keep(STMLine('file', '1', 'A', 8, 9, ''), uem)
+        False
+        """
+        try:
+            entry: 'UEMLine' = uem[line.filename]
+            begin_time = entry.begin_time
+            end_time = entry.end_time
+        except KeyError:
+            # UEM is not specified for every file, missing means keep.
+            return True
+        else:
+            # Partial overlap: Keep
+            if line.begin_time < end_time and begin_time < line.end_time:
+                return True
+            return False
+
+    def filter_by_uem(self, uem: 'UEM', verbose=False):
+        new = STM([
+            line
+            for line in self.lines
+            if self._filter_by_uem_keep(line, uem)
+        ])
+        if verbose:
+            print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.')
+        return new
