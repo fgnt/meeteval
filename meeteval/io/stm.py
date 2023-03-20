@@ -244,5 +244,5 @@ class STM:
             if self._filter_by_uem_keep(line, uem)
         ])
         if verbose:
-            print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.')
+            print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.', file=sys.stderr)
         return new
