@@ -1,4 +1,4 @@
-from typing import TextIO, Dict, List, NamedTuple
+from typing import List, NamedTuple
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
 
@@ -24,7 +24,7 @@ class UEMLine(NamedTuple, BaseLine):
     - offset  --  offset of evaluation region in seconds from beginning of
       file
 
-    Since all field names from dscore don't match the typically used fienames
+    Since all field names from dscore don't match the typically used filenames
     from NIST and the source code of
     https://github.com/usnistgov/SCTK/blob/master/src/asclite/core/uemfilter.h
     uses the typical names, use fild names that match with STM.
@@ -67,11 +67,12 @@ class UEM(Base):
 
     @cached_property
     def _key_to_index(self):
-        keys = [l.filename for l in self.lines]
+        keys = [line.filename for line in self.lines]
         assert len(keys) == len(set(keys)), sorted(keys)
         return {k: v for v, k in enumerate(keys)}
 
-    def _load(self, file_descriptor) -> 'List[UEMLine]':
+    @classmethod
+    def _load(cls, file_descriptor) -> 'List[UEMLine]':
         return [
             UEMLine.parse(line)
             for line in file_descriptor

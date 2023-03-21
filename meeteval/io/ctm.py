@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TextIO, Dict, List, Optional
+from typing import Dict, List, Optional
 from typing import NamedTuple
 from meeteval.io.base import Base, BaseLine
 
@@ -63,10 +63,10 @@ class CTM(Base):
     line_cls = CTMLine
 
     @classmethod
-    def _load(self, file_descriptor) -> 'List[CTMLine]':
+    def _load(cls, file_descriptor) -> 'List[CTMLine]':
         return [
             CTMLine.parse(line)
-            for line in map(str.strip, f)
+            for line in map(str.strip, file_descriptor)
             if len(line) > 0
             if not line.startswith(';;')
         ]
@@ -104,5 +104,5 @@ class CTMGroup:
             for key in keys
         }
 
-    def grouped_by_speaker_id(self) -> List[CTM]:
+    def grouped_by_speaker_id(self) -> Dict[str, CTM]:
         return self.ctms

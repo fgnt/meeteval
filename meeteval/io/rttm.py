@@ -1,5 +1,5 @@
 import typing
-from typing import TextIO, Dict, List, NamedTuple
+from typing import List, NamedTuple
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
 
@@ -15,7 +15,7 @@ class RTTMLine(NamedTuple, BaseLine):
         Rich Transcription Time Marked (RTTM) files are space-delimited text
         files containing one turn per line, each line containing ten fields:
 
-            Type -- segment type; should always by SPEAKER
+            Type -- segment type; should always be SPEAKER
             File ID -- file name; basename of the recording minus extension (e.g., rec1_a)
             Channel ID -- channel (1-indexed) that turn is on; should always be 1
             Turn Onset -- onset of turn in seconds from beginning of recording
@@ -84,7 +84,7 @@ class RTTM(Base):
     line_cls = RTTMLine
 
     @classmethod
-    def _load(self, file_descriptor) -> 'List[RTTMLine]':
+    def _load(cls, file_descriptor) -> 'List[RTTMLine]':
         return [
             RTTMLine.parse(line)
             for line in file_descriptor

@@ -1,6 +1,6 @@
 import typing
 from dataclasses import dataclass
-from typing import Dict, List, NamedTuple
+from typing import List, NamedTuple
 from meeteval.io.base import Base, BaseLine
 
 if typing.TYPE_CHECKING:
@@ -78,7 +78,7 @@ class STM(Base):
     line_cls = STMLine
 
     @classmethod
-    def _load(self, file_descriptor) -> 'List[STMLine]':
+    def _load(cls, file_descriptor) -> 'List[STMLine]':
         return [
             STMLine.parse(line)
             for line in file_descriptor

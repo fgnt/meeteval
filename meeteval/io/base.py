@@ -8,6 +8,7 @@ from itertools import groupby
 
 if typing.TYPE_CHECKING:
     from typing import Self
+    from meeteval.io.uem import UEM
 
 
 class BaseLine(NamedTuple):
@@ -38,7 +39,7 @@ class Base:
     line_cls = BaseLine
 
     @classmethod
-    def _load(self, file_descriptor) -> 'List[Self.line_cls]':
+    def _load(cls, file_descriptor) -> 'List[Self.line_cls]':
         raise NotImplementedError()
 
     @classmethod
