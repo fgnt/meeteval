@@ -37,10 +37,15 @@ import os
 import sys
 import decimal
 from pathlib import Path
-import paderbox as pb
+import json
 from meeteval.io.stm import STM, STMLine
 from meeteval.io.uem import UEM, UEMLine
 from meeteval.io.rttm import RTTM, RTTMLine
+
+
+def _load_json(file):
+    with open(file) as fd:
+        return json.load(fd)
 
 
 def json_to_stm(json_content, filename):
@@ -77,7 +82,7 @@ def to_stm(*jsons, uem=None, file=sys.stdout):
 
     for json in jsons:
         json = Path(json)
-        stm = json_to_stm(pb.io.load(json), json.with_suffix('').name)
+        stm = json_to_stm(_load_json(json), json.with_suffix('').name)
 
         if uem is not None:
             stm = stm.filter_by_uem(uem, verbose=True)
@@ -91,7 +96,7 @@ def to_rttm(*jsons, uem=None, file=sys.stdout):
 
     for json in jsons:
         json = Path(json)
-        rttm = json_to_rttm(pb.io.load(json), json.with_suffix('').name)
+        rttm = json_to_rttm(_load_json(json), json.with_suffix('').name)
 
         if uem is not None:
             rttm = rttm.filter_by_uem(uem, verbose=True)
