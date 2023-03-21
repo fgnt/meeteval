@@ -1,4 +1,5 @@
 from typing import List, NamedTuple
+import decimal
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
 
