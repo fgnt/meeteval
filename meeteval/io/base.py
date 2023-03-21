@@ -2,7 +2,7 @@ import io
 import sys
 import typing
 from pathlib import Path
-from typing import TextIO, Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple
 from dataclasses import dataclass
 from itertools import groupby
 
@@ -90,7 +90,7 @@ class Base:
 
     def groupby(self, key) -> Dict[str, 'Self']:
         return {
-            filename: self.__class_(list(group))
+            filename: self.__class__(list(group))
             for filename, group in groupby(
                 sorted(self.lines, key=key),
                 key=key
