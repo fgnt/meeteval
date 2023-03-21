@@ -1,4 +1,5 @@
 import io
+import sys
 import typing
 from typing import TextIO, Dict, List, NamedTuple
 from itertools import groupby
@@ -6,6 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass
 
 if typing.TYPE_CHECKING:
+    import decimal
     from meeteval.io.uem import UEM, UEMLine
 
 
@@ -35,8 +37,8 @@ class RTTMLine(NamedTuple):
     type: str = 'SPEAKER'
     filename: str = '<NA>'
     channel: str = '<NA>'
-    begin_time: 'float | int | str' = 0
-    duration_time: 'float | int | str' = 0
+    begin_time: 'float | int | str | decimal.Decimal' = 0
+    duration_time: 'float | int | str | decimal.Decimal' = 0
     othography: 'str' = '<NA>'
     speaker_type: 'str' = '<NA>'
     speaker_id: 'str' = '<NA>'
@@ -131,6 +133,9 @@ class RTTM:
         with open(rttm_file, 'w') as fd:
             for line in self.lines:
                 fd.write(line.serialize() + '\n')
+
+    def dumps(self):
+        return ''.join([line.serialize() + '\n' for line in self.lines])
 
     def __getitem__(self, item):
         if isinstance(item, int):

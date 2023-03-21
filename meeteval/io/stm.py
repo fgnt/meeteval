@@ -1,3 +1,4 @@
+import sys
 import typing
 from dataclasses import dataclass
 from itertools import groupby
@@ -5,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, NamedTuple
 
 if typing.TYPE_CHECKING:
+    import decimal
     from meeteval.io.uem import UEM, UEMLine
 
 
@@ -32,8 +34,8 @@ class STMLine(NamedTuple):
     filename: str
     channel: 'int | str'
     speaker_id: str
-    begin_time: 'float | int'
-    end_time: 'float | int'
+    begin_time: 'float | int | decimal.Decimal'
+    end_time: 'float | int | decimal.Decimal'
     transcript: str
 
     @classmethod
