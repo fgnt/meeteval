@@ -1,17 +1,15 @@
-import io
-import sys
 import typing
 from typing import TextIO, Dict, List, NamedTuple
-from itertools import groupby
-from pathlib import Path
 from dataclasses import dataclass
+from meeteval.io.base import Base, BaseLine
+
 
 if typing.TYPE_CHECKING:
     import decimal
     from meeteval.io.uem import UEM, UEMLine
 
 
-class RTTMLine(NamedTuple):
+class RTTMLine(NamedTuple, BaseLine):
     """
     Copied from https://github.com/nryant/dscore#rttm :
         Rich Transcription Time Marked (RTTM) files are space-delimited text
@@ -79,160 +77,16 @@ class RTTMLine(NamedTuple):
                 f'{self.speaker_type} {self.speaker_id} {self.confidence} '
                 f'{self.signal_look_ahead_time}')
 
-    def replace(self, **kwargs):
-        """
-        Return a new instance of the named tuple replacing specified fields with new values.
-
-        >>> line = RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
-        >>> line
-        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration_time=2.35, othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
-        >>> line.replace(speaker_id='B')
-        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration_time=2.35, othography='<NA>', speaker_type='<NA>', speaker_id='B', confidence='<NA>', signal_look_ahead_time='<NA>')
-        """
-        return self._replace(**kwargs)
-
 
 @dataclass(frozen=True)
-class RTTM:
+class RTTM(Base):
     lines: List[RTTMLine]
+    line_cls = RTTMLine
 
     @classmethod
-    def load(cls, rttm_file: [Path, str, io.TextIOBase, tuple, list]) -> 'RTTM':
-        def get_parsed_lines(fd):
-            return [
-                RTTMLine.parse(line)
-                for line in fd
-                if len(line.strip()) > 0 and not line.strip().startswith(';')
-            ]
-
-        if not isinstance(rttm_file, (tuple, list)):
-            rttm_file = [rttm_file]
-
-        parsed_lines = []
-
-        for file in rttm_file:
-            if isinstance(file, io.TextIOBase):
-                parsed_lines.extend(get_parsed_lines(file))
-            elif isinstance(file, (str, Path)):
-                with open(file, 'r') as fd:
-                    parsed_lines.extend(get_parsed_lines(fd))
-            else:
-                raise TypeError(file, type(file), rttm_file)
-
-        return cls(parsed_lines)
-
-    def _repr_pretty_(self, p, cycle):
-        name = self.__class__.__name__
-        with p.group(len(name) + 1, name + '(', ')'):
-            if cycle:
-                p.text('...')
-            elif len(self.lines):
-                p.pretty(list(self.lines))
-
-    def dump(self, rttm_file):
-        with open(rttm_file, 'w') as fd:
-            for line in self.lines:
-                fd.write(line.serialize() + '\n')
-
-    def dumps(self):
-        return ''.join([line.serialize() + '\n' for line in self.lines])
-
-    def __getitem__(self, item):
-        if isinstance(item, int):
-            return self.lines[item]
-        elif isinstance(item, slice):
-            return self.__class__(self.lines[item])
-        else:
-            raise NotImplementedError(type(item), item)
-
-    def __iter__(self):
-        return iter(self.lines)
-
-    def __len__(self):
-        return len(self.lines)
-
-    def grouped_by_filename(self) -> Dict[str, 'RTTM']:
-        return {
-            filename: RTTM(list(group))
-            for filename, group in groupby(sorted(self.lines), key=lambda x: x.filename)
-        }
-
-    def grouped_by_speaker_id(self):
-        return {
-            speaker_id: RTTM(list(speaker_group))
-            for speaker_id, speaker_group in
-            groupby(sorted(self.lines, key=lambda x: x.speaker_id), key=lambda x: x.speaker_id)
-        }
-
-    def sorted(self, key=None):
-        """
-        This wrapper of sorted.
-
-        Often a sort based on filename and begin_time is useful.
-        Reason: filename matches between ref and hyp and begin_time
-                should be similar. Using no key, sorts by
-                filename, channel, speaker_id, begin_time, ...
-                so speaker_id is used before begin_time.
-                Since the true speaker_id is not known in hyp,
-                it is likely that ref and hyp are hard to compare
-                with simple tools (e.g. check first lines of ref and hyp.)
-
-        Here, an example to get a reasonable sort:
-            new = rttm.sorted(key=lambda x: (x.filename, x.begin_time))
-
-        """
-        return RTTM(sorted(self.lines, key=key))
-
-    def sorted_by_begin_time(self):
-        return RTTM(sorted(self.lines, key=lambda x: x.begin_time))
-
-    @staticmethod
-    def _filter_by_uem_keep(line: 'RTTMLine', uem: 'UEM'):
-        """
-        >>> from meeteval.io.uem import UEM, UEMLine
-        >>> from meeteval.io.stm import STM, STMLine
-        >>> uem = UEM([UEMLine('file', RTTMLine.speaker_id, 4, 8)])
-        >>> def to_rttm(*args):
-        ...     return STM([STMLine(*args)]).to_rttm()[0]
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 1, 3, ''), uem)
-        False
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 9, 10, ''), uem)
-        False
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 5, 7, ''), uem)
-        True
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 3, 5, ''), uem)
-        True
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 7, 9, ''), uem)
-        True
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 3, 4, ''), uem)
-        False
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 4, 5, ''), uem)
-        True
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 7, 8, ''), uem)
-        True
-        >>> RTTM._filter_by_uem_keep(to_rttm('file', '1', 'A', 8, 9, ''), uem)
-        False
-        """
-        try:
-            entry: 'UEMLine' = uem[line.filename]
-            begin_time = entry.begin_time
-            end_time = entry.end_time
-        except KeyError:
-            # UEM is not specified for every file, missing means keep.
-            return True
-        else:
-            # Partial overlap: Keep
-            if line.begin_time < end_time \
-                    and begin_time < line.begin_time + line.duration_time:
-                return True
-            return False
-
-    def filter_by_uem(self, uem: 'UEM', verbose=False):
-        new = RTTM([
-            line
-            for line in self.lines
-            if self._filter_by_uem_keep(line, uem)
-        ])
-        if verbose:
-            print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.', file=sys.stderr)
-        return new
+    def _load(self, file_descriptor) -> 'List[RTTMLine]':
+        return [
+            RTTMLine.parse(line)
+            for line in file_descriptor
+            if len(line.strip()) > 0 and not line.strip().startswith(';')
+        ]
