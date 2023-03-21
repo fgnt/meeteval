@@ -14,7 +14,8 @@ __all__ = [
 ]
 
 
-class STMLine(NamedTuple, BaseLine):
+@dataclass(frozen=True)
+class STMLine(BaseLine):
     """
     Represents one line of an STM file, which is an ordered list of fields:
 
@@ -91,6 +92,10 @@ class STM(Base):
 
     def to_rttm(self):
         from meeteval.io.rttm import RTTM, RTTMLine
+
+        # ToDo: Fix `line.end_time - line.begin_time`, when they are floats.
+        #       Sometimes there is a small error and the error will be written
+        #       to the rttm file.
 
         return RTTM([
             RTTMLine(

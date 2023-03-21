@@ -3,6 +3,7 @@ import sys
 import typing
 from pathlib import Path
 from typing import Dict, List, NamedTuple
+import dataclasses
 from dataclasses import dataclass
 from itertools import groupby
 
@@ -11,7 +12,8 @@ if typing.TYPE_CHECKING:
     from meeteval.io.uem import UEM
 
 
-class BaseLine(NamedTuple):
+@dataclass(frozen=True)
+class BaseLine:
     @classmethod
     def parse(cls, line: str) -> 'Self':
         raise NotImplementedError(cls)
@@ -30,7 +32,7 @@ class BaseLine(NamedTuple):
         >>> line.replace(speaker_id='B')
         STMLine(filename='rec1', channel=0, speaker_id='B', begin_time=10, end_time=20, transcript='Hello World')
         """
-        return self._replace(**kwargs)
+        return dataclasses.replace(self, **kwargs)
 
 
 @dataclass(frozen=True)

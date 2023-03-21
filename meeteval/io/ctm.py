@@ -11,7 +11,8 @@ __all__ = [
 ]
 
 
-class CTMLine(NamedTuple, BaseLine):
+@dataclass(frozen=True)
+class CTMLine(BaseLine):
     """
     Represents one line of a CTM file, which is an ordered list of fields.
 

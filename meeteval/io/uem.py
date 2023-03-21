@@ -11,7 +11,8 @@ except ImportError:
     from cached_property import cached_property  # Python 3.7
 
 
-class UEMLine(NamedTuple, BaseLine):
+@dataclass(frozen=True)
+class UEMLine(BaseLine):
     """
     un-partitioned evaluation map from file in NIST format.
 

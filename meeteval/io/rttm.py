@@ -9,7 +9,8 @@ if typing.TYPE_CHECKING:
     from meeteval.io.uem import UEM, UEMLine
 
 
-class RTTMLine(NamedTuple, BaseLine):
+@dataclass(frozen=True)
+class RTTMLine(BaseLine):
     """
     Copied from https://github.com/nryant/dscore#rttm :
         Rich Transcription Time Marked (RTTM) files are space-delimited text
