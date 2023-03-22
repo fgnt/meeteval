@@ -82,7 +82,7 @@ def to_stm(*jsons, uem=None, file=sys.stdout):
 
     for json in jsons:
         json = Path(json)
-        stm = json_to_stm(_load_json(json), json.with_suffix('').name)
+        stm = json_to_stm(_load_json(json), json.stem)
 
         if uem is not None:
             stm = stm.filter_by_uem(uem, verbose=True)
@@ -117,7 +117,6 @@ def dir_to(jsondir, uemdir=None, suffix='.stm'):
     for datasetdir in jsondir.glob('*'):
         if datasetdir.is_file():
             continue
-        datasetdir = Path(datasetdir)
         if uemdir is not None:
             uem = uemdir / datasetdir.name / 'all.uem'
             if not uem.exists():

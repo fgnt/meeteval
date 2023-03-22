@@ -1,7 +1,9 @@
 import io
+import os
 import sys
 import typing
 from pathlib import Path
+import contextlib
 from typing import Dict, List, NamedTuple
 import dataclasses
 from dataclasses import dataclass
@@ -21,9 +23,9 @@ class BaseLine:
     def serialize(self):
         raise NotImplementedError(type(self))
 
-    def replace(self, **kwargs):
+    def replace(self, **kwargs) -> 'Self':
         """
-        Return a new instance of the named tuple replacing specified fields with new values.
+        Return a new object replacing specified fields with new values.
 
         >>> from meeteval.io.stm import STMLine
         >>> line = STMLine.parse('rec1 0 A 10 20 Hello World')
@@ -50,13 +52,8 @@ class Base:
 
         parsed_lines = []
         for f in files:
-            if isinstance(f, io.TextIOBase):
-                parsed_lines.extend(cls._load(f))
-            elif isinstance(f, (str, Path)):
-                with open(f, 'r') as fd:
-                    parsed_lines.extend(cls._load(fd))
-            else:
-                raise TypeError(f, type(f), files)
+            with _open(f, 'r') as fd:
+                parsed_lines.extend(cls._load(fd))
 
         return cls(parsed_lines)
 
@@ -91,6 +88,23 @@ class Base:
         return len(self.lines)
 
     def groupby(self, key) -> Dict[str, 'Self']:
+        """
+        >>> from meeteval.io.stm import STM, STMLine
+        >>> stm = STM([STMLine.parse('rec1 0 A 10 20 Hello World')])
+        >>> stm.groupby(['filename', 'begin_time'])
+        {('rec1', 10): STM(lines=[STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')])}
+        >>> stm.groupby('filename')
+        {'rec1': STM(lines=[STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')])}
+
+
+        """
+        if isinstance(key, str):
+            attribute = key
+            key = lambda x: getattr(x, attribute)
+        elif isinstance(key, (tuple, list)):
+            attributes = key
+            key = lambda x: tuple([getattr(x, a) for a in attributes])
+
         return {
             filename: self.__class__(list(group))
             for filename, group in groupby(
@@ -174,3 +188,12 @@ class Base:
         if verbose:
             print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.', file=sys.stderr)
         return new
+
+
+def _open(f, mode='r'):
+    if isinstance(f, io.TextIOBase):
+        return contextlib.nullcontext(f)
+    elif isinstance(f, (str, os.PathLike)):
+        return open(f, mode)
+    else:
+        raise TypeError(type(f), f)

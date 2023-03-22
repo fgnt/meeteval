@@ -29,7 +29,7 @@ class UEMLine(BaseLine):
     Since all field names from dscore don't match the typically used filenames
     from NIST and the source code of
     https://github.com/usnistgov/SCTK/blob/master/src/asclite/core/uemfilter.h
-    uses the typical names, use fild names that match with STM.
+    uses the typical names, use field names that match with STM.
 
     """
     filename: str
