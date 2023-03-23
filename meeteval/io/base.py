@@ -11,7 +11,13 @@ from itertools import groupby
 
 if typing.TYPE_CHECKING:
     from typing import Self
-    from meeteval.io.uem import UEM
+    from meeteval.io.uem import UEM, UEMLine
+    from meeteval.io.stm import STM, STMLine
+    from meeteval.io.ctm import CTM, CTMLine
+    from meeteval.io.rttm import RTTM, RTTMLine
+
+    LineSubclasses = 'UEMLine | STMLine | CTMLine | RTTMLine'
+    Subclasses = 'UEM | STM | CTM | RTTM'
 
 
 @dataclass(frozen=True)
@@ -22,6 +28,75 @@ class BaseLine:
 
     def serialize(self):
         raise NotImplementedError(type(self))
+
+    def has_intersection(self, other: 'LineSubclasses'):
+        """
+        Returns True, when lines have an intersection, otherwise False.
+
+        >>> from meeteval.io.stm import STMLine
+        >>> from meeteval.io.rttm import RTTMLine
+        >>> from meeteval.io.uem import UEMLine
+        >>> from meeteval.io.ctm import CTMLine
+
+        # Test different line types
+        >>> s = STMLine('file', 1, 'A', 10, 12, 'words')
+        >>> r = RTTMLine(filename='file', speaker_id='A', begin_time=10, duration=2)
+        >>> u = UEMLine('file', 1, 10, 12)
+        >>> c = CTMLine('file', 1, 10, 2, 'word')
+        >>> s.has_intersection(u)
+        True
+        >>> u.has_intersection(s)
+        True
+        >>> u.has_intersection(r)
+        True
+        >>> u.has_intersection(u)
+        True
+        >>> u.has_intersection(c)
+        True
+
+        # Test all corner cases
+        >>> u = UEMLine('file', '1', 4, 8)
+        >>> u.has_intersection(UEMLine('file', '1', 1, 3))
+        False
+        >>> u.has_intersection(UEMLine('file', '1', 9, 10))
+        False
+        >>> u.has_intersection(UEMLine('file', '1', 5, 7))
+        True
+        >>> u.has_intersection(UEMLine('file', '1', 3, 5))
+        True
+        >>> u.has_intersection(UEMLine('file', '1', 7, 9))
+        True
+        >>> u.has_intersection(UEMLine('file', '1', 3, 4))
+        False
+        >>> u.has_intersection(UEMLine('file', '1', 4, 5))
+        True
+        >>> u.has_intersection(UEMLine('file', '1', 7, 8))
+        True
+        >>> u.has_intersection(UEMLine('file', '1', 8, 9))
+        False
+        """
+        if not isinstance(other, BaseLine):
+            raise NotImplementedError(self, other)
+        if 'UEMLine' not in [self.__class__.__name__, other.__class__.__name__]:
+            # Usually UEM is used together with the other types, i.e.
+            # define the scoring region. Disable other comparisons for now,
+            # until we find a usecase.
+            raise NotImplementedError(self, other)
+
+        assert self.filename == other.filename, (self, other)
+
+        def get_begin_end_time(line):
+            begin_time = line.begin_time
+            try:
+                end_time = line.end_time
+            except AttributeError:
+                end_time = begin_time + line.duration
+            return begin_time, end_time
+
+        self_begin_time, self_end_time = get_begin_end_time(self)
+        other_begin_time, other_end_time = get_begin_end_time(other)
+
+        return self_begin_time < other_end_time and other_begin_time < self_end_time
 
     def replace(self, **kwargs) -> 'Self':
         """
@@ -39,8 +114,8 @@ class BaseLine:
 
 @dataclass(frozen=True)
 class Base:
-    lines: List[BaseLine]
-    line_cls = BaseLine
+    lines: 'List[LineSubclasses]'
+    line_cls = 'LineSubclasses'
 
     @classmethod
     def _load(cls, file_descriptor) -> 'List[Self.line_cls]':
@@ -95,8 +170,6 @@ class Base:
         {('rec1', 10): STM(lines=[STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')])}
         >>> stm.groupby('filename')
         {'rec1': STM(lines=[STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')])}
-
-
         """
         if isinstance(key, str):
             attribute = key
@@ -141,53 +214,91 @@ class Base:
     def sorted_by_begin_time(self):
         return self.sorted(lambda x: x.begin_time)
 
-    @staticmethod
-    def _filter_by_uem_keep(line, uem: 'UEM'):
+    def filter_by_uem(self: 'Subclasses', uem: 'UEM', verbose=False):
         """
+        Remove segments that are outside of the region that is specified by the
+        uem.
+
+        Speciall cases:
+         - Partial inside: Keep
+         - Missing filename in uem: Keep
+
+        >>> from pprint import pprint
         >>> from meeteval.io.uem import UEM, UEMLine
         >>> from meeteval.io.stm import STM, STMLine
-        >>> uem = UEM([UEMLine('file', '1', 4, 8)])
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 1, 3, ''), uem)
-        False
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 9, 10, ''), uem)
-        False
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 5, 7, ''), uem)
-        True
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 3, 5, ''), uem)
-        True
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 7, 9, ''), uem)
-        True
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 3, 4, ''), uem)
-        False
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 4, 5, ''), uem)
-        True
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 7, 8, ''), uem)
-        True
-        >>> Base._filter_by_uem_keep(STMLine('file', '1', 'A', 8, 9, ''), uem)
-        False
+        >>> uem = UEM([UEMLine('file', 1, 10, 20)])
+        >>> stm = STM([
+        ...     STMLine('file', 1, 'A', 2, 6, 'words'),  # dropped
+        ...     STMLine('file', 1, 'A', 8, 12, 'words'),
+        ...     STMLine('file', 1, 'B', 14, 16, 'words'),
+        ...     STMLine('file', 1, 'A', 18, 22, 'words'),
+        ...     STMLine('file', 1, 'A', 24, 28, 'words'),  # dropped
+        ...     STMLine('file2', 1, 'A', 24, 28, 'words'),
+        ... ])
+        >>> pprint(stm.filter_by_uem(uem).lines)
+        [STMLine(filename='file', channel=1, speaker_id='A', begin_time=8, end_time=12, transcript='words'),
+         STMLine(filename='file', channel=1, speaker_id='B', begin_time=14, end_time=16, transcript='words'),
+         STMLine(filename='file', channel=1, speaker_id='A', begin_time=18, end_time=22, transcript='words'),
+         STMLine(filename='file2', channel=1, speaker_id='A', begin_time=24, end_time=28, transcript='words')]
         """
-        try:
-            entry: 'Self.line_cls' = uem[line.filename]
-            begin_time = entry.begin_time
-            end_time = entry.end_time
-        except KeyError:
-            # UEM is not specified for every file, missing means keep.
-            return True
-        else:
-            # Partial overlap: Keep
-            if line.begin_time < end_time and begin_time < line.end_time:
-                return True
-            return False
+        uem = {line.filename: line for line in uem}
 
-    def filter_by_uem(self, uem: 'UEM', verbose=False):
         new = self.__class__([
             line
             for line in self.lines
-            if self._filter_by_uem_keep(line, uem)
+            if line.filename not in uem or uem[line.filename].has_intersection(line)
+            # if self._filter_by_uem_keep(line, uem)
         ])
         if verbose:
             print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.', file=sys.stderr)
         return new
+
+    def cut_by_uem(self: 'Subclasses', uem: 'UEM', verbose=False):
+        """
+        Remove segments that are outside of the region that is specified by the
+        uem and shift the segments.
+
+        Speciall cases:
+         - Partial inside: Keep, but shorten interval to valid area.
+         - Missing filename in uem: Keep
+
+        >>> from pprint import pprint
+        >>> from meeteval.io.uem import UEM, UEMLine
+        >>> from meeteval.io.stm import STM, STMLine
+        >>> uem = UEM([UEMLine('file', 1, 10, 20)])
+        >>> stm = STM([
+        ...     STMLine('file', 1, 'A', 2, 6, 'words'),  # dropped
+        ...     STMLine('file', 1, 'A', 8, 12, 'words'),
+        ...     STMLine('file', 1, 'B', 14, 16, 'words'),
+        ...     STMLine('file', 1, 'A', 18, 22, 'words'),
+        ...     STMLine('file', 1, 'A', 24, 28, 'words'),  # dropped
+        ...     STMLine('file2', 1, 'A', 24, 28, 'words'),
+        ... ])
+        >>> pprint(stm.cut_by_uem(uem).lines)
+        [STMLine(filename='file', channel=1, speaker_id='A', begin_time=0, end_time=2, transcript='words'),
+         STMLine(filename='file', channel=1, speaker_id='B', begin_time=4, end_time=6, transcript='words'),
+         STMLine(filename='file', channel=1, speaker_id='A', begin_time=8, end_time=10, transcript='words'),
+         STMLine(filename='file2', channel=1, speaker_id='A', begin_time=24, end_time=28, transcript='words')]
+        """
+        uem = {line.filename: line for line in uem}
+        from meeteval.io.uem import UEMLine
+        new = []
+        for line in self.lines:
+            if line.filename in uem:
+                u: UEMLine = uem[line.filename]
+                if u.has_intersection(line):
+                    new.append(line.replace(
+                        begin_time=max(line.begin_time - u.begin_time,
+                                       0),
+                        end_time=min(line.end_time - u.begin_time,
+                                     u.end_time - u.begin_time),
+                    ))
+            else:
+                new.append(line)
+
+        if verbose:
+            print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.', file=sys.stderr)
+        return self.__class__(new)
 
 
 def _open(f, mode='r'):
