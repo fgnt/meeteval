@@ -1,7 +1,19 @@
+import collections
+import dataclasses
+import typing
+from typing import Tuple
+
+from .error_rate import ErrorRate
+from .siso import siso_word_error_rate
+from ..utils import _items
+
 if typing.TYPE_CHECKING:
     from meeteval.io.stm import STM
 
-@dataclass(frozen=True)
+__all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm']
+
+
+@dataclasses.dataclass(frozen=True)
 class OrcErrorRate(ErrorRate):
     """
     >>> OrcErrorRate(0, 10, 0, 0, 0, (0, 1))
@@ -28,6 +40,7 @@ class OrcErrorRate(ErrorRate):
             raise TypeError(type(hypothesis), hypothesis)
 
         return ref, hypothesis
+
 
 def orc_word_error_rate_stm(
         reference_stm: 'STM',

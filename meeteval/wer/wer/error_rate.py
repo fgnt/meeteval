@@ -1,4 +1,9 @@
-@dataclass(frozen=True)
+import dataclasses
+
+__all__ = ['ErrorRate', 'combine_error_rates']
+
+
+@dataclasses.dataclass(frozen=True)
 class ErrorRate:
     """
     This class represents an error rate. It bundles statistics over the errors
@@ -15,8 +20,7 @@ class ErrorRate:
     deletions: int
     substitutions: int
 
-    error_rate: int = field(init=False)
-
+    error_rate: int = dataclasses.field(init=False)
 
     @classmethod
     def zero(cls):
@@ -83,8 +87,8 @@ class ErrorRate:
         d.setdefault('substitutions', None)
 
         if d.keys() == {
-                'errors', 'length', 'error_rate',
-                'insertions', 'deletions', 'substitutions',
+            'errors', 'length', 'error_rate',
+            'insertions', 'deletions', 'substitutions',
         }:
             return ErrorRate(
                 errors=d['errors'],
@@ -100,6 +104,7 @@ class ErrorRate:
             'missed_speaker', 'falarm_speaker', 'scored_speaker',
             'assignment',
         }:
+            from .cp import CPErrorRate
             return CPErrorRate(
                 errors=d['errors'], length=d['length'],
                 insertions=d['insertions'],
@@ -117,8 +122,10 @@ class ErrorRate:
             'assignment',
         }:
             if isinstance(d['assignment'][0], (tuple, list)):
+                from .mimo import MimoErrorRate
                 XErrorRate = MimoErrorRate
             else:
+                from .orc import OrcErrorRate
                 XErrorRate = OrcErrorRate
 
             return XErrorRate(

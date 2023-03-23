@@ -1,3 +1,9 @@
+from typing import List, Hashable
+from .error_rate import ErrorRate
+
+__all__ = ['siso_word_error_rate', 'siso_character_error_rate']
+
+
 def _siso_error_rate(
         reference: List[Hashable],
         hypothesis: List[Hashable]
@@ -7,7 +13,8 @@ def _siso_error_rate(
     try:
         result = kaldialign.edit_distance(reference, hypothesis)
     except TypeError:
-        raise TypeError(type(reference), type(hypothesis), type(reference[0]), type(hypothesis[0]), reference[0], hypothesis[0])
+        raise TypeError(type(reference), type(hypothesis), type(reference[0]), type(hypothesis[0]), reference[0],
+                        hypothesis[0])
 
     return ErrorRate(
         result['total'],

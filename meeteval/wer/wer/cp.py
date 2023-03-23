@@ -1,5 +1,16 @@
+import dataclasses
+import itertools
+import string
+from typing import Optional, Tuple
 
-@dataclass(frozen=True)
+from .error_rate import ErrorRate
+from .siso import siso_word_error_rate
+from ..utils import _items
+
+__all__ = ['CPErrorRate', 'cp_word_error_rate']
+
+
+@dataclasses.dataclass(frozen=True)
 class CPErrorRate(ErrorRate):
     """
     Error rate statistics wrapper for the cpWER. Tracks the number of missed,

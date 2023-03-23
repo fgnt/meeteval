@@ -1,4 +1,14 @@
-@dataclass(frozen=True)
+import dataclasses
+from typing import Tuple
+
+from .error_rate import ErrorRate
+from siso import siso_word_error_rate
+
+
+__all__ = ['MimoErrorRate', 'mimo_word_error_rate']
+
+
+@dataclasses.dataclass(frozen=True)
 class MimoErrorRate(ErrorRate):
     """
     >>> MimoErrorRate(0, 10, 0, 0, 0, [(0, 0)])
