@@ -16,7 +16,7 @@ from meeteval.wer.wer import (
     mimo_word_error_rate,
     combine_error_rates,
     ErrorRate,
-    CPErrorRate,
+    CPErrorRate, siso_word_error_rate,
 )
 import sys
 
@@ -180,30 +180,41 @@ def orcwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_orcwer.json',
         per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
+        verbose=False
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
-    _save_results({
-        example_id: orc_word_error_rate(
+    results = {}
+    for example_id in reference.keys():
+        if verbose:
+            print(f'Processing example {example_id}')
+            print(f'  num reference utterances: {len(reference[example_id].utterance_transcripts())}')
+            print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
+        results[example_id] = orc_word_error_rate(
             reference=reference[example_id].utterance_transcripts(),
             hypothesis={
                 k: h.merged_transcripts()
                 for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
             },
         )
-        for example_id in reference.keys()
-    }, hypothesis_paths, per_reco_out, average_out)
+    _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
 def cpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_cpwer.json',
         per_reco_out='{parent}/{stem}_cpwer_per_reco.json',
+        verbose=False,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
-    _save_results({
-        example_id: cp_word_error_rate(
+    results = {}
+    for example_id in reference.keys():
+        if verbose:
+            print(f'Processing example {example_id}')
+            print(f'  reference speakers: {reference[example_id].grouped_by_speaker_id().keys()}')
+            print(f'  num hypothesis speakers: {hypothesis[example_id].grouped_by_speaker_id().keys()}')
+        results[example_id] = cp_word_error_rate(
             reference={
                 k: r.merged_transcripts()
                 for k, r in reference[example_id].grouped_by_speaker_id().items()
@@ -213,19 +224,25 @@ def cpwer(
                 for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
             },
         )
-        for example_id in reference.keys()
-    }, hypothesis_paths, per_reco_out, average_out)
+    _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
 def mimower(
         reference, hypothesis,
         average_out='{parent}/{stem}_mimower.json',
         per_reco_out='{parent}/{stem}_mimower_per_reco.json',
+        verbose=False,
 ):
     """Computes the MIMO WER"""
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
-    _save_results({
-        example_id: mimo_word_error_rate(
+
+    results = {}
+    for example_id in reference.keys():
+        if verbose:
+            print(f'Processing example {example_id}')
+            print(f'  num reference utterances: {len(reference[example_id].grouped_by_speaker_id().items())}')
+            print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
+        results[example_id] = mimo_word_error_rate(
             reference={
                 k: r.utterance_transcripts()
                 for k, r in reference[example_id].grouped_by_speaker_id().items()
@@ -235,8 +252,7 @@ def mimower(
                 for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
             },
         )
-        for example_id in reference.keys()
-    }, hypothesis_paths, per_reco_out, average_out)
+    _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
 def _merge(
@@ -342,6 +358,8 @@ def cli():
                 )
             elif name == 'files':
                 command_parser.add_argument('files', nargs='+')
+            elif name == 'verbose':
+                command_parser.add_argument('--verbose', action='store_true')
             else:
                 raise AssertionError("Error in command definition")
 
