@@ -5,12 +5,12 @@ from typing import Tuple
 
 from .error_rate import ErrorRate
 from .siso import siso_word_error_rate
-from ..utils import _items
+from ..utils import _items, _keys
 
 if typing.TYPE_CHECKING:
     from meeteval.io.stm import STM
 
-__all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm']
+__all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm', 'apply_orc_assignment']
 
 
 @dataclasses.dataclass(frozen=True)
@@ -98,7 +98,6 @@ def orc_word_error_rate(
     distance, assignment = mimo_matching_v3([reference_words], hypothesis_words)
     assignment = tuple([hypothesis_keys[x[1]] for x in assignment])
 
-    from meeteval.wer.assignment import apply_orc_assignment
     reference_new, hypothesis = apply_orc_assignment(
         assignment,
         reference=reference,
@@ -121,3 +120,34 @@ def orc_word_error_rate(
         substitutions=er.substitutions,
         assignment=assignment,
     )
+
+def apply_orc_assignment(
+        assignment: 'List[tuple]',
+        reference: 'List[str]',
+        hypothesis: 'List[str] | dict[str]',
+):
+    """
+    >>> assignment = ('A', 'A', 'B')
+    >>> apply_orc_assignment(assignment, ['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
+    ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
+
+    >>> assignment = (0, 0, 1)
+    >>> apply_orc_assignment(assignment, ['a', 'c d', 'e'], ['a c', 'd e'])
+    ([['a', 'c d'], ['e']], ['a c', 'd e'])
+
+    >>> assignment = ('A', )
+    >>> apply_orc_assignment(assignment, ['a'], {'A': 'b', 'B': 'c'})
+    ({'A': ['a'], 'B': []}, {'A': 'b', 'B': 'c'})
+    """
+    reference_new = {k: [] for k in _keys(hypothesis)}
+
+    assert len(reference) == len(assignment), (len(reference), len(assignment))
+    for r, a in zip(reference, assignment):
+        reference_new[a].append(r)
+
+    if isinstance(hypothesis, dict):
+        return dict(reference_new), hypothesis
+    elif isinstance(hypothesis, (list, tuple)):
+        return type(hypothesis)(reference_new.values()), hypothesis
+    else:
+        raise TypeError(type(hypothesis), hypothesis)

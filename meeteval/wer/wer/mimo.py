@@ -2,10 +2,11 @@ import dataclasses
 from typing import Tuple
 
 from .error_rate import ErrorRate
-from siso import siso_word_error_rate
+from .siso import siso_word_error_rate
+from ..utils import _keys, _items
 
 
-__all__ = ['MimoErrorRate', 'mimo_word_error_rate']
+__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment']
 
 
 @dataclasses.dataclass(frozen=True)
@@ -72,7 +73,6 @@ def mimo_word_error_rate(
     assignment = [
         (reference_keys[r], hypothesis_keys[h]) for r, h in assignment]
 
-    from meeteval.wer.assignment import apply_mimo_assignment
     reference_new, hypothesis = apply_mimo_assignment(
         assignment,
         reference=reference,
@@ -95,3 +95,42 @@ def mimo_word_error_rate(
         substitutions=er.substitutions,
         assignment=assignment,
     )
+
+
+def apply_mimo_assignment(
+        assignment: 'List[tuple]',
+        reference: 'List[List[str]] | Dict[List[str]]',
+        hypothesis: 'List[str] | Dict[str]',
+):
+    """
+    >>> assignment = [('A', 'O2'), ('B', 'O2'), ('A', 'O1')]
+    >>> reference = {'A': ['a b', 'c d'], 'B': ['e f']}
+    >>> hypothesis = {'O1': 'c d', 'O2': 'a b e f'}
+    >>> apply_mimo_assignment(assignment, reference, hypothesis)
+    ({'O1': ['c d'], 'O2': ['a b', 'e f']}, {'O1': 'c d', 'O2': 'a b e f'})
+
+    >>> assignment = [(0, 1), (1, 1), (0, 0)]
+    >>> reference = [['a b', 'c d'], ['e f']]
+    >>> hypothesis = ['c d', 'a b e f']
+    >>> apply_mimo_assignment(assignment, reference, hypothesis)
+    ([['c d'], ['a b', 'e f']], ['c d', 'a b e f'])
+
+    >>> assignment = [('A', 'O1'), ('A', 'O1')]
+    >>> reference = {'A': ['a b', 'c d']}
+    >>> hypothesis = {'O1': 'c d', 'O2': 'a b e f'}
+    >>> apply_mimo_assignment(assignment, reference, hypothesis)
+    ({'O1': ['a b', 'c d'], 'O2': []}, {'O1': 'c d', 'O2': 'a b e f'})
+    """
+    reference_new = {k: [] for k in _keys(hypothesis)}
+    # convert to list and copy
+    reference = {k: list(v) for k, v in _items(reference)}
+
+    for r, h in assignment:
+        reference_new[h].append(reference[r].pop(0))
+
+    if isinstance(hypothesis, dict):
+        return dict(reference_new), hypothesis
+    elif isinstance(hypothesis, (list, tuple)):
+        return type(hypothesis)(reference_new.values()), hypothesis
+    else:
+        raise TypeError(type(hypothesis), hypothesis)

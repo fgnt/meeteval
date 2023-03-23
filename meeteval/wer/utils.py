@@ -5,3 +5,9 @@ def _items(obj):
         return enumerate(obj)
     else:
         raise TypeError(type(obj), obj)
+
+def _keys(obj):
+    if isinstance(obj, dict):
+        return list(obj.keys())
+    else:
+        return list(range(len(obj)))
