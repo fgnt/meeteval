@@ -37,7 +37,7 @@ class RTTMLine(BaseLine):
     filename: str = '<NA>'
     channel: str = '<NA>'
     begin_time: 'float | int | str | decimal.Decimal' = 0
-    duration_time: 'float | int | str | decimal.Decimal' = 0
+    duration: 'float | int | str | decimal.Decimal' = 0
     othography: 'str' = '<NA>'
     speaker_type: 'str' = '<NA>'
     speaker_id: 'str' = '<NA>'
@@ -48,9 +48,9 @@ class RTTMLine(BaseLine):
     def parse(cls, line: str) -> 'RTTMLine':
         """
         >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
-        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration_time=2.35, othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
+        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration=2.35, othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
         """
-        type_, filename, channel, begin_time, duration_time, othography, \
+        type_, filename, channel, begin_time, duration, othography, \
         speaker_type, speaker_id, confidence, signal_look_ahead_time, \
             = line.split()
 
@@ -59,7 +59,7 @@ class RTTMLine(BaseLine):
             filename=filename,
             channel=int(channel) if begin_time.isdigit() else channel,
             begin_time=int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float,
-            duration_time=int(duration_time) if duration_time.isdigit() else float(duration_time),  # Keep type, int or float,
+            duration=int(duration) if duration.isdigit() else float(duration),  # Keep type, int or float,
             othography=othography,
             speaker_type=speaker_type,
             speaker_id=speaker_id,
@@ -74,7 +74,7 @@ class RTTMLine(BaseLine):
         'SPEAKER CMU_20020319-1400_d01_NONE 1 130.43 2.35 <NA> <NA> juliet <NA> <NA>'
         """
         return (f'{self.type} {self.filename} {self.channel} '
-                f'{self.begin_time} {self.duration_time} {self.othography} '
+                f'{self.begin_time} {self.duration} {self.othography} '
                 f'{self.speaker_type} {self.speaker_id} {self.confidence} '
                 f'{self.signal_look_ahead_time}')
 
