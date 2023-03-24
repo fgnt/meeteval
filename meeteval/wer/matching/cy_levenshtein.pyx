@@ -146,36 +146,19 @@ def time_constrained_levenshtein_distance(
         return len(reference)
     reference, hypothesis = obj2vec(reference, hypothesis)
 
+    args = (reference, hypothesis,
+            reference_timing,
+            hypothesis_timing,
+            cost_del,
+            cost_ins,
+            cost_sub,
+            cost_cor,)
     if np.issubdtype(reference_timing.dtype, np.signedinteger):
-        return time_constrained_levenshtein_distance_[int](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
+        return time_constrained_levenshtein_distance_[int](*args)
     elif np.issubdtype(reference_timing.dtype, np.unsignedinteger):
-        return time_constrained_levenshtein_distance_[uint](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
+        return time_constrained_levenshtein_distance_[uint](*args)
     elif np.issubdtype(reference_timing.dtype, np.floating):
-        return time_constrained_levenshtein_distance_[float](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
+        return time_constrained_levenshtein_distance_[float](*args)
     else:
         raise TypeError(reference_timing.dtype)
 
@@ -196,36 +179,19 @@ def time_constrained_levenshtein_distance_unoptimized(
         return len(reference)
     reference, hypothesis = obj2vec(reference, hypothesis)
 
+    args = (reference, hypothesis,
+            reference_timing,
+            hypothesis_timing,
+            cost_del,
+            cost_ins,
+            cost_sub,
+            cost_cor,)
     if np.issubdtype(reference_timing.dtype, np.signedinteger):
-        return time_constrained_levenshtein_distance_unoptimized_[int](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
+        return time_constrained_levenshtein_distance_unoptimized_[int](*args)
     elif np.issubdtype(reference_timing.dtype, np.unsignedinteger):
-        return time_constrained_levenshtein_distance_unoptimized_[uint](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
+        return time_constrained_levenshtein_distance_unoptimized_[uint](*args)
     elif np.issubdtype(reference_timing.dtype, np.floating):
-        return time_constrained_levenshtein_distance_unoptimized_[float](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
+        return time_constrained_levenshtein_distance_unoptimized_[float](*args)
     else:
         raise TypeError(reference_timing.dtype)
 
@@ -268,6 +234,7 @@ def time_constrained_levenshtein_distance_with_alignment(
     hypothesis = [sym2int[b_] for b_ in hypothesis]
     eps = sym2int[eps]
 
+    # Cython for some reason doesn't allow *args here
     if np.issubdtype(reference_timing.dtype, np.signedinteger):
         statistics = time_constrained_levenshtein_distance_with_alignment_[int](
             reference, hypothesis,
