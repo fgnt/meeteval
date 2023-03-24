@@ -6,11 +6,13 @@ import typing
 
 from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.cp import CPErrorRate
-from typing import List, Dict, TypedDict
+from typing import List, Dict
 
 from meeteval.wer.utils import _items
 
 if typing.TYPE_CHECKING:
+    from meeteval._typing import TypedDict
+
     class Segment(TypedDict):
         words: str
         start_time: int | float
