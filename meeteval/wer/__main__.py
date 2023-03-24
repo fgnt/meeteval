@@ -255,6 +255,43 @@ def mimower(
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
+def tcpwer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_tcpwer.json',
+        per_reco_out='{parent}/{stem}_tcpwer_per_reco.json',
+        hyp_collar=0,
+        ref_collar=0,
+        hyp_pseudo_word_timing='equidistant_intervals',
+        ref_pseudo_word_timing='full_segment',
+        verbose=False,
+):
+    """Computes the time-constrained minimum permutation WER"""
+    from meeteval.wer.wer import time_constrained_minimum_permutation_word_error_rate
+    reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
+
+    results = {}
+    for example_id in reference.keys():
+        if verbose:
+            print(f'Processing example {example_id}')
+            print(f'  num reference utterances: {len(reference[example_id].grouped_by_speaker_id().items())}')
+            print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
+        results[example_id] = time_constrained_minimum_permutation_word_error_rate(
+            reference={
+                k: r.segments()
+                for k, r in reference[example_id].grouped_by_speaker_id().items()
+            },
+            hypothesis={
+                k: h.segments()
+                for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
+            },
+            reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+            hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+            reference_collar=ref_collar,
+            hypothesis_collar=hyp_collar,
+        )
+    _save_results(results, hypothesis_paths, per_reco_out, average_out)
+
+
 def _merge(
         files: List[str],
         out: str = None,
@@ -306,6 +343,15 @@ def cli():
     parser.add_argument('--version', action='store_true', help='Show version')
     commands = parser.add_subparsers(title='Subcommands')
 
+    def positive_number(x):
+        x = float(x)
+        if x < 0:
+            raise ValueError(f'Number must be positive, but got {x}')
+        if x.is_integer():
+            return int(x)
+        else:
+            return x
+
     def add_command(fn):
         command_parser = commands.add_parser(
             fn.__name__,
@@ -356,6 +402,44 @@ def cli():
                     '-o', '--out',
                     required=False, default='-',
                 )
+            elif name == 'hyp_collar':
+                command_parser.add_argument(
+                    '--hyp-collar', type=positive_number,
+                    help='Collar applied to the hypothesis timings'
+                )
+            elif name == 'ref_collar':
+                command_parser.add_argument(
+                    '--ref-collar', type=positive_number,
+                    help='Collar applied to the reference timings'
+                )
+            elif name == 'hyp_pseudo_word_timing':
+                command_parser.add_argument(
+                    '--hyp-pseudo-word-timing', choices=[
+                        'equidistant_intervals',
+                        'equidistant_points',
+                        'full_segment',
+                    ],
+                    help='Specifies how word-level timings are '
+                         'determined from segment-level timing '
+                         'for the hypothesis. Choices: '
+                         'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
+                         'equidistant_points: Place time points equally spaded int the segment-level intervals; '
+                         'full_segment: Use the full segment for each word that belongs to that segment.'
+                )
+            elif name == 'ref_pseudo_word_timing':
+                command_parser.add_argument(
+                    '--ref-pseudo-word-timing', choices=[
+                        'equidistant_intervals',
+                        'equidistant_points',
+                        'full_segment',
+                    ],
+                    help='Specifies how word-level timings are '
+                         'determined from segment-level timing '
+                         'for the reference. Choices: '
+                         'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
+                         'equidistant_points: Place time points equally spaded int the segment-level intervals; '
+                         'full_segment: Use the full segment for each word that belongs to that segment.'
+                )
             elif name == 'files':
                 command_parser.add_argument('files', nargs='+')
             elif name == 'verbose':
@@ -376,6 +460,7 @@ def cli():
     add_command(cpwer)
     add_command(orcwer)
     add_command(mimower)
+    add_command(tcpwer)
     add_command(merge)
     add_command(average)
 

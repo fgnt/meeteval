@@ -34,6 +34,10 @@ class CTMLine(BaseLine):
     word: str
     confidence: Optional[int] = None
 
+    @property
+    def end_time(self):
+        return self.begin_time + self.duration
+
     @classmethod
     def parse(cls, line: str) -> 'CTMLine':
         try:

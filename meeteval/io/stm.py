@@ -72,6 +72,16 @@ class STMLine(BaseLine):
         return (f'{self.filename} {self.channel} {self.speaker_id} '
                 f'{self.begin_time} {self.end_time} {self.transcript}')
 
+    def segment_dict(self):
+        """Returns a segment dict in the format of chime 7"""
+        return {
+            'start_time': self.begin_time,
+            'end_time': self.end_time,
+            'words': self.transcript,
+            'speaker': self.speaker_id,
+            'session_id': self.filename
+        }
+
 
 @dataclass(frozen=True)
 class STM(Base):
@@ -115,3 +125,6 @@ class STM(Base):
 
     def merged_transcripts(self) -> str:
         return ' '.join(self.utterance_transcripts())
+
+    def segments(self):
+        return [l.segment_dict() for l in self]
