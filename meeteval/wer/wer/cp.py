@@ -1,7 +1,8 @@
 import dataclasses
 import itertools
 import string
-from typing import Optional, Tuple, List, Dict, Literal
+from typing import Optional, Tuple, List, Dict
+from meeteval._typing import Literal
 
 from .error_rate import ErrorRate
 from .siso import siso_word_error_rate
@@ -18,6 +19,7 @@ class CPErrorRate(ErrorRate):
 
     >>> CPErrorRate(0, 10, 0, 0, 0, 1, 0, 3)
     CPErrorRate(errors=0, length=10, insertions=0, deletions=0, substitutions=0, error_rate=0.0, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=None)
+    >>> from meeteval.wer.wer.error_rate import combine_error_rates
     >>> combine_error_rates(CPErrorRate(0, 10, 0, 0, 0, 1, 0, 3), CPErrorRate(5, 10, 0, 0, 5, 0, 1, 3))
     CPErrorRate(errors=5, length=20, insertions=0, deletions=0, substitutions=5, error_rate=0.25, missed_speaker=1, falarm_speaker=1, scored_speaker=6, assignment=None)
     """
