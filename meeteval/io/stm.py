@@ -73,7 +73,7 @@ class STMLine(BaseLine):
                 f'{self.begin_time} {self.end_time} {self.transcript}')
 
     def segment_dict(self):
-        """Returns a segment dict in the format of chime 7"""
+        """Returns a segment dict"""
         return {
             'start_time': self.begin_time,
             'end_time': self.end_time,

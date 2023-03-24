@@ -3,6 +3,16 @@
 
 <a href="https://github.com/fgnt/meeteval/actions"><img src="https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg"/></a>
 
+## Features
+MeetEval supports the following metrics for meeting transcription evaluation:
+
+- Standard WER for single utterances (Called SISO WER in MeetEval)
+- Concatenated minimum-Permutation Word Error Rate (cpWER)
+- Optimal Reference Combination Word Error Rate (ORC WER)
+- Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER)
+- [Time-Constrained minimum-Permutation Word Error Rate (tcpWER)](/doc/tcpwer.md)
+
+
 ## Installation
 
 You need to have [Cython](https://cython.org/) installed.
