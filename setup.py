@@ -5,6 +5,7 @@ ext_modules = cythonize(
     [
         'meeteval/wer/matching/cy_orc_matching.pyx',
         'meeteval/wer/matching/cy_mimo_matching.pyx',
+        'meeteval/wer/matching/cy_levenshtein.pyx',
      ]
 )
 
