@@ -1,7 +1,7 @@
 import collections
 import dataclasses
 import typing
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 from .error_rate import ErrorRate
 from .siso import siso_word_error_rate
@@ -120,6 +120,7 @@ def orc_word_error_rate(
         substitutions=er.substitutions,
         assignment=assignment,
     )
+
 
 def apply_orc_assignment(
         assignment: 'List[tuple]',

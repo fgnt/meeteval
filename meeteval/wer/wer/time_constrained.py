@@ -84,6 +84,24 @@ def _map(fn, x):
         raise TypeError()
 
 
+def _check_timing_annotations(t, k):
+    import numpy as np
+    t = np.array(t)
+    if np.any(t[1:, 0] < t[:-1, 0]):
+        raise ValueError(f'The time annotations should be sorted by start time')
+    overlaps = []
+    for s1, s2 in zip(t[1:], t[:-1]):
+        if s1[0] < s2[1] and s2[0] < s1[1]:
+            overlaps.append((s1, s2))
+    if len(overlaps):
+        import warnings
+        warnings.warn(
+            f'A speaker ({k}) overlaps with itself. '
+            f'This can lead to contradictions between pseudo-word-level timings and word order. '
+            f'An exception will be raised later when such a contradiction occurs. '
+        )
+
+
 def _time_constrained_siso_error_rate(
         reference, hypothesis, reference_timing, hypothesis_timing
 ):
@@ -116,7 +134,8 @@ def time_constrained_siso_word_error_rate(
     hypothesis_words, hypothesis_timing = _get_words_and_intervals(
         hypothesis, hypothesis_pseudo_word_level_timing, hypothesis_collar
     )
-
+    _check_timing_annotations(reference_timing, 'reference')
+    _check_timing_annotations(hypothesis_timing, 'hypothesis')
     return _time_constrained_siso_error_rate(reference_words, hypothesis_words, reference_timing, hypothesis_timing)
 
 
@@ -132,6 +151,11 @@ def time_constrained_minimum_permutation_word_error_rate(
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
     import scipy.optimize
     import itertools
+
+    for k, v in _items(reference):
+        _check_timing_annotations([(s['start_time'], s['end_time']) for s in v], f'reference {k}')
+    for k, v in _items(hypothesis):
+        _check_timing_annotations([(s['start_time'], s['end_time']) for s in v], f'hypothesis {k}')
 
     # Convert segments into lists of words and word-level timings
     reference = _map(lambda x: _get_words_and_intervals(x, reference_pseudo_word_level_timing, reference_collar),
@@ -151,6 +175,8 @@ def time_constrained_minimum_permutation_word_error_rate(
     else:
         reference_keys = list(range(len(reference)))
         reference_values = reference
+
+
 
     cost_matrix = np.array([
         [

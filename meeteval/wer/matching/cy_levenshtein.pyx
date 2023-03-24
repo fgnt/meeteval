@@ -113,9 +113,14 @@ def _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
 
     def check(timing):
         # end >= start
-        assert np.all(timing[:, 1] >= timing[:, 0]), ('end must be larger than start!', timing)
+        if np.any(timing[:, 1] < timing[:, 0]):
+            raise ValueError(f'The end time of an interval must not be smaller than its begin time')
         # start values are increasing
-        assert np.all(np.diff(timing[:, 0]) >= 0), ('start values must be increasing!', timing, np.where(np.diff(timing[:, 0]) < 0))
+        if np.any(np.diff(timing[:, 0]) < 0):
+            raise ValueError(
+                f'The start times of the annotations must be increasing, which they are not. '
+                f'This might be caused by overlapping segments, see the (potential) previous warning.'
+            )
 
     if len(reference):
         check(reference_timing)
