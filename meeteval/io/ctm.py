@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from itertools import groupby
-from pathlib import Path
-from typing import TextIO, Dict, List, Optional
+from typing import Dict, List, Optional
 from typing import NamedTuple
+from meeteval.io.base import Base, BaseLine
 
 
 __all__ = [
@@ -12,7 +11,8 @@ __all__ = [
 ]
 
 
-class CTMLine(NamedTuple):
+@dataclass(frozen=True)
+class CTMLine(BaseLine):
     """
     Represents one line of a CTM file, which is an ordered list of fields.
 
@@ -53,26 +53,24 @@ class CTMLine(NamedTuple):
             raise ValueError(f'Unable to parse CTM line: {line}') from e
         return ctm_line
 
+    def serialize(self):
+        # ToDO, when someone needs it.
+        raise NotImplementedError(type(self))
+
 
 @dataclass(frozen=True)
-class CTM:
+class CTM(Base):
     lines: List[CTMLine]
+    line_cls = CTMLine
 
     @classmethod
-    def load(cls, ctm_file: Path) -> 'CTM':
-        with ctm_file.open('r') as f:
-            return cls([
-                CTMLine.parse(line)
-                for line in map(str.strip, f)
-                if len(line) > 0
-                if not line.startswith(';;')
-            ])
-
-    def grouped_by_filename(self) -> Dict[str, 'CTM']:
-        return {
-            filename: CTM(list(group))
-            for filename, group in groupby(sorted(self.lines), key=lambda x: x.filename)
-        }
+    def _load(cls, file_descriptor) -> 'List[CTMLine]':
+        return [
+            CTMLine.parse(line)
+            for line in map(str.strip, file_descriptor)
+            if len(line) > 0
+            if not line.startswith(';;')
+        ]
 
     def merged_transcripts(self) -> str:
         return ' '.join([x.word for x in sorted(self.lines, key=lambda x: x.begin_time)])
@@ -107,5 +105,5 @@ class CTMGroup:
             for key in keys
         }
 
-    def grouped_by_speaker_id(self) -> List[CTM]:
+    def grouped_by_speaker_id(self) -> Dict[str, CTM]:
         return self.ctms

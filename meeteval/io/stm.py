@@ -1,7 +1,12 @@
+import typing
 from dataclasses import dataclass
-from itertools import groupby
-from pathlib import Path
-from typing import Dict, List, NamedTuple
+from typing import List, NamedTuple
+from meeteval.io.base import Base, BaseLine
+
+if typing.TYPE_CHECKING:
+    import decimal
+    from meeteval.io.uem import UEM, UEMLine
+
 
 __all__ = [
     'STMLine',
@@ -9,7 +14,8 @@ __all__ = [
 ]
 
 
-class STMLine(NamedTuple):
+@dataclass(frozen=True)
+class STMLine(BaseLine):
     """
     Represents one line of an STM file, which is an ordered list of fields:
 
@@ -27,8 +33,8 @@ class STMLine(NamedTuple):
     filename: str
     channel: 'int | str'
     speaker_id: str
-    begin_time: 'float | int'
-    end_time: 'float | int'
+    begin_time: 'float | int | decimal.Decimal'
+    end_time: 'float | int | decimal.Decimal'
     transcript: str
 
     @classmethod
@@ -66,54 +72,30 @@ class STMLine(NamedTuple):
         return (f'{self.filename} {self.channel} {self.speaker_id} '
                 f'{self.begin_time} {self.end_time} {self.transcript}')
 
-    def replace(self, **kwargs):
-        """
-        Return a new instance of the named tuple replacing specified fields with new values.
-
-        >>> line = STMLine.parse('rec1 0 A 10 20 Hello World')
-        >>> line
-        STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')
-        >>> line.replace(speaker_id='B')
-        STMLine(filename='rec1', channel=0, speaker_id='B', begin_time=10, end_time=20, transcript='Hello World')
-        """
-        return self._replace(**kwargs)
-
 
 @dataclass(frozen=True)
-class STM:
+class STM(Base):
     lines: List[STMLine]
+    line_cls = STMLine
 
     @classmethod
-    def load(cls, stm_file: [Path, str, tuple, list]) -> 'STM':
-        if isinstance(stm_file, (tuple, list)):
-            return STM.merge(*[STM.load(f) for f in stm_file])
-
-        with open(stm_file, 'r') as fd:
-            return cls([
-                STMLine.parse(line)
-                for line in fd
-                if len(line.strip()) > 0 and not line.strip().startswith(';')
-            ])
-
-    def _repr_pretty_(self, p, cycle):
-        name = self.__class__.__name__
-        with p.group(len(name) + 1, name + '(', ')'):
-            if cycle:
-                p.text('...')
-            elif len(self.lines):
-                p.pretty(list(self.lines))
+    def _load(cls, file_descriptor) -> 'List[STMLine]':
+        return [
+            STMLine.parse(line)
+            for line in file_descriptor
+            if len(line.strip()) > 0 and not line.strip().startswith(';')
+        ]
 
     @classmethod
     def merge(cls, *stms) -> 'STM':
         return cls([line for stm in stms for line in stm.lines])
 
-    def dump(self, stm_file):
-        with open(stm_file, 'w') as fd:
-            for line in self.lines:
-                fd.write(line.serialize() + '\n')
-
     def to_rttm(self):
         from meeteval.io.rttm import RTTM, RTTMLine
+
+        # ToDo: Fix `line.end_time - line.begin_time`, when they are floats.
+        #       Sometimes there is a small error and the error will be written
+        #       to the rttm file.
 
         return RTTM([
             RTTMLine(
@@ -127,58 +109,6 @@ class STM:
             )
             for line in self.lines
         ])
-
-    def __getitem__(self, item):
-        if isinstance(item, int):
-            return self.lines[item]
-        elif isinstance(item, slice):
-            return self.__class__(self.lines[item])
-        else:
-            raise NotImplementedError(type(item), item)
-
-    def __iter__(self):
-        return iter(self.lines)
-
-    def groupby(self, key) -> Dict[str, 'STM']:
-        return {
-            filename: STM(list(group))
-            for filename, group in groupby(sorted(self.lines), key=key)
-        }
-
-    def grouped_by_filename(self) -> Dict[str, 'STM']:
-        return {
-            filename: STM(list(group))
-            for filename, group in groupby(sorted(self.lines), key=lambda x: x.filename)
-        }
-
-    def grouped_by_speaker_id(self):
-        return {
-            speaker_id: STM(list(speaker_group))
-            for speaker_id, speaker_group in
-            groupby(sorted(self.lines, key=lambda x: x.speaker_id), key=lambda x: x.speaker_id)
-        }
-
-    def sorted(self, key=None):
-        """
-        This wrapper of sorted.
-
-        Often a sort based on filename and begin_time is useful.
-        Reason: filename matches between ref and hyp and begin_time
-                should be similar. Using no key, sorts by
-                filename, channel, speaker_id, begin_time, ...
-                so speaker_id is used before begin_time.
-                Since the true speaker_id is not known in hyp,
-                it is likely that ref and hyp are hard to compare
-                with simple tools (e.g. check first lines of ref and hyp.)
-
-        Here, an example to get a reasonable sort:
-            new = stm.sorted(key=lambda x: (x.filename, x.begin_time))
-
-        """
-        return STM(sorted(self.lines, key=key))
-
-    def sorted_by_begin_time(self):
-        return STM(sorted(self.lines, key=lambda x: x.begin_time))
 
     def utterance_transcripts(self) -> List[str]:
         return [x.transcript for x in sorted(self.lines, key=lambda x: x.begin_time)]
