@@ -1,6 +1,9 @@
 # created from tests
 example_files/*.json
 
+# Files created by cython
+cy_*.cpp
+
 # Default gitignore from https://github.com/github/gitignore/blob/master/Python.gitignore
 # Byte-compiled / optimized / DLL files
 __pycache__/
