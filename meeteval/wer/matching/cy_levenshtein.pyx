@@ -65,7 +65,6 @@ cdef extern from "levenshtein.h":
     )
 
 
-
 def obj2vec(a, b):
     int2sym = dict(enumerate(sorted(set(a) | set(b))))
     sym2int = {v: k for k, v in int2sym.items()}
@@ -93,16 +92,7 @@ def levenshtein_distance_custom_cost(
         reference, hypothesis, cost_del, cost_ins, cost_sub, cost_cor
     )
 
-def time_constrained_levenshtein_distance(
-        reference, # list[int]
-        hypothesis, # list[int]
-        reference_timing,   # list[tuple[int, int]]
-        hypothesis_timing,  # list[tuple[int, int]]
-        cost_del=1,
-        cost_ins=1,
-        cost_sub=1,
-        cost_cor=0,
-):
+def _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing):
     if len(reference) != len(reference_timing):
         raise ValueError(
             f'reference and reference_timing have mismatching lengths '
@@ -113,25 +103,43 @@ def time_constrained_levenshtein_distance(
             f'hypothesis and hypothesis_timing have mismatching lengths '
             f'{len(hypothesis)} != {len(hypothesis_timing)}'
         )
+
+    reference_timing = np.array(reference_timing)
+    hypothesis_timing = np.array(hypothesis_timing)
+
+    assert len(reference) == 0 or reference_timing.shape == (len(reference), 2), (reference_timing.shape, len(reference))
+    assert len(hypothesis) == 0 or hypothesis_timing.shape == (len(hypothesis), 2), (hypothesis_timing.shape, len(hypothesis))
+    assert len(reference) == 0 or len(hypothesis) == 0 or reference_timing.dtype == hypothesis_timing.dtype, (reference_timing.dtype, hypothesis_timing.dtype)
+
+    def check(timing):
+        # end >= start
+        assert np.all(timing[:, 1] >= timing[:, 0]), ('end must be larger than start!', timing)
+        # start values are increasing
+        assert np.all(np.diff(timing[:, 0]) >= 0), ('start values must be increasing!', timing, np.where(np.diff(timing[:, 0]) < 0))
+
+    if len(reference):
+        check(reference_timing)
+    if len(hypothesis):
+        check(hypothesis_timing)
+        
+    return reference, hypothesis, reference_timing, hypothesis_timing
+
+def time_constrained_levenshtein_distance(
+        reference,  # list[int]
+        hypothesis,  # list[int]
+        reference_timing,  # list[tuple[int, int]]
+        hypothesis_timing,  # list[tuple[int, int]]
+        cost_del=1,
+        cost_ins=1,
+        cost_sub=1,
+        cost_cor=0,
+):
+    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
     if len(reference) == 0:
         return len(hypothesis)
     if len(hypothesis) == 0:
         return len(reference)
     reference, hypothesis = obj2vec(reference, hypothesis)
-
-    reference_timing = np.array(reference_timing)
-    hypothesis_timing = np.array(hypothesis_timing)
-
-    assert reference_timing.shape == (len(reference), 2), (reference_timing.shape, len(reference))
-    assert hypothesis_timing.shape == (len(hypothesis), 2), (hypothesis_timing.shape, len(hypothesis))
-    assert reference_timing.dtype == hypothesis_timing.dtype, (reference_timing.dtype, hypothesis_timing.dtype)
-
-    def check(timing):
-        assert np.all(timing[:, 1] >= timing[:, 0]), timing
-        assert np.all(np.diff(timing, axis=0) >= 0), timing
-
-    check(reference_timing)
-    check(hypothesis_timing)
 
     if np.issubdtype(reference_timing.dtype, np.signedinteger):
         return time_constrained_levenshtein_distance_[int](
@@ -166,48 +174,22 @@ def time_constrained_levenshtein_distance(
     else:
         raise TypeError(reference_timing.dtype)
 
-
 def time_constrained_levenshtein_distance_unoptimized(
-        reference, # list[int]
-        hypothesis, # list[int]
-        reference_timing,   # list[tuple[int, int]]
+        reference,  # list[int]
+        hypothesis,  # list[int]
+        reference_timing,  # list[tuple[int, int]]
         hypothesis_timing,  # list[tuple[int, int]]
         cost_del=1,
         cost_ins=1,
         cost_sub=1,
         cost_cor=0,
 ):
-    if len(reference) != len(reference_timing):
-        raise ValueError(
-            f'reference and reference_timing have mismatching lengths '
-            f'{len(reference)} != {len(reference_timing)}'
-        )
-    if len(hypothesis) != len(hypothesis_timing):
-        raise ValueError(
-            f'hypothesis and hypothesis_timing have mismatching lengths '
-            f'{len(hypothesis)} != {len(hypothesis_timing)}'
-        )
+    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
     if len(reference) == 0:
         return len(hypothesis)
     if len(hypothesis) == 0:
         return len(reference)
     reference, hypothesis = obj2vec(reference, hypothesis)
-
-    reference_timing = np.array(reference_timing)
-    hypothesis_timing = np.array(hypothesis_timing)
-
-    assert reference_timing.shape == (len(reference), 2), (reference_timing.shape, len(reference))
-    assert  hypothesis_timing.shape == (len(hypothesis), 2), (hypothesis_timing.shape, len(hypothesis))
-    assert reference_timing.dtype == hypothesis_timing.dtype, (reference_timing.dtype, hypothesis_timing.dtype)
-
-    def check(timing):
-        # end >= start
-        assert np.all(timing[:, 1] >= timing[:, 0]), timing
-        # start and end values are increasing
-        assert np.all(np.diff(timing, axis=0) >= 0), timing
-
-    check(reference_timing)
-    check(hypothesis_timing)
 
     if np.issubdtype(reference_timing.dtype, np.signedinteger):
         return time_constrained_levenshtein_distance_unoptimized_[int](
@@ -242,11 +224,10 @@ def time_constrained_levenshtein_distance_unoptimized(
     else:
         raise TypeError(reference_timing.dtype)
 
-
 def time_constrained_levenshtein_distance_with_alignment(
-        reference, # list[int]
-        hypothesis, # list[int]
-        reference_timing,   # list[tuple[int, int]]
+        reference,  # list[int]
+        hypothesis,  # list[int]
+        reference_timing,  # list[tuple[int, int]]
         hypothesis_timing,  # list[tuple[int, int]]
         cost_del=1,
         cost_ins=1,
@@ -254,16 +235,7 @@ def time_constrained_levenshtein_distance_with_alignment(
         cost_cor=0,
         eps='*',
 ):
-    if len(reference) != len(reference_timing):
-        raise ValueError(
-            f'reference and reference_timing have mismatching lengths '
-            f'{len(reference)} != {len(reference_timing)}'
-        )
-    if len(hypothesis) != len(hypothesis_timing):
-        raise ValueError(
-            f'hypothesis and hypothesis_timing have mismatching lengths '
-            f'{len(hypothesis)} != {len(hypothesis_timing)}'
-        )
+    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
     if len(reference) == 0:
         return {
             'total': len(hypothesis),
@@ -282,7 +254,6 @@ def time_constrained_levenshtein_distance_with_alignment(
             'deletions': len(reference),
             'substitutions': 0,
         }
-    # reference, hypothesis = obj2vec(reference, hypothesis)
 
     assert eps not in reference and eps not in hypothesis, (eps, reference, hypothesis)
 
@@ -291,20 +262,6 @@ def time_constrained_levenshtein_distance_with_alignment(
     reference = [sym2int[a_] for a_ in reference]
     hypothesis = [sym2int[b_] for b_ in hypothesis]
     eps = sym2int[eps]
-
-    reference_timing = np.array(reference_timing)
-    hypothesis_timing = np.array(hypothesis_timing)
-
-    assert reference_timing.shape == (len(reference), 2), (reference_timing.shape, len(reference))
-    assert hypothesis_timing.shape == (len(hypothesis), 2), (hypothesis_timing.shape, len(hypothesis))
-    assert reference_timing.dtype == hypothesis_timing.dtype, (reference_timing.dtype, hypothesis_timing.dtype)
-
-    def check(timing):
-        assert np.all(timing[:, 1] >= timing[:, 0]), timing
-        assert np.all(np.diff(timing, axis=0) >= 0), timing
-
-    check(reference_timing)
-    check(hypothesis_timing)
 
     if np.issubdtype(reference_timing.dtype, np.signedinteger):
         statistics = time_constrained_levenshtein_distance_with_alignment_[int](
@@ -342,7 +299,7 @@ def time_constrained_levenshtein_distance_with_alignment(
     else:
         raise TypeError(reference_timing.dtype)
 
-    statistics['alignment'] =  [
+    statistics['alignment'] = [
         (int2sym[e[0]], int2sym[e[1]])
         for e in statistics['alignment']
     ]

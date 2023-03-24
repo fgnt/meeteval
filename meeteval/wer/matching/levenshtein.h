@@ -123,25 +123,18 @@ unsigned int time_constrained_levenshtein_distance_unoptimized_(
             std::pair<T, T> hyp_interval = hypothesis_timing[hyp_index - 1];
 
             up = row[hyp_index];
+            auto ins_or_del = std::min(
+                    row[hyp_index - 1] + cost_ins, // left -> insertion
+                    up + cost_del  // up -> deletion
+            );
             if (overlaps(ref_interval, hyp_interval)) {
-                if (ref_symbol == hyp_symbol) {
-                    // correct
-                    row[hyp_index] = diagonal + cost_cor;
-                } else {
-                    row[hyp_index] = std::min(
-                            std::min(
-                                    row[hyp_index - 1] + cost_ins, // left -> insertion
-                                    up + cost_del  // up -> deletion
-                            ),
-                            // diagonal -> correct or substitution
-                            diagonal + (hyp_symbol == ref_symbol ? cost_cor : cost_sub)
-                    );
-                }
-            } else {
                 row[hyp_index] = std::min(
-                        row[hyp_index - 1] + cost_ins, // left -> insertion
-                        up + cost_del  // up -> deletion
+                        ins_or_del,
+                        // diagonal -> correct or substitution
+                        diagonal + (hyp_symbol == ref_symbol ? cost_cor : cost_sub)
                 );
+            } else {
+                row[hyp_index] = ins_or_del;
             }
             diagonal = up;
         }
@@ -172,11 +165,18 @@ unsigned int time_constrained_levenshtein_distance_(
     unsigned int diagonal;  // Value diagonal to the current cell (substitution)
     unsigned int start_hyp_index = 1;
 
+    // The following variable tracks the maximum seen end time of the reference
+    // This is required when the reference intervals don't have increasing end times
+    T ref_end_time = reference_timing[0].second;
+
     for (unsigned int ref_index = 0; ref_index < reference.size(); ref_index++) {
         unsigned int ref_symbol = reference[ref_index];
         std::pair<T, T> ref_interval = reference_timing[ref_index];
+        ref_end_time = std::max(ref_interval.second, ref_end_time);
 
-        // Forward to overlapping region
+        // Forward to overlapping region. We don't have to use hyp_end_time here because
+        // hypothesis_timing[start_hyp_index - 1].second will always be the largest seen end time that overlaps with
+        // ref_interval
         for (; start_hyp_index < hypothesis.size() + 1; start_hyp_index++) {
             if (hypothesis_timing[start_hyp_index - 1].second > ref_interval.first) break;
         }
@@ -193,22 +193,30 @@ unsigned int time_constrained_levenshtein_distance_(
 
             // We ran outside the overlapping region. We don't need to do the normal levenshtein update here.
             // Below this loop is the update for the insertions in the following cells
-            if (!overlaps(ref_interval, hyp_interval)) break;
+            // The begin times (*.first) are increasing, so we only only have to check the begin time of our current
+            // hypothesis against the largest seen reference end time
+            if (hyp_interval.first > ref_end_time) break;
 
-            // This is the standard levenshtein update
+            // This is the standard levenshtein update but we only allow substitutions when the segments overlap
             up = row[hyp_index];
-            row[hyp_index] = std::min(
-                    std::min(
-                            row[hyp_index - 1] + cost_ins, // left -> insertion
-                            up + cost_del  // up -> deletion
-                    ),
-                    // diagonal -> correct or substitution
-                    diagonal + (hyp_symbol == ref_symbol ? cost_cor : cost_sub)
+            auto ins_or_del = std::min(
+                    row[hyp_index - 1] + cost_ins, // left -> insertion
+                    up + cost_del  // up -> deletion
             );
+            if (overlaps(ref_interval, hyp_interval)) {
+                row[hyp_index] = std::min(
+                        ins_or_del,
+                        // diagonal -> correct or substitution
+                        diagonal + (hyp_symbol == ref_symbol ? cost_cor : cost_sub)
+                );
+            } else {
+                row[hyp_index] = ins_or_del;
+            }
             diagonal = up;
         }
 
         // Forward insertions for entries that overlap in the next row
+        // It is here again enough to check first
         if (ref_index < reference_timing.size() - 1) {
             for (; hyp_index < hypothesis.size() + 1; hyp_index++) {
                 row[hyp_index] = row[hyp_index - 1] + cost_ins;
@@ -257,14 +265,21 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
     // Temporary variables
     unsigned int start_hyp_index = 1;
 
+    // The following variable tracks the maximum seen end time of the reference
+    // This is required when the reference intervals don't have increasing end times
+    T ref_end_time = reference_timing[0].second;
+
     for (unsigned int ref_index = 0; ref_index < reference.size(); ref_index++) {
         auto ref_symbol = reference[ref_index];
         auto &prev_row = matrix[ref_index];
         auto &row = matrix[ref_index + 1];
 
         std::pair<T, T> ref_interval = reference_timing[ref_index];
+        ref_end_time = std::max(ref_interval.second, ref_end_time);
 
-        // Forward to overlapping region
+        // Forward to overlapping region. We don't have to use hyp_end_time here because
+        // hypothesis_timing[start_hyp_index - 1].second will always be the largest seen end time that overlaps with
+        // ref_interval
         for (; start_hyp_index < hypothesis.size() + 1; start_hyp_index++) {
             if (hypothesis_timing[start_hyp_index - 1].second > ref_interval.first) break;
         }
@@ -280,17 +295,24 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
 
             // We ran outside the overlapping region. We don't need to do the normal levenshtein update here.
             // Below this loop is the update for the insertions in the following cells
-            if (!overlaps(ref_interval, hyp_interval)) break;
+            // The begin times (*.first) are increasing, so we only only have to check the begin time of our current
+            // hypothesis against the largest seen reference end time
+            if (hyp_interval.first > ref_end_time) break;
 
-            // This is the standard levenshtein update
-            row[hyp_index] = std::min(
-                std::min(
+            // This is the standard levenshtein update but we only allow substitutions when the segments overlap
+            auto ins_or_del = std::min(
                     row[hyp_index - 1] + cost_ins, // left -> insertion
                     prev_row[hyp_index] + cost_del  // up -> deletion
-                ),
-                // diagonal -> correct or substitution
-                prev_row[hyp_index - 1] + (hyp_symbol == ref_symbol ? cost_cor : cost_sub)
             );
+            if (overlaps(ref_interval, hyp_interval)) {
+                row[hyp_index] = std::min(
+                        ins_or_del,
+                        // diagonal -> correct or substitution
+                        prev_row[hyp_index - 1] + (hyp_symbol == ref_symbol ? cost_cor : cost_sub)
+                );
+            } else {
+                row[hyp_index] = ins_or_del;
+            }
         }
 
         // Forward insertions for entries that overlap in the next row

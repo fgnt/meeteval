@@ -10,16 +10,13 @@ def string_with_timing(draw):
     Constraints:
         - end >= start
         - start values must be increasing
-        - end values must be increasing
     """
     s = draw(string)
     t = []
     start = 0
-    end = 0
     for _ in s:
         start = draw(st.integers(min_value=start, max_value=10))
-        e = end if end > start else start
-        end = draw(st.integers(min_value=e + 1, max_value=e + 10))
+        end = draw(st.integers(min_value=start, max_value=start + 10))
         t.append((start, end))
     return s, t
 
