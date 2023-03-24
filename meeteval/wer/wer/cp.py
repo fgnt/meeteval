@@ -1,7 +1,7 @@
 import dataclasses
 import itertools
 import string
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict, Literal
 
 from .error_rate import ErrorRate
 from .siso import siso_word_error_rate

@@ -1,7 +1,7 @@
 import collections
 import dataclasses
 import typing
-from typing import Tuple
+from typing import Tuple, List
 
 from .error_rate import ErrorRate
 from .siso import siso_word_error_rate

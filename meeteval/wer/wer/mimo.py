@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Tuple
+from typing import Tuple, List, Dict
 
 from .error_rate import ErrorRate
 from .siso import siso_word_error_rate
