@@ -85,7 +85,18 @@ class BaseLine:
 
         assert self.filename == other.filename, (self, other)
 
-        return self.begin_time < other.end_time and other.begin_time < self.end_time
+        def get_begin_end_time(line):
+            begin_time = line.begin_time
+            try:
+                end_time = line.end_time
+            except AttributeError:
+                end_time = begin_time + line.duration
+            return begin_time, end_time
+
+        self_begin_time, self_end_time = get_begin_end_time(self)
+        other_begin_time, other_end_time = get_begin_end_time(other)
+
+        return self_begin_time < other_end_time and other_begin_time < self_end_time
 
     def replace(self, **kwargs) -> 'Self':
         """
