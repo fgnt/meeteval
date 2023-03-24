@@ -74,10 +74,13 @@ class ErrorRate:
         """
         >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1)))
         ErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0)
+        >>> from meeteval.wer.wer.cp import CPErrorRate
         >>> ErrorRate.from_dict(dataclasses.asdict(CPErrorRate(1, 1, 0, 0, 1, 1, 1, 1)))
         CPErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, missed_speaker=1, falarm_speaker=1, scored_speaker=1, assignment=None)
+        >>> from meeteval.wer.wer.orc import OrcErrorRate
         >>> ErrorRate.from_dict(dataclasses.asdict(OrcErrorRate(1, 1, 0, 0, 1, (0, 1))))
         OrcErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, assignment=(0, 1))
+        >>> from meeteval.wer.wer.mimo import MimoErrorRate
         >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, 0, 0, 1, [(0, 1)])))
         MimoErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, assignment=[(0, 1)])
         """
