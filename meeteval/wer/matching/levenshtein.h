@@ -2,6 +2,7 @@
 #include <numeric>
 #include <stdio.h>
 #include <algorithm>
+#include <limits>
 
 unsigned int levenshtein_distance_(
         std::vector<unsigned int> reference,
@@ -244,7 +245,10 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
         const unsigned int eps
 ) {
     // Temporary memory (one row of the levenshtein matrix)
-    std::vector<std::vector<unsigned int>> matrix(reference.size() + 1, std::vector<unsigned int>(hypothesis.size() + 1));
+    const unsigned int max_value = std::numeric_limits<unsigned int>::max() - std::max(std::max(cost_ins, cost_del), std::max(cost_sub, cost_cor));
+    if (max_value <= reference.size() + hypothesis.size())
+        throw std::runtime_error("costs too large");
+    std::vector<std::vector<unsigned int>> matrix(reference.size() + 1, std::vector<unsigned int>(hypothesis.size() + 1, max_value));
 
     // Initialize with range
     matrix[0][0] = 0;
@@ -298,7 +302,6 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
         } else {
             // We reached the end. There are no following rows which we can respect while forwarding. There can only be
             // insertions until the end
-//            return row[hyp_index - 1] + cost_ins * (hypothesis.size() - hyp_index + 1);
             for (; hyp_index < hypothesis.size() + 1; hyp_index++) row[hyp_index] = row[hyp_index - 1] + cost_ins;
         }
     }
@@ -308,6 +311,10 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
     unsigned int ref_index = reference.size();
     LevenshteinStatistics statistics;
     statistics.total = matrix.back().back();
+    statistics.insertions = 0;
+    statistics.deletions = 0;
+    statistics.substitutions = 0;
+    statistics.correct = 0;
 
     while (ref_index > 0 || hyp_index > 0) {
         if (ref_index == 0) {
@@ -321,8 +328,6 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
         } else {
             unsigned int cost_insertion = matrix[ref_index][hyp_index - 1] + cost_ins;
             unsigned int cost_deletion = matrix[ref_index - 1][hyp_index] + cost_del;
-//            printf("cost_insertion %d\n", cost_insertion);
-//            printf("cost_deletion %d\n", cost_deletion);
 
             if (overlaps(hypothesis_timing[hyp_index - 1], reference_timing[ref_index - 1])) {
                 unsigned int cost_cor_sub = matrix[ref_index - 1][hyp_index - 1];

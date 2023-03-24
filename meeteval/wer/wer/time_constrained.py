@@ -4,11 +4,11 @@ This file contains the time-constrained minimum permutation word error rate
 
 import typing
 
-from .error_rate import ErrorRate
-from .cp import CPErrorRate
+from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.cp import CPErrorRate
 from typing import List, Dict, TypedDict
 
-from ..utils import _items
+from meeteval.wer.utils import _items
 
 if typing.TYPE_CHECKING:
     class Segment(TypedDict):
@@ -17,12 +17,14 @@ if typing.TYPE_CHECKING:
         end_time: int | float
 
 
-__all__ = ['time_constrained_cp_word_error_rate', 'time_constrained_siso_word_error_rate']
+__all__ = ['time_constrained_minimum_permutation_word_error_rate', 'time_constrained_siso_word_error_rate']
 
 # pseudo-timestamp strategies
 def equidistant_intervals(interval, count):
     """Divides the interval into `count` equally sized intervals"""
-    if count <= 1:
+    if count == 0:
+        return []
+    elif count == 1:
         return [interval]
     interval_length = (interval[1] - interval[0]) / count
     return [(interval[0] + i * interval_length, interval[0] + (i + 1) * interval_length) for i in range(count)]
@@ -30,7 +32,9 @@ def equidistant_intervals(interval, count):
 
 def equidistant_points(interval, count):
     """Places `count` points (intervals of size zero) in `interval` with equal distance"""
-    if count <= 1:
+    if count == 0:
+        return []
+    elif count == 1:
         return [((interval[0] + interval[1]) / 2,) * 2]
     interval_length = (interval[1] - interval[0]) / count
 
@@ -62,7 +66,11 @@ def _get_words_and_intervals(segments: 'List[Segment]', pseudo_word_level_strate
     for segment in segments:
         segment_words = segment['words'].split()
         words.extend(segment_words)
-        intervals.extend(pseudo_word_level_strategy((segment['start_time'], segment['end_time']), len(segment_words)))
+        segment_timings = pseudo_word_level_strategy((segment['start_time'], segment['end_time']), len(segment_words))
+        intervals.extend(segment_timings)
+        assert len(segment_words) == len(segment_timings), (segment_words, segment_timings)
+
+    intervals = [(float(i[0]), float(i[1])) for i in intervals]
 
     return words, apply_collar(intervals, collar)
 
@@ -76,12 +84,12 @@ def _map(fn, x):
         raise TypeError()
 
 
-def _time_aligned_siso_error_rate(
+def _time_constrained_siso_error_rate(
         reference, hypothesis, reference_timing, hypothesis_timing
 ):
-    from meet_eval.levenshtein import time_aligned_levenshtein_distance_with_alignment
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
 
-    result = time_aligned_levenshtein_distance_with_alignment(
+    result = time_constrained_levenshtein_distance_with_alignment(
         reference, hypothesis, reference_timing, hypothesis_timing
     )
 
@@ -109,10 +117,10 @@ def time_constrained_siso_word_error_rate(
         hypothesis, hypothesis_pseudo_word_level_timing, hypothesis_collar
     )
 
-    return _time_aligned_siso_error_rate(reference_words, hypothesis_words, reference_timing, hypothesis_timing)
+    return _time_constrained_siso_error_rate(reference_words, hypothesis_words, reference_timing, hypothesis_timing)
 
 
-def time_constrained_cp_word_error_rate(
+def time_constrained_minimum_permutation_word_error_rate(
         reference: 'List[List[Segment]] | Dict[str, List[Segment]]',
         hypothesis: 'List[List[Segment]] | Dict[str, List[Segment]]',
         reference_pseudo_word_level_timing='full_segment',
@@ -121,7 +129,7 @@ def time_constrained_cp_word_error_rate(
         hypothesis_collar: int = 0,
 ) -> CPErrorRate:
     import numpy as np
-    from meeteval.wer.matching import time_aligned_levenshtein_distance
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
     import scipy.optimize
     import itertools
 
@@ -146,7 +154,7 @@ def time_constrained_cp_word_error_rate(
 
     cost_matrix = np.array([
         [
-            time_aligned_levenshtein_distance(tt[0], et[0], tt[1], et[1])
+            time_constrained_levenshtein_distance(tt[0], et[0], tt[1], et[1])
             for et in hypothesis_values
         ]
         for tt in reference_values
@@ -195,7 +203,7 @@ def time_constrained_cp_word_error_rate(
     )
 
     er = sum([
-        _time_aligned_siso_error_rate(
+        _time_constrained_siso_error_rate(
             r[0], hypothesis_new[speaker][0],
             r[1], hypothesis_new[speaker][1],
         )

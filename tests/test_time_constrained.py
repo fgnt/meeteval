@@ -67,17 +67,18 @@ def test_time_constrained_levenshtein_distance_optimized(a, b):
 @given(string_with_timing(), string_with_timing())
 def test_time_constrained_levenshtein_distance_vs_with_alignment(a, b):
     """Check that the alignment function gives the same distance as the version that does not return the alignment"""
-    from meet_eval.levenshtein import time_aligned_levenshtein_distance, \
-        time_aligned_levenshtein_distance_with_alignment
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance, \
+        time_constrained_levenshtein_distance_with_alignment
 
     a, a_timing = a
     b, b_timing = b
 
-    ref_distance = time_aligned_levenshtein_distance(a, b, a_timing, b_timing)
-    s = time_aligned_levenshtein_distance_with_alignment(a, b, a_timing, b_timing)
+    ref_distance = time_constrained_levenshtein_distance(a, b, a_timing, b_timing)
+    s = time_constrained_levenshtein_distance_with_alignment(a, b, a_timing, b_timing)
     distance = s['total']
 
     assert ref_distance == distance, (ref_distance, distance)
+    assert s['insertions'] + s['deletions'] + s['substitutions'] == distance, s
 
     # Check that the alignment has the right format
     assert max(len(a), len(b)) <= len(s['alignment']) <= len(a) + len(b)
