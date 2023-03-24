@@ -8,8 +8,9 @@ The system should be forced to provide rough temporal annotations (diarization) 
 This leads us to following properties:
 
 - The system should group segments that it thinks belong to the same speaker together (similar to cpWER)
-- The system should be penalized when it produces long segments by merging multiple reference segments
-- It should not be penalized when the system provides more precise timing than the reference (e.g., by splitting in a pause)
+- It should not be penalized when the system combines several words (e.g. an utterance) in one segment, but
+- The system should be penalized when it produces long segments spanning multiple reference segments
+- It should not be penalized when the system provides more precise timing than the reference (e.g., by splitting in a pause or producing tighter bounds)
 
 ## Pseudo-word-level annotations
 To compute the matching, we need a temporal annotation (start and end time) for each word.
