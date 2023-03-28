@@ -78,8 +78,8 @@ def test_burn_cp():
 
 def test_burn_tcp():
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
-    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-collar 1 --ref-collar 1')
-    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing full_segment --ref-pseudo-word-timing equidistant_points')
+    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-collar 5 --ref-collar 0')
+    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
 
 
 def test_burn_merge():
