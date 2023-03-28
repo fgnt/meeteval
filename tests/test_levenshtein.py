@@ -18,10 +18,10 @@ def test_against_editdistance(a, b):
 
 @given(string, string)
 def test_custom_cost_against_levenshtein_default(a, b):
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance, levenshtein_distance_custom_cost
+    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
-    assert levenshtein_distance_custom_cost(a, b, 1, 1, 1, 0) == levenshtein_distance(a, b)
-    assert levenshtein_distance_custom_cost(a, b, 2, 2, 2, 0) == 2 * levenshtein_distance(a, b)
+    assert levenshtein_distance(a, b, 1, 1, 1, 0) == levenshtein_distance(a, b)
+    assert levenshtein_distance(a, b, 2, 2, 2, 0) == 2 * levenshtein_distance(a, b)
 
 
 @given(string, string)
@@ -29,10 +29,10 @@ def test_custom_cost(a, b):
     """
     Test a few weird special configurations
     """
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance_custom_cost
+    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
-    assert levenshtein_distance_custom_cost(a, b, 0, 0, 0, 0) == 0
-    assert levenshtein_distance_custom_cost(a, b, 1, 1, 0, 0) == max(len(a), len(b)) - min(len(a), len(b))
+    assert levenshtein_distance(a, b, 0, 0, 0, 0) == 0
+    assert levenshtein_distance(a, b, 1, 1, 0, 0) == max(len(a), len(b)) - min(len(a), len(b))
 
     # Manhattan distance in levenshtein matrix
-    assert levenshtein_distance_custom_cost(a, b, 1, 1, 2, 2) == len(a) + len(b)
+    assert levenshtein_distance(a, b, 1, 1, 2, 2) == len(a) + len(b)

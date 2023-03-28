@@ -71,23 +71,29 @@ def obj2vec(a, b):
     sym2int = {v: k for k, v in int2sym.items()}
     return [sym2int[a_] for a_ in a], [sym2int[b_] for b_ in b]
 
+
+def _validate_costs(cost_del, cost_ins, cost_sub, cost_cor):
+    if not (isinstance(cost_del, int) and isinstance(cost_ins, int) and isinstance(cost_sub, int) and isinstance(
+            cost_cor, int)):
+        raise ValueError(
+            f'Only unsigned integer costs are supported, but found cost_del={cost_del}, '
+            f'cost_ins={cost_ins}, cost_sub={cost_sub}, cost_cor={cost_cor}'
+        )
+
 def levenshtein_distance(
         reference,
         hypothesis,
+        cost_del=1,
+        cost_ins=1,
+        cost_sub=1,
+        cost_cor=0,
 ):
     reference, hypothesis = obj2vec(reference, hypothesis)
+    if cost_del == 1 and cost_ins == 1 and cost_sub == 1 and cost_cor == 0:
+        # This is the fast case where we can use the standard optimized algorithm
+        return levenshtein_distance_(reference, hypothesis)
 
-    return levenshtein_distance_(reference, hypothesis)
-
-def levenshtein_distance_custom_cost(
-        reference,
-        hypothesis,
-        cost_del,
-        cost_ins,
-        cost_sub,
-        cost_cor,
-):
-    reference, hypothesis = obj2vec(reference, hypothesis)
+    _validate_costs(cost_del, cost_ins, cost_sub, cost_cor)
 
     return levenshtein_distance_custom_cost_(
         reference, hypothesis, cost_del, cost_ins, cost_sub, cost_cor
@@ -108,14 +114,18 @@ def _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
     reference_timing = np.array(reference_timing)
     hypothesis_timing = np.array(hypothesis_timing)
 
-    assert len(reference) == 0 or reference_timing.shape == (len(reference), 2), (reference_timing.shape, len(reference))
-    assert len(hypothesis) == 0 or hypothesis_timing.shape == (len(hypothesis), 2), (hypothesis_timing.shape, len(hypothesis))
-    assert len(reference) == 0 or len(hypothesis) == 0 or reference_timing.dtype == hypothesis_timing.dtype, (reference_timing.dtype, hypothesis_timing.dtype)
+    assert len(reference) == 0 or reference_timing.shape == (len(reference), 2), (
+    reference_timing.shape, len(reference))
+    assert len(hypothesis) == 0 or hypothesis_timing.shape == (len(hypothesis), 2), (
+    hypothesis_timing.shape, len(hypothesis))
+    assert len(reference) == 0 or len(hypothesis) == 0 or reference_timing.dtype == hypothesis_timing.dtype, (
+    reference_timing.dtype, hypothesis_timing.dtype)
 
     def check(timing, info):
         # end >= start
         if np.any(timing[:, 1] < timing[:, 0]):
-            raise ValueError(f'The end time of an interval must not be smaller than its begin time, but the {info} violates this')
+            raise ValueError(
+                f'The end time of an interval must not be smaller than its begin time, but the {info} violates this')
         # start values are increasing
         if np.any(np.diff(timing[:, 0]) < 0):
             raise ValueError(
@@ -127,7 +137,7 @@ def _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
         check(reference_timing, 'reference')
     if len(hypothesis):
         check(hypothesis_timing, 'hypothesis')
-        
+
     return reference, hypothesis, reference_timing, hypothesis_timing
 
 def time_constrained_levenshtein_distance(
@@ -135,12 +145,16 @@ def time_constrained_levenshtein_distance(
         hypothesis,  # list[int]
         reference_timing,  # list[tuple[int, int]]
         hypothesis_timing,  # list[tuple[int, int]]
-        cost_del: uint=1,
-        cost_ins: uint=1,
-        cost_sub: uint=1,
-        cost_cor: uint=0,
+        cost_del: uint = 1,
+        cost_ins: uint = 1,
+        cost_sub: uint = 1,
+        cost_cor: uint = 0,
 ):
-    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
+    _validate_costs(cost_del, cost_ins, cost_sub, cost_cor)
+    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(
+        reference, hypothesis, reference_timing, hypothesis_timing
+    )
+
     if len(reference) == 0:
         return len(hypothesis) * cost_ins
     if len(hypothesis) == 0:
@@ -174,10 +188,13 @@ def time_constrained_levenshtein_distance_unoptimized(
         cost_cor=0,
 ):
     """
-    The time-constrained levenshtein distance without time-pruning optimizagion. This mainly exists so we
+    The time-constrained levenshtein distance without time-pruning optimization. This mainly exists so we
     can test the optimized implementation against this one.
     """
-    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
+    _validate_costs(cost_del, cost_ins, cost_sub, cost_cor)
+    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(
+        reference, hypothesis, reference_timing, hypothesis_timing
+    )
     if len(reference) == 0:
         return len(hypothesis) * cost_ins
     if len(hypothesis) == 0:
@@ -211,7 +228,8 @@ def time_constrained_levenshtein_distance_with_alignment(
         cost_cor=0,
         eps='*',
 ):
-    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis, reference_timing, hypothesis_timing)
+    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis,
+                                                                                  reference_timing, hypothesis_timing)
     if len(reference) == 0:
         return {
             'total': len(hypothesis),
