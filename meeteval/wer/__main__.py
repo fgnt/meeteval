@@ -343,14 +343,16 @@ def cli():
     parser.add_argument('--version', action='store_true', help='Show version')
     commands = parser.add_subparsers(title='Subcommands')
 
-    def positive_number(x):
+    def positive_number(x: str):
+        if x.isdigit():
+            # Positive integer
+            return int(x)
+
         x = float(x)
         if x < 0:
             raise ValueError(f'Number must be positive, but got {x}')
-        if x.is_integer():
-            return int(x)
-        else:
-            return x
+
+        return x
 
     def add_command(fn):
         command_parser = commands.add_parser(
