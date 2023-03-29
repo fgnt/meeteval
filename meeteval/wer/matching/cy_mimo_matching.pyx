@@ -7,6 +7,46 @@ cimport cython
 
 ctypedef unsigned int uint
 
+
+cdef extern from "mimo_matching.h":
+    uint levenshtein_distance_(vector[uint] reference, vector[uint] hypothesis)
+    uint mimo_matching_(vector[vector[vector[uint]]] references, vector[vector[uint]] hypotheses)
+
+
+def obj2vec(a, b):
+    int2sym = dict(enumerate(sorted(set(a) | set(b))))
+    sym2int = {v: k for k, v in int2sym.items()}
+    return [sym2int[a_] for a_ in a], [sym2int[b_] for b_ in b]
+
+
+def levenshtein_distance_cpp(
+        reference,
+        hypothesis,
+):
+    reference, hypothesis = obj2vec(reference, hypothesis)
+    print(reference, hypothesis)
+    return levenshtein_distance_(reference, hypothesis)
+
+
+def mimo_matching_cpp(
+        references,
+        hypotheses,
+):
+    all_symbols = set()
+    for r in references:
+        for r_ in r:
+            all_symbols.update(set(list(r_)))
+    for h in hypotheses:
+        all_symbols.update(set(list(h)))
+    int2sym = dict(enumerate(sorted(all_symbols)))
+    sym2int = {v: k for k, v in int2sym.items()}
+
+    references = [[[sym2int[r__] for r__ in r_] for r_ in r] for r in references]
+    hypotheses = [[sym2int[h_] for h_ in h] for h in hypotheses]
+
+    return mimo_matching_(references, hypotheses)
+
+
 cdef uint update_lev_row(uint * row, uint * from_index_buffer, vector[uint] ref, vector[uint] hyp):
     """
     Updates the levenshtein matrix row `row` with symbols from `ref`.
