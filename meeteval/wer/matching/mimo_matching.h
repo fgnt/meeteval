@@ -144,25 +144,27 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> mimo
                     ) {
                         // Copy the levenshtein row into the buffer. This is a strided slicing operation
                         std::vector<UpdateState> tmp_row(hyp_layout.dimensions[active_hypothesis_index]);
+                        unsigned int k = i;
                         for (unsigned int j = 0; j < hyp_layout.dimensions[active_hypothesis_index]; j++) {
-                            State s = previous_state[i + j * hyp_layout.strides[active_hypothesis_index]];
+                            State s = previous_state[k];
                             tmp_row[j].cost = s.cost;
-                            tmp_row[j].index = j;
+                            tmp_row[j].index = k;
+                            k += hyp_layout.strides[active_hypothesis_index];
                         }
 
                         // Apply levenshtein algorithm
                         update_levenshtein_row(tmp_row, active_reference, hypotheses[active_hypothesis_index]);
 
                         // Update current state. Keep only the min value. Do inverse of the above stride access
-                        for (unsigned int j = 0; j < hyp_layout.dimensions[active_hypothesis_index]; j++) {
-                            UpdateState tmp_state = tmp_row[j];
-                            if (first_update || state[i + j * hyp_layout.strides[active_hypothesis_index]].cost > tmp_state.cost) {
-                                // TODO: how is this optimized?
-                                state[i + j*hyp_layout.strides[active_hypothesis_index]].cost = tmp_state.cost;
-                                state[i + j*hyp_layout.strides[active_hypothesis_index]].active_reference = active_reference_index;
-                                state[i + j*hyp_layout.strides[active_hypothesis_index]].active_hypothesis = active_hypothesis_index;
-                                state[i + j*hyp_layout.strides[active_hypothesis_index]].hyp_link = i + tmp_state.index * hyp_layout.strides[active_hypothesis_index];
+                        k = i;
+                        for (auto tmp_state : tmp_row) {
+                            if (first_update || state[k].cost > tmp_state.cost) {
+                                state[k].cost = tmp_state.cost;
+                                state[k].active_reference = active_reference_index;
+                                state[k].active_hypothesis = active_hypothesis_index;
+                                state[k].hyp_link = tmp_state.index;
                             }
+                            k += hyp_layout.strides[active_hypothesis_index];
                         }
                     }
                 }
