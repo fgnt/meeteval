@@ -85,3 +85,20 @@ def test_against_orc(ref, hyps):
     )
 
 
+@given(ref=reference(2, 2), hyps=hypothesis(3))
+@settings(deadline=None)    # The tests take longer on the GitHub actions test servers
+def test_mimo_v2_against_cpp(ref, hyps):
+    """Test brute-force algorithm against DP algorithm for smaller examples"""
+    from meeteval.wer.matching.cy_mimo_matching import mimo_matching_cpp
+    distance_v2, assignment_v2 = mimo_matching.mimo_matching_v2(ref, hyps)
+    distance_cpp, assignment_cpp = mimo_matching_cpp(ref, hyps)
+
+    assert distance_v2 == distance_cpp
+
+    # We cannot easily check the assignment because there might be multiple
+    # assignments with the same distance. Check that the distance for them is
+    # equal instead
+    assert assignment_v2 == assignment_cpp or (
+            mimo_matching._levensthein_distance_for_assignment(ref, hyps, assignment_v2) ==
+            mimo_matching._levensthein_distance_for_assignment(ref, hyps, assignment_cpp)
+    )

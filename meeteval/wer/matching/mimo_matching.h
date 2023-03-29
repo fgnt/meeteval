@@ -6,19 +6,24 @@
 #include <algorithm>
 
 
+struct UpdateState {
+    unsigned int cost;
+    unsigned int index;
+};
+
 void update_levenshtein_row(
-        std::vector<unsigned int> &row,
+        std::vector<UpdateState> &row,
         const std::vector<unsigned int> &reference,
         const std::vector<unsigned int> &hypothesis
 ) {
-    // TODO: track where stuff came from
     // Temporary variables
-    unsigned int up;    // Value above the current cell (deletion)
-    unsigned int diagonal;  // Value diagonal to the current cell (substitution)
-    unsigned int left;
+    UpdateState up;    // Value above the current cell (deletion)
+    UpdateState diagonal;  // Value diagonal to the current cell (substitution)
+    UpdateState left;
 
     for (auto ref_symbol: reference) {
-        diagonal = row[0]++;  // diagonal = row[0]; row[0] = row[0] + 1;
+        diagonal = row[0];
+        row[0].cost++;
         left = row[0];
 
         unsigned int hyp_index = 1;
@@ -27,7 +32,9 @@ void update_levenshtein_row(
             if (ref_symbol == hyp_symbol) {
                 left = diagonal;
             } else {
-                left = 1 + std::min(std::min(left, up), diagonal);
+                if (up.cost < left.cost) left = up;
+                if (diagonal.cost < left.cost) left = diagonal;
+                left.cost++; // Cost for ins/del/sub = 1
             }
             row[hyp_index] = left;
             diagonal = up;
@@ -41,14 +48,14 @@ unsigned int levenshtein_distance_(
         const std::vector<unsigned int> hypothesis
 ) {
     // Temporary memory (one row of the levenshtein matrix)
-    std::vector<unsigned int> row(hypothesis.size() + 1);
+    std::vector<UpdateState> row(hypothesis.size() + 1);
 
     // Initialize with range
-    std::iota(row.begin(), row.end(), 0);
+    for (unsigned int i = 0; i < row.size(); ++i) row[i].cost = i;
 
     update_levenshtein_row(row, reference, hypothesis);
 
-    return row[row.size() - 1];
+    return row.back().cost;
 }
 
 struct Layout {
@@ -70,7 +77,14 @@ Layout inline make_layout(const std::vector<std::vector<T>> vec) {
     return layout;
 }
 
-unsigned int mimo_matching_(
+struct State {
+    unsigned int cost;
+    unsigned int active_reference;
+    unsigned int active_hypothesis;
+    unsigned int hyp_link;
+};
+
+std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> mimo_matching_(
         std::vector<std::vector<std::vector<unsigned int>>> references, std::vector<std::vector<unsigned int>> hypotheses
 ) {
     // Get dimensions and layouts for the storage
@@ -78,17 +92,17 @@ unsigned int mimo_matching_(
     Layout hyp_layout = make_layout(hypotheses);
 
     // Build reference storage grid
-    std::vector<std::vector<unsigned int>> ref_grid(ref_layout.total_size);
+    std::vector<std::vector<State>> ref_grid(ref_layout.total_size);
 
     // Initialize first element
-    auto state = std::vector<unsigned int>(hyp_layout.total_size);
+    auto state = std::vector<State>(hyp_layout.total_size);
     for (unsigned int i = 0; i < hyp_layout.total_size; i++) {
         unsigned int j = 0;
         // TODO: can this be simplified?
         for (unsigned int v = 0; v < hyp_layout.dimensions.size(); v++) {
             j += (i / hyp_layout.strides[v]) % hyp_layout.dimensions[v];
         }
-        state[i] = j;
+        state[i].cost = j;
     }
     ref_grid[0] = state;
 
@@ -104,7 +118,7 @@ unsigned int mimo_matching_(
         }
 
         // Get destination storage
-        auto state = std::vector<unsigned int>(hyp_layout.total_size);
+        auto state = std::vector<State>(hyp_layout.total_size);
         auto first_update = true;
 
         // Loop through all adjacent reference combinations and advance row
@@ -113,7 +127,7 @@ unsigned int mimo_matching_(
 
             // Get the previous state, only based on the current assignment of
             // references
-            std::vector<unsigned int> &previous_state = ref_grid[reference_utterance_index - ref_layout.strides[active_reference_index]];
+            std::vector<State> &previous_state = ref_grid[reference_utterance_index - ref_layout.strides[active_reference_index]];
             std::vector<unsigned int> &active_reference = references[active_reference_index][reference_indices[active_reference_index] - 1];
 
             // Forward levenshtein row
@@ -128,10 +142,12 @@ unsigned int mimo_matching_(
                             i < _i + hyp_layout.strides[active_hypothesis_index];
                             i++
                     ) {
-                        // Copy the levenshtein row into the buffer
-                        std::vector<unsigned int> tmp_row(hyp_layout.dimensions[active_hypothesis_index]);
+                        // Copy the levenshtein row into the buffer. This is a strided slicing operation
+                        std::vector<UpdateState> tmp_row(hyp_layout.dimensions[active_hypothesis_index]);
                         for (unsigned int j = 0; j < hyp_layout.dimensions[active_hypothesis_index]; j++) {
-                            tmp_row[j] = previous_state[i + j * hyp_layout.strides[active_hypothesis_index]];
+                            State s = previous_state[i + j * hyp_layout.strides[active_hypothesis_index]];
+                            tmp_row[j].cost = s.cost;
+                            tmp_row[j].index = j;
                         }
 
                         // Apply levenshtein algorithm
@@ -139,8 +155,13 @@ unsigned int mimo_matching_(
 
                         // Update current state. Keep only the min value. Do inverse of the above stride access
                         for (unsigned int j = 0; j < hyp_layout.dimensions[active_hypothesis_index]; j++) {
-                            if (first_update || state[i + j * hyp_layout.strides[active_hypothesis_index]] > tmp_row[j]) {
-                                state[i + j*hyp_layout.strides[active_hypothesis_index]] = tmp_row[j];
+                            UpdateState tmp_state = tmp_row[j];
+                            if (first_update || state[i + j * hyp_layout.strides[active_hypothesis_index]].cost > tmp_state.cost) {
+                                // TODO: how is this optimized?
+                                state[i + j*hyp_layout.strides[active_hypothesis_index]].cost = tmp_state.cost;
+                                state[i + j*hyp_layout.strides[active_hypothesis_index]].active_reference = active_reference_index;
+                                state[i + j*hyp_layout.strides[active_hypothesis_index]].active_hypothesis = active_hypothesis_index;
+                                state[i + j*hyp_layout.strides[active_hypothesis_index]].hyp_link = i + tmp_state.index * hyp_layout.strides[active_hypothesis_index];
                             }
                         }
                     }
@@ -150,7 +171,22 @@ unsigned int mimo_matching_(
         }
         ref_grid[reference_utterance_index] = state;
     }
-    return ref_grid.back().back();
+
+    // Backtracking for assignment
+    std::vector<std::pair<unsigned int, unsigned int>> assignment;
+    unsigned int reference_utterance_index = ref_layout.total_size - 1;
+    unsigned int hypothesis_index = hyp_layout.total_size - 1;
+
+    while (reference_utterance_index != 0) {
+        State current_state = ref_grid[reference_utterance_index][hypothesis_index];
+        assignment.push_back(std::make_pair(current_state.active_reference, current_state.active_hypothesis));
+
+        // Update "pointer" variables
+        hypothesis_index = current_state.hyp_link;
+        reference_utterance_index -= ref_layout.strides[current_state.active_reference];
+    }
+    std::reverse(assignment.begin(), assignment.end());
+    return std::make_pair(ref_grid.back().back().cost, assignment);
 }
 
 #pragma clang diagnostic pop
