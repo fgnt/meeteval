@@ -180,7 +180,7 @@ def orcwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_orcwer.json',
         per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
-        verbose=False
+        verbose=False,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
