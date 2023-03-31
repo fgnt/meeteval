@@ -35,7 +35,7 @@ We include a collar option both for the reference (`--ref-collar`) and the hypot
 It specifies by how much the system's (and pseudo-word-level annotation strategy's) prediction can differ from the ground truth annotation before it is counted as an error.
 Due to the way we estimate pseudo-word-level annotations for the segment-level annotations, the collar has to be relatively large (compared to typical values for DER computation).
 It should be chosen so that small diarization errors (e.g., merging two utterances of the same speaker uttered without a pause into a single segment) are not penalized but larger errors (merging utterances that are tens of seconds apart) is penalized.
-This, of course, depends on the data, but we found values in the range of 2-5s to work well in some test on libri-CSS.
+This, of course, depends on the data, but we found values in the range of 2-5s to work well on libri-CSS.
 
 ## Using tcpWER
 
@@ -45,4 +45,4 @@ You can use any resolution for the begin and end times (e.g., seconds or samples
 meeteval-wer tcpwer -h hyp.stm -r ref.stm --hyp-collar 5
 ```
 
-[^1] Some annotations in LibriSpeech, for example, contain extraordinary long pauses of a few seconds within one annotated utterance
+[^1]: Some annotations in LibriSpeech, for example, contain extraordinary long pauses of a few seconds within one annotated utterance
