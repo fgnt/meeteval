@@ -1,7 +1,12 @@
 # Time-Constrained minimum Permutation Word Error Rate (tcpWER)
 
 The Time-Constrained minimum Permutation Word Error Rate (tcpWER) is similar to the cpWER, but uses temporal information to prevent matching words that are far apart temporally.
+By this, we aim to enforce a certain level of accuracy of the temporal annotations.
+
 The temporal constraint idea is similar (but not identical) to aslicte's `-time-prune` option.
+It yields a significant speedup compared to the plain cpWER, and it has been used in asclite for exactly this reason.
+When the parameters are chosen wrongly, the tcpWER can give a value that is significantly larger than its time-constraint-free version.
+While such an optimization can be seen as an approximation used to improve the runtime costs, we here explicitly count temporal errors to account for (obvious) temporal diarization mistakes.   
 
 ## Goals of the tcpWER
 The transcription system should be forced to provide rough temporal annotations (diarization) and should be penalized when its results become implausible compared to the reference. 
@@ -11,6 +16,7 @@ This leads us to following properties:
 - It should not be penalized when the system combines several words (e.g. an utterance) in one segment, but
 - It should be penalized when it produces (too) long segments spanning multiple reference segments.
 - It should not be penalized when the system provides more precise timing than the reference (e.g., by splitting in a pause or producing tighter bounds).
+- The tcpWER is faster to compute than the cpWER.
 
 ## Pseudo-word-level annotations
 To compute the matching, we need a temporal annotation (start and end time) for each word.
