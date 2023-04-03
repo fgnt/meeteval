@@ -28,7 +28,7 @@ def levenshtein_distance_cpp(
     return levenshtein_distance_(reference, hypothesis)
 
 
-def mimo_matching_cpp(
+def cpp_mimo_matching(
         references,
         hypotheses,
 ):
