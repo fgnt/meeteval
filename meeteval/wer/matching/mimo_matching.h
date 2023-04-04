@@ -94,18 +94,23 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> mimo
     // Build reference storage grid
     std::vector<std::vector<State>> ref_grid(ref_layout.total_size);
 
-    // Initialize first element
+    // Initialize first element - fill with only deletion errors
+    // Ever cell's value is one larger than all its smaller non-diagonal
+    // neighbors. We can initialize it by finding one such neighbor, which
+    // is always given by index minus the largest stride that is smaller
+    // than or equal to the current index
     auto state = std::vector<State>(hyp_layout.total_size);
-    for (unsigned int i = 0; i < hyp_layout.total_size; i++) {
-        unsigned int j = 0;
-        // TODO: can this be simplified?
-        for (unsigned int v = 0; v < hyp_layout.dimensions.size(); v++) {
-            j += (i / hyp_layout.strides[v]) % hyp_layout.dimensions[v];
-        }
-        state[i].cost = j;
+    state[0].cost = 0;
+    unsigned int v = 0;
+    for (unsigned int i = 1; i < hyp_layout.total_size; i++) {
+        // Find the largest stride that is smaller than or equal to i. Must
+        // be increasing with i and v can only increase by one
+        if (v < hyp_layout.strides.size() && i == hyp_layout.strides[v + 1]) v++;
+        state[i].cost = state[i - hyp_layout.strides[v]].cost + 1;
     }
     ref_grid[0] = state;
 
+    // This vector stores the indices into the reference utterances
     std::vector<unsigned int> reference_indices(references.size(), 0);
 
     // Main loop
