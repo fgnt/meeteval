@@ -110,4 +110,4 @@ def test_burn_average():
 
 
 def test_burn_siso():
-    run(f'python -m meeteval.wer sisower -h hyp.txt -r ref.txt')
+    run(f'python -m meeteval.wer sisower -h text_hyp -r text_ref')

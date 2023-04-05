@@ -186,8 +186,8 @@ def sisower(
     reference_paths = [Path(r) for r in reference]
     hypothesis_paths = [Path(h) for h in hypothesis]
     if (
-            any(r.suffix not in ('.txt', '') for r in reference_paths) or
-            any(h.suffix not in ('.txt', '') for h in hypothesis_paths)
+            any(r.suffix != '' for r in reference_paths) or
+            any(h.suffix != '' for h in hypothesis_paths)
     ):
         raise ValueError(f'Only text files are supported, not {reference.suffix}')
     reference = KeyedText.load(reference).grouped_by_filename()
