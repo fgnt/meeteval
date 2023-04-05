@@ -23,7 +23,7 @@ class KeyedTextLine(BaseLine):
         """
         line = line.strip()
         if ' ' in line:
-            filename, transcript = line.strip().split(maxsplit=1)
+            filename, transcript = line.split(maxsplit=1)
         else:
             filename = line
             transcript = ''
