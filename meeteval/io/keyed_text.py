@@ -11,7 +11,22 @@ class KeyedTextLine(BaseLine):
 
     @classmethod
     def parse(cls, line: str) -> 'KeyedTextLine':
-        filename, transcript = line.strip().split(maxsplit=1)
+        """
+        >>> KeyedTextLine.parse("key a transcript")
+        KeyedTextLine(filename='key', transcript='a transcript')
+        >>> KeyedTextLine.parse("   key  a transcript  ")
+        KeyedTextLine(filename='key', transcript='a transcript')
+        >>> KeyedTextLine.parse("  key ")
+        KeyedTextLine(filename='key', transcript='')
+        >>> KeyedTextLine.parse("key")
+        KeyedTextLine(filename='key', transcript='')
+        """
+        line = line.strip()
+        if ' ' in line:
+            filename, transcript = line.strip().split(maxsplit=1)
+        else:
+            filename = line
+            transcript = ''
         return cls(filename, transcript)
 
 
