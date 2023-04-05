@@ -177,10 +177,10 @@ def _save_results(
     )
 
 
-def sisower(
+def wer(
         reference, hypothesis,
-        average_out='{parent}/{stem}_sisower.json',
-        per_reco_out='{parent}/{stem}_sisower_per_reco.json',
+        average_out='{parent}/{stem}_wer.json',
+        per_reco_out='{parent}/{stem}_wer_per_reco.json',
 ):
     """Computes the "standard" WER (SISO WER). Only support kaldi-style text files"""
     reference_paths = [Path(r) for r in reference]
@@ -492,7 +492,7 @@ def cli():
             }
         )
 
-    add_command(sisower)
+    add_command(wer)
     add_command(cpwer)
     add_command(orcwer)
     add_command(mimower)
