@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List
 
 from meeteval.io.ctm import CTMGroup
+from meeteval.io.keyed_text import KeyedText
 from meeteval.io.stm import STM
 from meeteval.wer.wer import (
     cp_word_error_rate,
@@ -174,6 +175,38 @@ def _save_results(
         dataclasses.asdict(average),
         average_out.format(parent=f'{parent}/', stem=stem),
     )
+
+
+def wer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_wer.json',
+        per_reco_out='{parent}/{stem}_wer_per_reco.json',
+):
+    """Computes the "standard" WER (SISO WER). Only support kaldi-style text files"""
+    reference_paths = [Path(r) for r in reference]
+    hypothesis_paths = [Path(h) for h in hypothesis]
+    if (
+            any(r.suffix != '' for r in reference_paths) or
+            any(h.suffix != '' for h in hypothesis_paths)
+    ):
+        raise ValueError(f'Only text files are supported, not {reference.suffix}')
+    reference = KeyedText.load(reference).grouped_by_filename()
+    hypothesis = KeyedText.load(hypothesis).grouped_by_filename()
+    if reference.keys() != hypothesis.keys():
+        raise RuntimeError(
+            'Keys of reference and hypothesis differ\n'
+            f'hypothesis - reference: e.g. {list(set(hypothesis.keys()) - set(reference.keys()))[:5]}\n'
+            f'reference - hypothesis: e.g. {list(set(reference.keys()) - set(hypothesis.keys()))[:5]}'
+        )
+    results = {}
+    for filename in reference.keys():
+        assert len(reference[filename].lines) == 1
+        assert len(hypothesis[filename].lines) == 1
+        results[filename] = siso_word_error_rate(
+            reference[filename].lines[0].transcript,
+            hypothesis[filename].lines[0].transcript,
+        )
+    _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
 def orcwer(
@@ -459,6 +492,7 @@ def cli():
             }
         )
 
+    add_command(wer)
     add_command(cpwer)
     add_command(orcwer)
     add_command(mimower)
