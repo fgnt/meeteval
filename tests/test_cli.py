@@ -109,3 +109,5 @@ def test_burn_average():
     run(f'python -m meeteval.wer average hypA_cpwer_per_reco.json hypB_cpwer_per_reco.json')
 
 
+def test_burn_siso():
+    run(f'python -m meeteval.wer sisower -h hyp.txt -r ref.txt')
