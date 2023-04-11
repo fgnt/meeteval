@@ -141,7 +141,7 @@ class Base:
                 p.pretty(list(self.lines))
 
     def dump(self, file):
-        with open(file, 'w') as fd:
+        with _open(file, 'w') as fd:
             for line in self.lines:
                 fd.write(line.serialize() + '\n')
 
