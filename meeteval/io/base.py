@@ -141,7 +141,7 @@ class Base:
                 p.pretty(list(self.lines))
 
     def dump(self, file):
-        with open(file, 'w') as fd:
+        with _open(file, 'w') as fd:
             for line in self.lines:
                 fd.write(line.serialize() + '\n')
 
@@ -192,7 +192,7 @@ class Base:
     def grouped_by_speaker_id(self):
         return self.groupby(lambda x: x.speaker_id)
 
-    def sorted(self, key=None):
+    def sorted(self, key: 'str | callable | tuple | list' = None):
         """
         This wrapper of sorted.
 
@@ -209,6 +209,13 @@ class Base:
             new = rttm.sorted(key=lambda x: (x.filename, x.begin_time))
 
         """
+        if isinstance(key, str):
+            attribute = key
+            key = lambda x: getattr(x, attribute)
+        elif isinstance(key, (tuple, list)):
+            attributes = key
+            key = lambda x: tuple([getattr(x, a) for a in attributes])
+
         return self.__class__(sorted(self.lines, key=key))
 
     def sorted_by_begin_time(self):

@@ -101,3 +101,33 @@ def test_time_constrained_levenshtein_distance_with_alignment_against_kaldialign
     assert kaldialign_statistics['sub'] == statistics['substitutions'], (kaldialign_statistics, statistics)
     assert kaldialign_statistics['total'] == statistics['total'], (kaldialign_statistics, statistics)
     assert kaldialign_statistics['del'] == statistics['deletions'], (kaldialign_statistics, statistics)
+
+
+@given(
+    st.composite(lambda draw: [
+        [
+            draw(st.text(alphabet='abcdefg', min_size=1, max_size=3))
+            for _ in range(draw(st.integers(min_value=2, max_value=10)))
+        ]
+        for _ in range(draw(st.integers(min_value=2, max_value=10)))
+    ])(),
+    st.composite(lambda draw: [
+        [
+            draw(st.text(alphabet='abcdefg', min_size=1, max_size=3))
+            for _ in range(draw(st.integers(min_value=2, max_value=10)))
+        ]
+        for _ in range(draw(st.integers(min_value=2, max_value=10)))
+    ])(),
+)
+def test_tcpwer_vs_cpwer(
+        a, b
+):
+    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
+    from meeteval.wer.wer.cp import cp_word_error_rate
+
+    cp_statistics = cp_word_error_rate([' '.join(speaker) for speaker in a], [' '.join(speaker) for speaker in b])
+    tcp_statistics = time_constrained_minimum_permutation_word_error_rate(
+        [[{'words': word, 'start_time': 0, 'end_time': 1} for word in speaker] for speaker in a],
+        [[{'words': word, 'start_time': 0, 'end_time': 1} for word in speaker] for speaker in b],
+    )
+    assert cp_statistics == tcp_statistics, (cp_statistics, tcp_statistics)

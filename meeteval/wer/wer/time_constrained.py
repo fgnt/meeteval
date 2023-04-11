@@ -15,8 +15,8 @@ if typing.TYPE_CHECKING:
 
     class Segment(TypedDict):
         words: str
-        start_time: int | float
-        end_time: int | float
+        start_time: 'int | float'
+        end_time: 'int | float'
 
 
 __all__ = ['time_constrained_minimum_permutation_word_error_rate', 'time_constrained_siso_word_error_rate']
@@ -80,7 +80,7 @@ def _get_words_and_intervals(segments: 'List[Segment]', pseudo_word_level_strate
 def _map(fn, x):
     if isinstance(x, dict):
         return {k: fn(v) for k, v in x.items()}
-    elif isinstance(x, (list, dict)):
+    elif isinstance(x, (list, tuple)):
         return [fn(v) for v in x]
     else:
         raise TypeError()
@@ -149,10 +149,8 @@ def time_constrained_minimum_permutation_word_error_rate(
         reference_collar: int = 0,
         hypothesis_collar: int = 0,
 ) -> CPErrorRate:
-    import numpy as np
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
-    import scipy.optimize
-    import itertools
+    from meeteval.wer.wer.cp import _cp_word_error_rate
 
     for k, v in _items(reference):
         _check_timing_annotations([(s['start_time'], s['end_time']) for s in v], f'reference {k}')
@@ -165,88 +163,9 @@ def time_constrained_minimum_permutation_word_error_rate(
     hypothesis = _map(lambda x: _get_words_and_intervals(x, hypothesis_pseudo_word_level_timing, hypothesis_collar),
                       hypothesis)
 
-    if isinstance(hypothesis, dict):
-        hypothesis_keys = list(hypothesis.keys())
-        hypothesis_values = list(hypothesis.values())
-    else:
-        hypothesis_keys = list(range(len(hypothesis)))
-        hypothesis_values = hypothesis
-    if isinstance(reference, dict):
-        reference_keys = list(reference.keys())
-        reference_values = list(reference.values())
-    else:
-        reference_keys = list(range(len(reference)))
-        reference_values = reference
-
-
-
-    cost_matrix = np.array([
-        [
-            time_constrained_levenshtein_distance(tt[0], et[0], tt[1], et[1])
-            for et in hypothesis_values
-        ]
-        for tt in reference_values
-    ])
-
-    # Find the best permutation with hungarian algorithm
-    row_ind, col_ind = scipy.optimize.linear_sum_assignment(cost_matrix)
-    distances = cost_matrix[row_ind, col_ind]
-    distances = list(distances)
-
-    # Handle over-/under-estimation
-    if len(hypothesis_values) > len(reference_values):
-        # Over-estimation: Add full length of over-estimated hypotheses
-        # to distance
-        none_assigned = sorted(set(range(len(hypothesis_values))) - set(col_ind))
-        for i in none_assigned:
-            distances.append(len(hypothesis_values[i][0]))
-        col_ind = [*col_ind, *none_assigned]
-    elif len(hypothesis_values) < len(reference_values):
-        # Under-estimation: Add full length of the unused references
-        none_assigned = sorted(set(range(len(reference_values))) - set(row_ind))
-        for i in none_assigned:
-            distances.append(len(reference_values[i][0]))
-        row_ind = [*row_ind, *none_assigned]
-
-    # Compute WER from distance
-    distance = sum(distances)
-
-    assignment = tuple([
-        (
-            reference_keys[r] if r is not None else r,
-            hypothesis_keys[c] if c is not None else c,
-        )
-        for r, c in itertools.zip_longest(row_ind, col_ind)
-    ])
-
-    missed_speaker = max(0, len(reference) - len(hypothesis))
-    falarm_speaker = max(0, len(hypothesis) - len(reference))
-
-    from meeteval.wer.wer.cp import apply_cp_assignment
-    reference_new, hypothesis_new = apply_cp_assignment(
-        assignment,
-        reference=reference,
-        hypothesis=hypothesis,
-        missing=([], []),
-    )
-
-    er = sum([
-        _time_constrained_siso_error_rate(
-            r[0], hypothesis_new[speaker][0],
-            r[1], hypothesis_new[speaker][1],
-        )
-        for speaker, r in _items(reference_new)
-    ])
-    assert distance == er.errors, (distance, er)
-    assert distance == er.errors, (distance, er)
-
-    return CPErrorRate(
-        er.errors, er.length,
-        insertions=er.insertions,
-        deletions=er.deletions,
-        substitutions=er.substitutions,
-        missed_speaker=missed_speaker,
-        falarm_speaker=falarm_speaker,
-        scored_speaker=len(reference),
-        assignment=assignment,
+    return _cp_word_error_rate(
+        reference, hypothesis,
+        distance_fn=lambda tt, et: time_constrained_levenshtein_distance(tt[0], et[0], tt[1], et[1]),
+        siso_error_rate=lambda tt, et: _time_constrained_siso_error_rate(tt[0], et[0], tt[1], et[1]),
+        missing=[[], []],
     )

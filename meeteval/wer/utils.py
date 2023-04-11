@@ -1,13 +1,25 @@
-def _items(obj):
+def _items(obj: 'dict | tuple | list'):
     if isinstance(obj, dict):
-        return obj.items()
+        return list(obj.items())
     elif isinstance(obj, (tuple, list)):
-        return enumerate(obj)
+        return list(enumerate(obj))
     else:
         raise TypeError(type(obj), obj)
 
-def _keys(obj):
+
+def _keys(obj: 'dict | tuple | list'):
     if isinstance(obj, dict):
         return list(obj.keys())
-    else:
+    elif isinstance(obj, (tuple, list)):
         return list(range(len(obj)))
+    else:
+        raise TypeError(type(obj), obj)
+
+
+def _values(obj: 'dict | tuple | list'):
+    if isinstance(obj, dict):
+        return list(obj.values())
+    elif isinstance(obj, (tuple, list)):
+        return obj
+    else:
+        raise TypeError(type(obj), obj)

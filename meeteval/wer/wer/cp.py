@@ -1,12 +1,12 @@
 import dataclasses
 import itertools
 import string
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List, Dict, Any
 from meeteval._typing import Literal
 
-from .error_rate import ErrorRate
-from .siso import siso_word_error_rate
-from ..utils import _items
+from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
+from meeteval.wer.utils import _items, _values, _keys
 
 __all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment']
 
@@ -27,7 +27,7 @@ class CPErrorRate(ErrorRate):
     falarm_speaker: int
     scored_speaker: int
     # assignment: Optional[Tuple[int, ...]] = None
-    assignment: Optional[Tuple['int | str', ...]] = None
+    assignment: Optional[Tuple['int | str | Any', ...]] = None
 
     @classmethod
     def zero(cls):
@@ -120,36 +120,59 @@ def cp_word_error_rate(
     CPErrorRate(errors=1, length=3, insertions=1, deletions=0, substitutions=0, error_rate=0.3333333333333333, missed_speaker=0, falarm_speaker=1, scored_speaker=3, assignment=(('r0', 'h3'), ('r1', 'h0'), ('r2', 'h1'), (None, 'h2')))
     >>> er.apply_assignment({'r0': 'a', 'r1': 'b', 'r2': 'c'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
     ({'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': ''}, {'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': 'd'})
+
+    >>> cp_word_error_rate({'r0': 'a b'}, {'h0': 'z', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
+    CPErrorRate(errors=3, length=2, insertions=2, deletions=0, substitutions=1, error_rate=1.5, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
     """
     import editdistance
+
+    def transcription_to_words(x):
+        if isinstance(x, dict):
+            return {k: v.split() for k, v in x.items()}
+        elif isinstance(x, list):
+            return [e.split() for e in x]
+        elif isinstance(x, tuple):
+            return [e.split() for e in x]
+        else:
+            raise TypeError(x)
+
+    return _cp_word_error_rate(
+        transcription_to_words(reference),
+        transcription_to_words(hypothesis),
+        distance_fn=editdistance.distance,
+        siso_error_rate=_siso_error_rate,
+    )
+
+
+def _cp_word_error_rate(
+        reference,
+        hypothesis,
+        distance_fn: callable,
+        siso_error_rate: callable,
+        missing=(),
+):
+    # Used in
+    #   cp_word_error_rate
+    # and
+    #   time_constrained_minimum_permutation_word_error_rate
+    # .
     import scipy.optimize
     import numpy as np
 
-    if isinstance(hypothesis, dict):
-        hypothesis_keys = list(hypothesis.keys())
-        hypothesis_values = list(hypothesis.values())
-    else:
-        hypothesis_keys = list(range(len(hypothesis)))
-        hypothesis_values = hypothesis
-    if isinstance(reference, dict):
-        reference_keys = list(reference.keys())
-        reference_values = list(reference.values())
-    else:
-        reference_keys = list(range(len(reference)))
-        reference_values = reference
-
-    try:
-        reference_words = [r.split() for r in reference_values]
-    except AttributeError:
-        raise ValueError(reference)
-    hypothesis_words = [h.split() for h in hypothesis_values]
-
     cost_matrix = np.array([
         [
-            editdistance.eval(tt, et)
-            for et in hypothesis_words
+            distance_fn(tt, et)
+            for et, _ in itertools.zip_longest(
+                _values(hypothesis),
+                reference,  # ignored, "padding" for underestimation
+                fillvalue=missing,
+            )
         ]
-        for tt in reference_words
+        for tt, _ in itertools.zip_longest(
+            _values(reference),
+            hypothesis,  # ignored, "padding" for overestimation
+            fillvalue=missing,
+        )
     ])
 
     # Find the best permutation with hungarian algorithm
@@ -157,29 +180,14 @@ def cp_word_error_rate(
     distances = cost_matrix[row_ind, col_ind]
     distances = list(distances)
 
-    # Handle over-/under-estimation
-    if len(hypothesis_words) > len(reference_words):
-        # Over-estimation: Add full length of over-estimated hypotheses
-        # to distance
-        none_assigned = sorted(set(range(len(hypothesis_words))) - set(col_ind))
-        for i in none_assigned:
-            distances.append(len(hypothesis_words[i]))
-        col_ind = [*col_ind, *none_assigned]
-    elif len(hypothesis_words) < len(reference_words):
-        # Under-estimation: Add full length of the unused references
-        none_assigned = sorted(set(range(len(reference_words))) - set(row_ind))
-        for i in none_assigned:
-            distances.append(len(reference_words[i]))
-        row_ind = [*row_ind, *none_assigned]
-
     # Compute WER from distance
     distance = sum(distances)
 
+    reference_keys = dict(enumerate(_keys(reference)))  # need `dict.get` of the keys for overestimation
+    hypothesis_keys = dict(enumerate(_keys(hypothesis)))  # need `dict.get` of the keys for underestimation
+
     assignment = tuple([
-        (
-            reference_keys[r] if r is not None else r,
-            hypothesis_keys[c] if c is not None else c,
-        )
+        (reference_keys.get(r), hypothesis_keys.get(c))
         for r, c in itertools.zip_longest(row_ind, col_ind)
     ])
 
@@ -190,10 +198,11 @@ def cp_word_error_rate(
         assignment,
         reference=reference,
         hypothesis=hypothesis,
+        missing=missing,
     )
 
     er = sum([
-        siso_word_error_rate(r, hypothesis_new[speaker])
+        siso_error_rate(r, hypothesis_new[speaker])
         for speaker, r in _items(reference_new)
     ])
     assert distance == er.errors, (distance, er)
@@ -211,7 +220,7 @@ def cp_word_error_rate(
 
 
 def apply_cp_assignment(
-        assignment: 'List[tuple]',
+        assignment: 'List[Tuple[Any, ...]] | Tuple[Tuple[Any, ...], ...]',
         reference: dict,
         hypothesis: dict,
         style: 'Literal["hyp", "ref"]' = 'ref',
