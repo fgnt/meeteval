@@ -4,9 +4,9 @@ import string
 from typing import Optional, Tuple, List, Dict
 from meeteval._typing import Literal
 
-from .error_rate import ErrorRate
-from .siso import siso_word_error_rate
-from ..utils import _items
+from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.siso import siso_word_error_rate
+from meeteval.wer.utils import _items
 
 __all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment']
 
@@ -120,6 +120,9 @@ def cp_word_error_rate(
     CPErrorRate(errors=1, length=3, insertions=1, deletions=0, substitutions=0, error_rate=0.3333333333333333, missed_speaker=0, falarm_speaker=1, scored_speaker=3, assignment=(('r0', 'h3'), ('r1', 'h0'), ('r2', 'h1'), (None, 'h2')))
     >>> er.apply_assignment({'r0': 'a', 'r1': 'b', 'r2': 'c'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
     ({'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': ''}, {'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': 'd'})
+
+    >>> cp_word_error_rate({'r0': 'a b'}, {'h0': 'z', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
+    CPErrorRate(errors=3, length=2, insertions=2, deletions=0, substitutions=1, error_rate=1.5, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
     """
     import editdistance
     import scipy.optimize
@@ -147,9 +150,17 @@ def cp_word_error_rate(
     cost_matrix = np.array([
         [
             editdistance.eval(tt, et)
-            for et in hypothesis_words
+            for et, _ in itertools.zip_longest(
+                hypothesis_words,
+                reference_words,  # ignored, "padding" for underestimation
+                fillvalue=[],
+            )
         ]
-        for tt in reference_words
+        for tt, _ in itertools.zip_longest(
+            reference_words,
+            hypothesis_words,  # ignored, "padding" for overestimation
+            fillvalue=[],
+        )
     ])
 
     # Find the best permutation with hungarian algorithm
@@ -157,28 +168,16 @@ def cp_word_error_rate(
     distances = cost_matrix[row_ind, col_ind]
     distances = list(distances)
 
-    # Handle over-/under-estimation
-    if len(hypothesis_words) > len(reference_words):
-        # Over-estimation: Add full length of over-estimated hypotheses
-        # to distance
-        none_assigned = sorted(set(range(len(hypothesis_words))) - set(col_ind))
-        for i in none_assigned:
-            distances.append(len(hypothesis_words[i]))
-        col_ind = [*col_ind, *none_assigned]
-    elif len(hypothesis_words) < len(reference_words):
-        # Under-estimation: Add full length of the unused references
-        none_assigned = sorted(set(range(len(reference_words))) - set(row_ind))
-        for i in none_assigned:
-            distances.append(len(reference_words[i]))
-        row_ind = [*row_ind, *none_assigned]
-
     # Compute WER from distance
     distance = sum(distances)
 
+    reference_keys = dict(enumerate(reference_keys))  # need `dict.get` for overestimation
+    hypothesis_keys = dict(enumerate(hypothesis_keys))  # need `dict.get` for underestimation
+
     assignment = tuple([
         (
-            reference_keys[r] if r is not None else r,
-            hypothesis_keys[c] if c is not None else c,
+            reference_keys.get(r) if r is not None else r,
+            hypothesis_keys.get(c) if c is not None else c,
         )
         for r, c in itertools.zip_longest(row_ind, col_ind)
     ])
