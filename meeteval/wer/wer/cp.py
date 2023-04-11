@@ -1,12 +1,12 @@
 import dataclasses
 import itertools
 import string
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List, Dict, Any
 from meeteval._typing import Literal
 
 from meeteval.wer.wer.error_rate import ErrorRate
-from meeteval.wer.wer.siso import siso_word_error_rate
-from meeteval.wer.utils import _items
+from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
+from meeteval.wer.utils import _items, _values, _keys
 
 __all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment']
 
@@ -27,7 +27,7 @@ class CPErrorRate(ErrorRate):
     falarm_speaker: int
     scored_speaker: int
     # assignment: Optional[Tuple[int, ...]] = None
-    assignment: Optional[Tuple['int | str', ...]] = None
+    assignment: Optional[Tuple['int | str | Any', ...]] = None
 
     @classmethod
     def zero(cls):
@@ -125,31 +125,47 @@ def cp_word_error_rate(
     CPErrorRate(errors=3, length=2, insertions=2, deletions=0, substitutions=1, error_rate=1.5, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
     """
     import editdistance
+
+    def transcription_to_words(x):
+        if isinstance(x, dict):
+            return {k: v.split() for k, v in x.items()}
+        elif isinstance(x, list):
+            return [e.split() for e in x]
+        elif isinstance(x, tuple):
+            return [e.split() for e in x]
+        else:
+            raise TypeError(x)
+
+    return _cp_word_error_rate(
+        transcription_to_words(reference),
+        transcription_to_words(hypothesis),
+        distance=editdistance.distance,
+        siso_error_rate=_siso_error_rate,
+    )
+
+
+def _cp_word_error_rate(
+        reference,
+        hypothesis,
+        distance: callable,
+        siso_error_rate: callable,
+):
+    # Used in
+    #   cp_word_error_rate
+    # and
+    #   time_constrained_minimum_permutation_word_error_rate
+    # .
     import scipy.optimize
     import numpy as np
 
-    if isinstance(hypothesis, dict):
-        hypothesis_keys = list(hypothesis.keys())
-        hypothesis_values = list(hypothesis.values())
-    else:
-        hypothesis_keys = list(range(len(hypothesis)))
-        hypothesis_values = hypothesis
-    if isinstance(reference, dict):
-        reference_keys = list(reference.keys())
-        reference_values = list(reference.values())
-    else:
-        reference_keys = list(range(len(reference)))
-        reference_values = reference
-
-    try:
-        reference_words = [r.split() for r in reference_values]
-    except AttributeError:
-        raise ValueError(reference)
-    hypothesis_words = [h.split() for h in hypothesis_values]
+    reference_keys = _keys(reference)
+    reference_words = _values(reference)
+    hypothesis_keys = _keys(hypothesis)
+    hypothesis_words = _values(hypothesis)
 
     cost_matrix = np.array([
         [
-            editdistance.eval(tt, et)
+            distance(tt, et)
             for et, _ in itertools.zip_longest(
                 hypothesis_words,
                 reference_words,  # ignored, "padding" for underestimation
@@ -175,10 +191,7 @@ def cp_word_error_rate(
     hypothesis_keys = dict(enumerate(hypothesis_keys))  # need `dict.get` for underestimation
 
     assignment = tuple([
-        (
-            reference_keys.get(r) if r is not None else r,
-            hypothesis_keys.get(c) if c is not None else c,
-        )
+        (reference_keys.get(r), hypothesis_keys.get(c))
         for r, c in itertools.zip_longest(row_ind, col_ind)
     ])
 
@@ -192,7 +205,7 @@ def cp_word_error_rate(
     )
 
     er = sum([
-        siso_word_error_rate(r, hypothesis_new[speaker])
+        siso_error_rate(r, hypothesis_new[speaker])
         for speaker, r in _items(reference_new)
     ])
     assert distance == er.errors, (distance, er)
@@ -210,7 +223,7 @@ def cp_word_error_rate(
 
 
 def apply_cp_assignment(
-        assignment: 'List[tuple]',
+        assignment: 'List[Tuple[Any, ...]] | Tuple[Tuple[Any, ...], ...]',
         reference: dict,
         hypothesis: dict,
         style: 'Literal["hyp", "ref"]' = 'ref',
