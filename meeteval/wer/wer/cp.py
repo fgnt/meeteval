@@ -139,7 +139,7 @@ def cp_word_error_rate(
     return _cp_word_error_rate(
         transcription_to_words(reference),
         transcription_to_words(hypothesis),
-        distance=editdistance.distance,
+        distance_fn=editdistance.distance,
         siso_error_rate=_siso_error_rate,
     )
 
@@ -147,8 +147,9 @@ def cp_word_error_rate(
 def _cp_word_error_rate(
         reference,
         hypothesis,
-        distance: callable,
+        distance_fn: callable,
         siso_error_rate: callable,
+        missing=(),
 ):
     # Used in
     #   cp_word_error_rate
@@ -158,24 +159,19 @@ def _cp_word_error_rate(
     import scipy.optimize
     import numpy as np
 
-    reference_keys = _keys(reference)
-    reference_words = _values(reference)
-    hypothesis_keys = _keys(hypothesis)
-    hypothesis_words = _values(hypothesis)
-
     cost_matrix = np.array([
         [
-            distance(tt, et)
+            distance_fn(tt, et)
             for et, _ in itertools.zip_longest(
-                hypothesis_words,
-                reference_words,  # ignored, "padding" for underestimation
-                fillvalue=[],
+                _values(hypothesis),
+                reference,  # ignored, "padding" for underestimation
+                fillvalue=missing,
             )
         ]
         for tt, _ in itertools.zip_longest(
-            reference_words,
-            hypothesis_words,  # ignored, "padding" for overestimation
-            fillvalue=[],
+            _values(reference),
+            hypothesis,  # ignored, "padding" for overestimation
+            fillvalue=missing,
         )
     ])
 
@@ -187,8 +183,8 @@ def _cp_word_error_rate(
     # Compute WER from distance
     distance = sum(distances)
 
-    reference_keys = dict(enumerate(reference_keys))  # need `dict.get` for overestimation
-    hypothesis_keys = dict(enumerate(hypothesis_keys))  # need `dict.get` for underestimation
+    reference_keys = dict(enumerate(_keys(reference)))  # need `dict.get` of the keys for overestimation
+    hypothesis_keys = dict(enumerate(_keys(hypothesis)))  # need `dict.get` of the keys for underestimation
 
     assignment = tuple([
         (reference_keys.get(r), hypothesis_keys.get(c))
@@ -202,6 +198,7 @@ def _cp_word_error_rate(
         assignment,
         reference=reference,
         hypothesis=hypothesis,
+        missing=missing,
     )
 
     er = sum([
