@@ -165,6 +165,7 @@ def time_constrained_minimum_permutation_word_error_rate(
 
     return _cp_word_error_rate(
         reference, hypothesis,
-        distance=lambda tt, et: time_constrained_levenshtein_distance(tt[0], et[0], tt[1], et[1]),
-        siso_error_rate=_time_constrained_siso_error_rate,
+        distance_fn=lambda tt, et: time_constrained_levenshtein_distance(tt[0], et[0], tt[1], et[1]),
+        siso_error_rate=lambda tt, et: _time_constrained_siso_error_rate(tt[0], et[0], tt[1], et[1]),
+        fillvalue=[[], []],
     )
