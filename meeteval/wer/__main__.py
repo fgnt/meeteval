@@ -189,7 +189,7 @@ def wer(
             any(r.suffix != '' for r in reference_paths) or
             any(h.suffix != '' for h in hypothesis_paths)
     ):
-        raise ValueError(f'Only text files are supported, not {reference.suffix}')
+        raise ValueError(f'Only text files are supported.')
     reference = KeyedText.load(reference).grouped_by_filename()
     hypothesis = KeyedText.load(hypothesis).grouped_by_filename()
     if reference.keys() != hypothesis.keys():
