@@ -43,7 +43,7 @@ def mimo_word_error_rate(
     MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
     """
-    from meeteval.wer.matching.mimo_matching import mimo_matching_v3
+    from meeteval.wer.matching.mimo_matching import mimo_matching
 
     def to_list(obj):
         if isinstance(obj, dict):
@@ -68,7 +68,7 @@ def mimo_word_error_rate(
         for ref_chn in reference_values
     ]
     hypothesis_words = [h.split() for h in hypothesis_values]
-    distance, assignment = mimo_matching_v3(reference_words, hypothesis_words)
+    distance, assignment = mimo_matching(reference_words, hypothesis_words)
 
     assignment = [
         (reference_keys[r], hypothesis_keys[h]) for r, h in assignment]

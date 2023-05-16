@@ -6,33 +6,9 @@ Hypothesis = typing.List[typing.Iterable[typing.Hashable]]
 Assignment = typing.List[typing.Tuple[int, int]]
 
 
-def _get_channel_transcription_from_assignment(
-        ref,
-        assignment: Assignment,
-        num_channels: int
-):
-    import itertools
-    import copy
-    ref_ = copy.deepcopy(ref)  # We'll pop from this
-    c = [[] for _ in range(num_channels)]
-
-    for r, h in assignment:
-        c[h].append(ref_[r].pop(0))
-
-    c = [list(itertools.chain.from_iterable(c_)) for c_ in c]
-    return c
-
-
-def _levensthein_distance_for_assignment(ref, hyps, assignment):
-    import editdistance
-    c = _get_channel_transcription_from_assignment(
-        ref, assignment, num_channels=len(hyps)
-    )
-    d = sum([editdistance.distance(h, r) for h, r in zip(hyps, c)])
-    return d
-
-
 def levenshtein_distance(ref, hyp):
+    """Computes the levenshtein distance using the internals of MIMO WER.
+    This function only exists for testing."""
     from .cy_mimo_matching import cy_levenshtein_distance
     return cy_levenshtein_distance(ref, hyp)
 
@@ -153,6 +129,9 @@ def mimo_matching_v3(
         refs: Reference,
         hyps: Hypothesis,
 ):
+    """
+    A Cython implementation of mimo matching
+    """
     from .cy_mimo_matching import cy_mimo_matching
 
     # The Cython implementation uses integers as tokens, so translate ref and
@@ -170,3 +149,18 @@ def mimo_matching_v3(
     distance, assignment = cy_mimo_matching(refs, hyps)
 
     return distance, assignment
+
+
+def mimo_matching_v4(
+        refs: Reference,
+        hyps: Hypothesis,
+):
+    """
+    A C++ implementation of mimo matching
+    """
+    from .cy_mimo_matching import cpp_mimo_matching
+    return cpp_mimo_matching(refs, hyps)
+
+
+# Export the recommended version without a v* postfix
+mimo_matching = mimo_matching_v4
