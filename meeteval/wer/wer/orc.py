@@ -90,6 +90,13 @@ def orc_word_error_rate(
     >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
     """
+    # Safety check: The complexity explodes for large numbers of speakers
+    if len(hypothesis) > 10:
+        raise RuntimeError(
+            f'Are you sure? '
+            f'Number of channels in hypothesis too large! (len(hypothesis)={len(hypothesis)})'
+        )
+
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
     reference_words = [r.split() for r in reference]
     # length = sum([len(r) for r in reference])

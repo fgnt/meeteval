@@ -43,6 +43,18 @@ def mimo_word_error_rate(
     MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
     """
+    # Safety check: The complexity explodes for large numbers of speakers
+    if len(hypothesis) > 10:
+        raise RuntimeError(
+            f'Are you sure? '
+            f'Number of channels in hypothesis too large! (len(hypothesis)={len(hypothesis)})'
+        )
+    if len(reference) > 10:
+        raise RuntimeError(
+            f'Are you sure? '
+            f'Number of channels in reference too large! (len(reference)={len(reference)})'
+        )
+
     from meeteval.wer.matching.mimo_matching import mimo_matching
 
     def to_list(obj):
