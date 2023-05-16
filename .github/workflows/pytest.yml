@@ -30,6 +30,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install flake8 cython
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -m pip list
         python -m pip install -e '.[test]'
     - name: Lint with flake8
       run: |
