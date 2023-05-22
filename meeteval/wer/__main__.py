@@ -189,7 +189,9 @@ def wer(
             any(r.suffix != '' for r in reference_paths) or
             any(h.suffix != '' for h in hypothesis_paths)
     ):
-        raise ValueError(f'Only text files are supported.')
+        raise ValueError(f'Only (kaldi-style) text files are supported, i.e., files without an extension '
+                         f'(not dot allowed in the file name).\n'
+                         f'Got: {reference_paths} for reference and {hypothesis_paths} for hypothesis.')
     reference = KeyedText.load(reference).grouped_by_filename()
     hypothesis = KeyedText.load(hypothesis).grouped_by_filename()
     if reference.keys() != hypothesis.keys():
