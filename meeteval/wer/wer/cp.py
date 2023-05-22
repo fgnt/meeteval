@@ -159,6 +159,17 @@ def _cp_word_error_rate(
     import scipy.optimize
     import numpy as np
 
+    if len(hypothesis) > 15:
+        raise RuntimeError(
+            f'Are you sure? '
+            f'Number of speakers in hypothesis too large! (len(hypothesis)={len(hypothesis)})'
+        )
+    if len(reference) > 15:
+        raise RuntimeError(
+            f'Are you sure? '
+            f'Number of speakers in reference too large! (len(reference)={len(reference)})'
+        )
+
     cost_matrix = np.array([
         [
             distance_fn(tt, et)
