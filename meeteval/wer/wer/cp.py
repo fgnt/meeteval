@@ -159,15 +159,13 @@ def _cp_word_error_rate(
     import scipy.optimize
     import numpy as np
 
-    if len(hypothesis) > 15:
+    if abs(len(hypothesis) - len(reference)) > 20:
         raise RuntimeError(
             f'Are you sure? '
-            f'Number of speakers in hypothesis too large! (len(hypothesis)={len(hypothesis)})'
-        )
-    if len(reference) > 15:
-        raise RuntimeError(
-            f'Are you sure? '
-            f'Number of speakers in reference too large! (len(reference)={len(reference)})'
+            f'The number of speakers in reference and hypothesis are vastly different '
+            f'(len(hypothesis)={len(hypothesis)}, len(hypothesis)={len(reference)}). '
+            f'It is not guaranteed that the matching succeeds. '
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md'
         )
 
     cost_matrix = np.array([

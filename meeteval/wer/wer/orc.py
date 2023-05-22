@@ -94,7 +94,8 @@ def orc_word_error_rate(
     if len(hypothesis) > 10:
         raise RuntimeError(
             f'Are you sure? '
-            f'Number of speakers in hypothesis too large! (len(hypothesis)={len(hypothesis)})'
+            f'Number of speakers in hypothesis too large (len(hypothesis)={len(hypothesis)})! '
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md'
         )
 
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
