@@ -309,7 +309,7 @@ def apply_cp_assignment(
         assert r_keys == set(reference.keys()), (r_keys, reference.keys(), assignment)
         assert h_keys == set(hypothesis.keys()), (h_keys, hypothesis.keys(), assignment)
 
-        fallback_keys = iter([
+        fallback_keys_iter = iter([
             k
             for k in fallback_keys
             if k not in reference.keys()
@@ -322,7 +322,7 @@ def apply_cp_assignment(
         def get(obj, key, default):
             return obj.get(key, default)
     elif isinstance(reference, (tuple, list)) and isinstance(hypothesis, (tuple, list)):
-        fallback_keys = iter(range(
+        fallback_keys_iter = iter(range(
             min(len(reference), len(hypothesis)),
             max(len(reference), len(hypothesis)),
         ))
@@ -346,17 +346,24 @@ def apply_cp_assignment(
         def get_key(r_key, h_key):
             if h_key is not None:
                 return h_key
-            return next(fallback_keys)
+            return next(fallback_keys_iter)
     elif style == 'ref':
         def get_key(r_key, h_key):
             if r_key is not None:
                 return r_key
-            return next(fallback_keys)
+            return next(fallback_keys_iter)
     else:
         raise ValueError(f'{style!r} not in ["ref", "hyp"]')
 
     for r_key, h_key in assignment:
-        k = get_key(r_key, h_key)
+        try:
+            k = get_key(r_key, h_key)
+        except StopIteration:
+            raise RuntimeError(
+                f'Too few fallback keys provided! '
+                f'There are more over-/under-estimated speakers '
+                f'than fallback_keys in {fallback_keys}'
+            )
         reference_new[k] = get(reference, r_key, missing)
         hypothesis_new[k] = get(hypothesis, h_key, missing)
 
