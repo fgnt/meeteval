@@ -1,18 +1,19 @@
 # Limits on numbers of speakers
 
+Typical use-cases for the WER definitions provided with MeetEval have relatively small numbers of speakers.
+We thus limit the number of speakers that can be provided to MeetEval so that usage errors are caught early.
+
+We chose limits that catch problematic cases early but do not interfere with common use-cases.
+If you have a valid use-case that exceeds these limits, please open an issue at https://github.com/fgnt/meeteval/issues/new.
+
+| Algorithm | Maximum number of speakers |
+|-----------|----------------------------|
+| MIMO WER  | 10                         |
+| ORC WER   | 10                         |
+| cpWER     | 20                         |
+
+## A note on complexity
+
 Some matching algorithms implemented in MeetEval are computationally demanding when the number of speakers in the reference or hypothesis is large.
 Especially, the complexity of MIMO WER and ORC WER is exponential in the number of speakers.
-We thus set a hard limit to the number of speakers to catch cases where the algorithm would run for a vey long time or run out of memory before the computation is actually started.
-
-## Maximum values for numbers of speakers
-
-The maximum chosen for a specific algorithm is arbitrary; we tried to choose values that catch problematic cases early but do not interfere with common use-cases.
-
-### MIMO WER and ORC WER
-
-The maximum is set to 10, which is in most cases already not computable.
-
-### cpWER
-
-We don't set a strict maximum on the number of speakers here, but a maximum on the difference in number of speakers in the reference and hypothesis.
-This is to make sure that the matching doesn't run out of fallback speaker labels.
+Using the matching algorithms with too many speakers can thus lead to out-of-memory errors or an extraordinary long runtime.
