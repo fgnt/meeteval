@@ -43,7 +43,7 @@ def mimo_word_error_rate(
     MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
     """
-    if max(len(hypothesis), len(reference)) > 20:
+    if max(len(hypothesis), len(reference)) > 10:
         num_speakers = max(len(hypothesis), len(reference))
         raise RuntimeError(
             f'Are you sure?\n'
