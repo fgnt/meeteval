@@ -43,6 +43,16 @@ def mimo_word_error_rate(
     MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
     """
+    if max(len(hypothesis), len(reference)) > 10:
+        num_speakers = max(len(hypothesis), len(reference))
+        raise RuntimeError(
+            f'Are you sure?\n'
+            f'Found a total of {num_speakers} speakers in the input.\n'
+            f'This indicates a mistake in the input, or does your use-case '
+            f'really require scoring with that many speakers?\n'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
+        )
+
     from meeteval.wer.matching.mimo_matching import mimo_matching
 
     def to_list(obj):

@@ -90,6 +90,16 @@ def orc_word_error_rate(
     >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
     """
+    # Safety check: The complexity explodes for large numbers of speakers
+    if len(hypothesis) > 10:
+        raise RuntimeError(
+            f'Are you sure?\n'
+            f'Found a total of {len(hypothesis)} speakers in the input.\n'
+            f'This indicates a mistake in the input, or does your use-case '
+            f'really require scoring with that many speakers?\n'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
+        )
+
     from meeteval.wer.matching.mimo_matching import mimo_matching_v3
     reference_words = [r.split() for r in reference]
     # length = sum([len(r) for r in reference])
