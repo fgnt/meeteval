@@ -220,7 +220,8 @@ def orcwer(
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
     results = {}
-    for example_id in reference.keys():
+    from tqdm import tqdm
+    for example_id in tqdm(reference.keys()):
         if verbose:
             print(f'Processing example {example_id}')
             print(f'  num reference utterances: {len(reference[example_id].utterance_transcripts())}')
@@ -289,7 +290,6 @@ def mimower(
         )
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
-
 def tcpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_tcpwer.json',
@@ -310,20 +310,24 @@ def tcpwer(
             print(f'Processing example {example_id}')
             print(f'  num reference utterances: {len(reference[example_id].grouped_by_speaker_id().items())}')
             print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
-        results[example_id] = time_constrained_minimum_permutation_word_error_rate(
-            reference={
-                k: r.segments()
-                for k, r in reference[example_id].grouped_by_speaker_id().items()
-            },
-            hypothesis={
-                k: h.segments()
-                for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
-            },
-            reference_pseudo_word_level_timing=ref_pseudo_word_timing,
-            hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
-            reference_collar=ref_collar,
-            hypothesis_collar=hyp_collar,
-        )
+        try:
+            results[example_id] = time_constrained_minimum_permutation_word_error_rate(
+                reference={
+                    k: r.segments()
+                    for k, r in reference[example_id].sorted_by_begin_time().grouped_by_speaker_id().items()
+                },
+                hypothesis={
+                    k: h.segments()
+                    for k, h in hypothesis[example_id].sorted_by_begin_time().grouped_by_speaker_id().items()
+                },
+                reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+                hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+                reference_collar=ref_collar,
+                hypothesis_collar=hyp_collar,
+            )
+        except:
+            print(f'Exception in example {example_id}')
+            raise
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -455,6 +459,7 @@ def cli():
                         'equidistant_intervals',
                         'equidistant_points',
                         'full_segment',
+                        'char_based',
                     ],
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
@@ -469,6 +474,7 @@ def cli():
                         'equidistant_intervals',
                         'equidistant_points',
                         'full_segment',
+                        'char_based',
                     ],
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '

@@ -20,23 +20,30 @@ unsigned int levenshtein_distance_(
     unsigned int left;
 
     for (auto ref_symbol : reference) {
-        diagonal = row[0]++;  // diagonal = row[0]; row[0] = row[0] + 1;
-        left = row[0];
 
+        auto r = row.begin();
+        diagonal = *r;
+        (*r)++;
+        left = *r;
+//        diagonal = row[0]++;  // diagonal = row[0]; row[0] = row[0] + 1;
+//        left = row[0];
+        r++;
         unsigned int hyp_index = 1;
         for (auto hyp_symbol : hypothesis) {
-            up = row[hyp_index];
+            up = *r;
+//            up = row[hyp_index];
             if (ref_symbol == hyp_symbol) {
                 left = diagonal;
             } else {
                 left = 1 + std::min(std::min(left, up), diagonal);
             }
-            row[hyp_index] = left;
+            *r = left;
             diagonal = up;
-            hyp_index++;
+            r++;
+//            hyp_index++;
         }
     }
-    return row[row.size() - 1];
+    return row.back();
 }
 
 unsigned int levenshtein_distance_custom_cost_(
@@ -85,6 +92,7 @@ unsigned int levenshtein_distance_custom_cost_(
 template<typename T>
 bool inline overlaps(const std::pair<T, T> &a, const std::pair<T, T> &b) {
     return a.first < b.second && a.second > b.first;
+//    return a.first <= b.second && a.second >= b.first;
 }
 
 template<typename T>
@@ -178,7 +186,7 @@ unsigned int time_constrained_levenshtein_distance_(
         // hypothesis_timing[start_hyp_index - 1].second will always be the largest seen end time that overlaps with
         // ref_interval
         for (; start_hyp_index < hypothesis.size() + 1; start_hyp_index++) {
-            if (hypothesis_timing[start_hyp_index - 1].second > ref_interval.first) break;
+            if (hypothesis_timing[start_hyp_index - 1].second >= ref_interval.first) break;
         }
 
         // Update the cells at the border. These are always deletions
@@ -380,4 +388,72 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
     std::reverse(statistics.alignment.begin(), statistics.alignment.end());
 
     return statistics;
+}
+
+template<typename T>
+unsigned int time_constrained_levenshtein_distance_v2_(
+        const std::vector<unsigned int> reference,
+        const std::vector<unsigned int> hypothesis,
+        const std::vector <std::pair<T, T>> reference_timing,
+        const std::vector <std::pair<T, T>> hypothesis_timing,
+        const unsigned int cost_del,
+        const unsigned int cost_ins,
+        const unsigned int cost_sub,
+        const unsigned int cost_cor
+) {
+    const unsigned int cost_insdel = cost_ins + cost_del;
+
+    // Temporary memory (one row of the levenshtein matrix)
+    std::vector<unsigned int> row(hypothesis.size() + 1, std::numeric_limits<unsigned int>::max());
+    row[0] = 0;
+
+    // The following variable tracks the maximum seen end time of the reference
+    // This is required when the reference intervals don't have increasing end times
+    T ref_end_time = 0;
+
+    unsigned int hyp_start = 0;
+    unsigned int hyp_index = 0;
+
+    for (unsigned int ref_index = 0; ref_index < reference.size(); ref_index++) {
+        unsigned int ref_symbol = reference[ref_index];
+        std::pair<T, T> ref_interval = reference_timing[ref_index];
+        ref_end_time = std::max(ref_interval.second, ref_end_time);
+
+        unsigned int diagonal = row[hyp_start];
+        row[hyp_start] += cost_del;
+        bool allow_shift = true;
+
+        hyp_index = hyp_start;
+        for (; hyp_index < hypothesis.size(); hyp_index++) {
+            unsigned int hyp_symbol = hypothesis[hyp_index];
+            std::pair<T, T> hyp_interval = hypothesis_timing[hyp_index];
+
+            if (allow_shift) {
+                if (ref_interval.first > hyp_interval.second) ++hyp_start;
+                else allow_shift = false;
+            }
+
+            // This happens when row[i+1] is unitialized
+            auto up = std::min(row[hyp_index + 1], diagonal + cost_ins);
+
+            // TODO: do we need the full overlaps check?
+             row[hyp_index + 1] = std::min(
+                 std::min(
+                    row[hyp_index] + cost_ins, // left -> insertion
+                    up + cost_del  // up -> deletion
+                ),
+                diagonal + (overlaps(ref_interval, hyp_interval)
+                    ? (hyp_symbol == ref_symbol ? cost_cor : cost_sub)
+                    : cost_insdel)
+            );
+
+            diagonal = up;
+
+            if (ref_end_time < hyp_interval.first) break;
+        }
+
+    }
+    for (; hyp_index < hypothesis.size(); hyp_index++) row[hyp_index + 1] = row[hyp_index] + cost_ins;
+
+    return row.back();
 }
