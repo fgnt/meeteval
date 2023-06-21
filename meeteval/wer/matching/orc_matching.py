@@ -31,18 +31,18 @@ def _get_channel_transcription_from_assignment(
 
 
 def _levensthein_distance_for_assignment(ref, hyps, assignment):
-    import editdistance
+    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
     c = _get_channel_transcription_from_assignment(
         ref, assignment, num_channels=len(hyps)
     )
-    d = sum([editdistance.distance(h, r) for h, r in zip(hyps, c)])
+    d = sum([levenshtein_distance(h, r) for h, r in zip(hyps, c)])
     return d
 
 
 def orc_matching_v1(ref, hyps):
     """
     Version 1 is a brute-force implementation of the orc levenshtein distance
-    in Python using the fast editdistance package.
+    in Python using a fast implementation of the Levenshtein distance.
     """
     import itertools
     num_channels = len(hyps)
@@ -173,7 +173,4 @@ def orc_matching_v3(
 
     distance, assignemnt = cy_orc_matching(ref, hyps)
 
-    # TODO: have a "self-test" here against editdistance?
-    # d = _levensthein_distance_for_assignemnt(ref, hyps, assignment)
-    # assert d == distance, (d, distance, assignment)
     return distance, assignemnt
