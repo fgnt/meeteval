@@ -124,8 +124,7 @@ def cp_word_error_rate(
     >>> cp_word_error_rate({'r0': 'a b'}, {'h0': 'z', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
     CPErrorRate(errors=3, length=2, insertions=2, deletions=0, substitutions=1, error_rate=1.5, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
     """
-    import editdistance
-
+    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
     def transcription_to_words(x):
         if isinstance(x, dict):
             return {k: v.split() for k, v in x.items()}
@@ -139,7 +138,7 @@ def cp_word_error_rate(
     return _cp_word_error_rate(
         transcription_to_words(reference),
         transcription_to_words(hypothesis),
-        distance_fn=editdistance.distance,
+        distance_fn=levenshtein_distance,
         siso_error_rate=_siso_error_rate,
     )
 

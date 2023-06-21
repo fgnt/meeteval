@@ -16,7 +16,6 @@ setup(
     ext_modules=ext_modules,
     packages=["meeteval"],
     install_requires=[
-        'editdistance',
         'kaldialign',
         'scipy',  # scipy.optimize.linear_sum_assignment
         "typing_extensions; python_version<'3.8'",  # Missing Literal in py37
@@ -28,6 +27,7 @@ setup(
             'pyyaml',
         ],
         'test': [
+            'editdistance',     # Faulty for long sequences, but useful for testing
             'pytest',
             'hypothesis',
             'click',
