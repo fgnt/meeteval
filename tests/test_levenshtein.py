@@ -1,4 +1,5 @@
 from hypothesis import given, strategies as st
+from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
 # Limit alphabet to ensure a few correct matches
 string = st.text(alphabet='abcdefg', min_size=0, max_size=100)
@@ -8,7 +9,6 @@ string = st.text(alphabet='abcdefg', min_size=0, max_size=100)
 def test_against_editdistance(a, b):
     """Test against the well-known `editdistance` package"""
     import editdistance
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
     ref_distance = editdistance.distance(a, b)
     distance = levenshtein_distance(a, b)
@@ -18,8 +18,6 @@ def test_against_editdistance(a, b):
 
 @given(string, string)
 def test_custom_cost_against_levenshtein_default(a, b):
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
-
     assert levenshtein_distance(a, b, 1, 1, 1, 0) == levenshtein_distance(a, b)
     assert levenshtein_distance(a, b, 2, 2, 2, 0) == 2 * levenshtein_distance(a, b)
 
@@ -29,8 +27,6 @@ def test_custom_cost(a, b):
     """
     Test a few weird special configurations
     """
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
-
     assert levenshtein_distance(a, b, 0, 0, 0, 0) == 0
     assert levenshtein_distance(a, b, 1, 1, 0, 0) == max(len(a), len(b)) - min(len(a), len(b))
 
