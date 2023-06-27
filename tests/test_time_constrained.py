@@ -50,7 +50,8 @@ def test_time_constrained_levenshtein_distance_within_bounds(a, b):
 @given(string_with_timing(), string_with_timing())
 def test_time_constrained_levenshtein_distance_optimized(a, b):
     """Check whether the pruning optimization always yields the correct result"""
-    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance, time_constrained_levenshtein_distance_unoptimized
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance, \
+        time_constrained_levenshtein_distance_unoptimized
 
     a, a_timing = a
     b, b_timing = b
@@ -131,3 +132,40 @@ def test_tcpwer_vs_cpwer(
         [[{'words': word, 'start_time': 0, 'end_time': 1} for word in speaker] for speaker in b],
     )
     assert cp_statistics == tcp_statistics, (cp_statistics, tcp_statistics)
+
+
+def test_tcpwer_input_formats():
+    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate, \
+        TimeMarkedTranscript
+    from meeteval.io.stm import STM, STMLine
+
+    r1 = time_constrained_minimum_permutation_word_error_rate(
+        [TimeMarkedTranscript(['a'], [(0,1)]), TimeMarkedTranscript(['b c'], [(0, 1), (1, 2)])],
+        [TimeMarkedTranscript(['a b'], [(0,1)]), TimeMarkedTranscript(['c'], [(0, 1), (1, 2)])],
+    )
+    r2 = time_constrained_minimum_permutation_word_error_rate(
+        [[{'words': 'a', 'start_time': 0, 'end_time': 1}], [{'words': 'b c', 'start_time': 1, 'end_time': 2}]],
+        [[{'words': 'a b', 'start_time': 0, 'end_time': 1}], [{'words': 'c', 'start_time': 1, 'end_time': 2}]],
+    )
+    r3 = time_constrained_minimum_permutation_word_error_rate(
+        [
+            STM([STMLine('dummy', 0, 'A', 0, 1, 'a')]),
+            STM([STMLine('dummy', 1, 'A', 1, 2, 'b c')])
+         ],
+        [
+            STM([STMLine('dummy', 0, 'A', 0, 1, 'a b')]),
+            STM([STMLine('dummy', 1, 'A', 1, 2, 'c')])
+        ]
+    )
+    r4 = time_constrained_minimum_permutation_word_error_rate(
+        {'A': TimeMarkedTranscript(['a'], [(0,1)]), 'B': TimeMarkedTranscript(['b c'], [(0, 1), (1, 2)])},
+        {'A': TimeMarkedTranscript(['a b'], [(0,1)]), 'B': TimeMarkedTranscript(['c'], [(0, 1), (1, 2)])},
+    )
+    r5 = time_constrained_minimum_permutation_word_error_rate(
+        {'A': [{'words': 'a', 'start_time': 0, 'end_time': 1}], 'B': [{'words': 'b c', 'start_time': 1, 'end_time': 2}]},
+        {'A': [{'words': 'a b', 'start_time': 0, 'end_time': 1}], 'B': [{'words': 'c', 'start_time': 1, 'end_time': 2}]},
+    )
+    assert r1.error_rate == r2.error_rate
+    assert r1.error_rate == r3.error_rate
+    assert r1.error_rate == r4.error_rate
+    assert r1.error_rate == r5.error_rate

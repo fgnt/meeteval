@@ -51,7 +51,7 @@ def _load_json(file):
 def json_to_stm(json_content, filename):
     return STM([
         STMLine(
-            filename=filename,
+            filename=entry.get('session_id', filename),
             channel='1',
             speaker_id=entry['speaker'],
             begin_time=decimal.Decimal(entry['start_time']),

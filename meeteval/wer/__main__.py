@@ -290,18 +290,20 @@ def mimower(
         )
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
+
 def tcpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_tcpwer.json',
         per_reco_out='{parent}/{stem}_tcpwer_per_reco.json',
-        hyp_collar=0,
-        ref_collar=0,
+        collar=0,
         hyp_pseudo_word_timing='equidistant_intervals',
         ref_pseudo_word_timing='full_segment',
         verbose=False,
+        hypothesis_allow_speaker_self_overlap=False,
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer import time_constrained_minimum_permutation_word_error_rate
+    from meeteval.wer.wer.time_constrained import TimeMarkedTranscript
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
 
     results = {}
@@ -313,17 +315,17 @@ def tcpwer(
         try:
             results[example_id] = time_constrained_minimum_permutation_word_error_rate(
                 reference={
-                    k: r.segments()
+                    k: TimeMarkedTranscript.from_stm(r)
                     for k, r in reference[example_id].sorted_by_begin_time().grouped_by_speaker_id().items()
                 },
                 hypothesis={
-                    k: h.segments()
+                    k: TimeMarkedTranscript.from_stm(h)
                     for k, h in hypothesis[example_id].sorted_by_begin_time().grouped_by_speaker_id().items()
                 },
                 reference_pseudo_word_level_timing=ref_pseudo_word_timing,
                 hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
-                reference_collar=ref_collar,
-                hypothesis_collar=hyp_collar,
+                collar=collar,
+                hypothesis_allow_speaker_self_overlap=hypothesis_allow_speaker_self_overlap,
             )
         except:
             print(f'Exception in example {example_id}')
@@ -443,15 +445,10 @@ def cli():
                     '-o', '--out',
                     required=False, default='-',
                 )
-            elif name == 'hyp_collar':
+            elif name == 'collar':
                 command_parser.add_argument(
-                    '--hyp-collar', type=positive_number,
+                    '--collar', type=positive_number,
                     help='Collar applied to the hypothesis timings'
-                )
-            elif name == 'ref_collar':
-                command_parser.add_argument(
-                    '--ref-collar', type=positive_number,
-                    help='Collar applied to the reference timings'
                 )
             elif name == 'hyp_pseudo_word_timing':
                 command_parser.add_argument(
@@ -459,8 +456,9 @@ def cli():
                         'equidistant_intervals',
                         'equidistant_points',
                         'full_segment',
-                        'char_based',
+                        'character_based',
                     ],
+                    default='character_based',
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the hypothesis. Choices: '
@@ -474,14 +472,22 @@ def cli():
                         'equidistant_intervals',
                         'equidistant_points',
                         'full_segment',
-                        'char_based',
+                        'character_based',
                     ],
+                    default='character_based',
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the reference. Choices: '
                          'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
                          'equidistant_points: Place time points equally spaded int the segment-level intervals; '
                          'full_segment: Use the full segment for each word that belongs to that segment.'
+                )
+            elif name == 'hypothesis_allow_speaker_self_overlap':
+                command_parser.add_argument(
+                    '--hypothesis-allow-speaker-self-overlap', action='store_true',
+                    help='Allow speaker self-overlap in the hypothesis. '
+                         'This can change the order of words, so it is not recommended to use this option. '
+                         'It is not guaranteed that the returned WER is correct if this option is set!'
                 )
             elif name == 'files':
                 command_parser.add_argument('files', nargs='+')
