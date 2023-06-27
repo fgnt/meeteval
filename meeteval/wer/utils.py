@@ -31,4 +31,4 @@ def _map(fn, x):
     elif isinstance(x, (list, tuple)):
         return [fn(v) for v in x]
     else:
-        raise TypeError()
+        raise TypeError(type(x))

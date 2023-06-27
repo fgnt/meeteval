@@ -220,8 +220,7 @@ def orcwer(
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
     results = {}
-    from tqdm import tqdm
-    for example_id in tqdm(reference.keys()):
+    for example_id in reference.keys():
         if verbose:
             print(f'Processing example {example_id}')
             print(f'  num reference utterances: {len(reference[example_id].utterance_transcripts())}')
@@ -303,7 +302,6 @@ def tcpwer(
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer import time_constrained_minimum_permutation_word_error_rate
-    from meeteval.wer.wer.time_constrained import TimeMarkedTranscript
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
 
     results = {}
@@ -314,14 +312,8 @@ def tcpwer(
             print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
         try:
             results[example_id] = time_constrained_minimum_permutation_word_error_rate(
-                reference={
-                    k: TimeMarkedTranscript.from_stm(r)
-                    for k, r in reference[example_id].sorted_by_begin_time().grouped_by_speaker_id().items()
-                },
-                hypothesis={
-                    k: TimeMarkedTranscript.from_stm(h)
-                    for k, h in hypothesis[example_id].sorted_by_begin_time().grouped_by_speaker_id().items()
-                },
+                reference=reference[example_id].sorted_by_begin_time().grouped_by_speaker_id(),
+                hypothesis=hypothesis[example_id].sorted_by_begin_time().grouped_by_speaker_id(),
                 reference_pseudo_word_level_timing=ref_pseudo_word_timing,
                 hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
                 collar=collar,
