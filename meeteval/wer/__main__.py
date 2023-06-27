@@ -296,8 +296,8 @@ def tcpwer(
         average_out='{parent}/{stem}_tcpwer.json',
         per_reco_out='{parent}/{stem}_tcpwer_per_reco.json',
         collar=0,
-        hyp_pseudo_word_timing='equidistant_intervals',
-        ref_pseudo_word_timing='full_segment',
+        hyp_pseudo_word_timing='character_based',
+        ref_pseudo_word_timing='character_based',
         verbose=False,
         hypothesis_allow_speaker_self_overlap=False,
 ):
@@ -458,7 +458,6 @@ def cli():
                         'full_segment',
                         'character_based',
                     ],
-                    default='character_based',
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the hypothesis. Choices: '
@@ -474,7 +473,6 @@ def cli():
                         'full_segment',
                         'character_based',
                     ],
-                    default='character_based',
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the reference. Choices: '

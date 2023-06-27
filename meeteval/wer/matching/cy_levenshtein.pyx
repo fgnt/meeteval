@@ -187,14 +187,11 @@ def time_constrained_levenshtein_distance(
             cost_ins,
             cost_sub,
             cost_cor,)
-    if np.issubdtype(reference_timing.dtype, np.signedinteger):
+    if all(isinstance(t[0], int) and isinstance(t[1], int) for t in reference_timing) and \
+            all(isinstance(t[0], int) and isinstance(t[1], int) for t in hypothesis_timing):
         return time_constrained_levenshtein_distance_[int](*args)
-    elif np.issubdtype(reference_timing.dtype, np.unsignedinteger):
-        return time_constrained_levenshtein_distance_[uint](*args)
-    elif np.issubdtype(reference_timing.dtype, np.floating):
-        return time_constrained_levenshtein_distance_[double](*args)
     else:
-        raise TypeError(reference_timing.dtype)
+        return time_constrained_levenshtein_distance_[double](*args)
 
 def time_constrained_levenshtein_distance_unoptimized(
         reference,  # list[int]
@@ -227,14 +224,11 @@ def time_constrained_levenshtein_distance_unoptimized(
             cost_ins,
             cost_sub,
             cost_cor,)
-    if np.issubdtype(reference_timing.dtype, np.signedinteger):
+    if all(isinstance(t[0], int) and isinstance(t[1], int) for t in reference_timing) and \
+            all(isinstance(t[0], int) and isinstance(t[1], int) for t in hypothesis_timing):
         return time_constrained_levenshtein_distance_unoptimized_[int](*args)
-    elif np.issubdtype(reference_timing.dtype, np.unsignedinteger):
-        return time_constrained_levenshtein_distance_unoptimized_[uint](*args)
-    elif np.issubdtype(reference_timing.dtype, np.floating):
-        return time_constrained_levenshtein_distance_unoptimized_[double](*args)
     else:
-        raise TypeError(reference_timing.dtype)
+        return time_constrained_levenshtein_distance_unoptimized_[double](*args)
 
 def time_constrained_levenshtein_distance_with_alignment(
         reference,  # list[int]
@@ -280,53 +274,29 @@ def time_constrained_levenshtein_distance_with_alignment(
         hypothesis = [sym2int[b_] for b_ in hypothesis]
         eps = sym2int[eps]
 
-    statistics = time_constrained_levenshtein_distance_with_alignment_[double](
-        reference, hypothesis,
-        reference_timing,
-        hypothesis_timing,
-        cost_del,
-        cost_ins,
-        cost_sub,
-        cost_cor,
-        eps
-    )
-
-    # Cython for some reason doesn't allow *args here
-    # if np.issubdtype(reference_timing.dtype, np.signedinteger):
-    #     statistics = time_constrained_levenshtein_distance_with_alignment_[int](
-    #         reference, hypothesis,
-    #         reference_timing,
-    #         hypothesis_timing,
-    #         cost_del,
-    #         cost_ins,
-    #         cost_sub,
-    #         cost_cor,
-    #         eps
-    #     )
-    # elif np.issubdtype(reference_timing.dtype, np.unsignedinteger):
-    #     statistics = time_constrained_levenshtein_distance_with_alignment_[uint](
-    #         reference, hypothesis,
-    #         reference_timing,
-    #         hypothesis_timing,
-    #         cost_del,
-    #         cost_ins,
-    #         cost_sub,
-    #         cost_cor,
-    #         eps
-    #     )
-    # elif np.issubdtype(reference_timing.dtype, np.floating):
-    #     statistics = time_constrained_levenshtein_distance_with_alignment_[double](
-    #         reference, hypothesis,
-    #         reference_timing,
-    #         hypothesis_timing,
-    #         cost_del,
-    #         cost_ins,
-    #         cost_sub,
-    #         cost_cor,
-    #         eps
-    #     )
-    # else:
-    #     raise TypeError(reference_timing.dtype)
+    if all(isinstance(t[0], int) and isinstance(t[1], int) for t in reference_timing) and \
+            all(isinstance(t[0], int) and isinstance(t[1], int) for t in hypothesis_timing):
+        statistics = time_constrained_levenshtein_distance_with_alignment_[int](
+            reference, hypothesis,
+            reference_timing,
+            hypothesis_timing,
+            cost_del,
+            cost_ins,
+            cost_sub,
+            cost_cor,
+            eps
+        )
+    else:
+        statistics = time_constrained_levenshtein_distance_with_alignment_[double](
+            reference, hypothesis,
+            reference_timing,
+            hypothesis_timing,
+            cost_del,
+            cost_ins,
+            cost_sub,
+            cost_cor,
+            eps
+        )
 
     if map2int:
         statistics['alignment'] = [
@@ -337,25 +307,6 @@ def time_constrained_levenshtein_distance_with_alignment(
     return statistics
 
 import numpy as np
-
-# from libcpp.vector cimport vector
-# from libcpp.vector cimport vector
-
-# def overlap(r_t, h_t):
-#     return r_t[0] < h_t[1] and r_t[1] > h_t[0]
-
-
-# def times_to_int(a, b):
-#     int2sym = dict(enumerate(sorted({
-#         begin_or_end
-#         for list_ in [a, b]
-#         for begin, end in list_
-#         for begin_or_end in [begin, end]
-#     })))
-#     sym2int = {v: k for k, v in int2sym.items()}
-#     a = [(sym2int[begin], sym2int[end]) for begin, end in a]
-#     b = [(sym2int[begin], sym2int[end]) for begin, end in b]
-#     return a, b
 
 cimport cython
 @cython.boundscheck(False)  # Deactivate bounds checking
@@ -483,38 +434,8 @@ def time_constrained_levenshtein_distance_v3(
             cost_ins,
             cost_sub,
             cost_cor,)
-    return time_constrained_levenshtein_distance_v2_[double](*args)
-    # if np.issubdtype(reference_timing.dtype, np.signedinteger):
-    #     return time_constrained_levenshtein_distance_v2_[int](*args)
-    # elif np.issubdtype(reference_timing.dtype, np.unsignedinteger):
-    #     return time_constrained_levenshtein_distance_v2_[uint](*args)
-    # elif np.issubdtype(reference_timing.dtype, np.floating):
-    #     return time_constrained_levenshtein_distance_v2_[double](*args)
-    # else:
-    #     raise TypeError(reference_timing.dtype)
-
-cpdef equidistant_intervals(pair[double, double] interval, unsigned int count):
-    """Divides the interval into `count` equally sized intervals"""
-    cdef:
-        double interval_length, start, stop
-        unsigned int i
-    if count == 0:
-        return []
-    elif count == 1:
-        return [interval]
-    interval_length = (interval.second - interval.first) / count
-    cdef vector[pair[double, double]] out = vector[pair[double, double]](count)
-
-    start = interval.first
-    out[0].first = start
-    start += interval_length
-    out[0].second = start
-    #     out.push_back(pair[double, double](start, stop))
-    for i in range(1, count):
-        out[i].first = start
-        start += interval_length
-        out[i].second = start
-
-    #         out.push_back(pair[double, double](start, stop))
-    return out
-#     return [(interval.first + i * interval_length, interval.first + (i + 1) * interval_length) for i in range(count)]
+    if all(isinstance(t[0], int) and isinstance(t[1], int) for t in reference_timing) and \
+            all(isinstance(t[0], int) and isinstance(t[1], int) for t in hypothesis_timing):
+        return time_constrained_levenshtein_distance_v2_[int](*args)
+    else:
+        return time_constrained_levenshtein_distance_v2_[double](*args)

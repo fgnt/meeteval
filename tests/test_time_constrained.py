@@ -140,8 +140,8 @@ def test_tcpwer_input_formats():
     from meeteval.io.stm import STM, STMLine
 
     r1 = time_constrained_minimum_permutation_word_error_rate(
-        [TimeMarkedTranscript(['a'], [(0,1)]), TimeMarkedTranscript(['b c'], [(0, 1), (1, 2)])],
-        [TimeMarkedTranscript(['a b'], [(0,1)]), TimeMarkedTranscript(['c'], [(0, 1), (1, 2)])],
+        [TimeMarkedTranscript(['a'], [(0, 1)]), TimeMarkedTranscript(['b c'], [(1, 2)])],
+        [TimeMarkedTranscript(['a b'], [(0, 1)]), TimeMarkedTranscript(['c'], [(1, 2)])],
     )
     r2 = time_constrained_minimum_permutation_word_error_rate(
         [[{'words': 'a', 'start_time': 0, 'end_time': 1}], [{'words': 'b c', 'start_time': 1, 'end_time': 2}]],
@@ -151,19 +151,21 @@ def test_tcpwer_input_formats():
         [
             STM([STMLine('dummy', 0, 'A', 0, 1, 'a')]),
             STM([STMLine('dummy', 1, 'A', 1, 2, 'b c')])
-         ],
+        ],
         [
             STM([STMLine('dummy', 0, 'A', 0, 1, 'a b')]),
             STM([STMLine('dummy', 1, 'A', 1, 2, 'c')])
         ]
     )
     r4 = time_constrained_minimum_permutation_word_error_rate(
-        {'A': TimeMarkedTranscript(['a'], [(0,1)]), 'B': TimeMarkedTranscript(['b c'], [(0, 1), (1, 2)])},
-        {'A': TimeMarkedTranscript(['a b'], [(0,1)]), 'B': TimeMarkedTranscript(['c'], [(0, 1), (1, 2)])},
+        {'A': TimeMarkedTranscript(['a'], [(0, 1)]), 'B': TimeMarkedTranscript(['b c'], [(1, 2)])},
+        {'A': TimeMarkedTranscript(['a b'], [(0, 1)]), 'B': TimeMarkedTranscript(['c'], [(1, 2)])},
     )
     r5 = time_constrained_minimum_permutation_word_error_rate(
-        {'A': [{'words': 'a', 'start_time': 0, 'end_time': 1}], 'B': [{'words': 'b c', 'start_time': 1, 'end_time': 2}]},
-        {'A': [{'words': 'a b', 'start_time': 0, 'end_time': 1}], 'B': [{'words': 'c', 'start_time': 1, 'end_time': 2}]},
+        {'A': [{'words': 'a', 'start_time': 0, 'end_time': 1}],
+         'B': [{'words': 'b c', 'start_time': 1, 'end_time': 2}]},
+        {'A': [{'words': 'a b', 'start_time': 0, 'end_time': 1}],
+         'B': [{'words': 'c', 'start_time': 1, 'end_time': 2}]},
     )
     assert r1.error_rate == r2.error_rate
     assert r1.error_rate == r3.error_rate

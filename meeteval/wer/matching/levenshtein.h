@@ -433,7 +433,7 @@ unsigned int time_constrained_levenshtein_distance_v2_(
                 else allow_shift = false;
             }
 
-            // This happens when row[i+1] is unitialized
+            // This happens when row[i+1] is uninitialized
             auto up = std::min(row[hyp_index + 1], diagonal + cost_ins);
 
             // TODO: do we need the full overlaps check?

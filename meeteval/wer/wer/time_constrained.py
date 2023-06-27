@@ -271,8 +271,8 @@ def time_constrained_siso_word_error_rate(
 def time_constrained_minimum_permutation_word_error_rate(
         reference: 'List[TimeMarkedTranscript] | Dict[str, TimeMarkedTranscript]',
         hypothesis: 'List[TimeMarkedTranscript] | Dict[str, TimeMarkedTranscript]',
-        reference_pseudo_word_level_timing='full_segment',
-        hypothesis_pseudo_word_level_timing='equidistant_intervals',
+        reference_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
         reference_overlap_correction=False,
         hypothesis_allow_speaker_self_overlap=False,
@@ -296,7 +296,6 @@ def time_constrained_minimum_permutation_word_error_rate(
 
     reference = _map(TimeMarkedTranscript.create, reference)
     hypothesis = _map(TimeMarkedTranscript.create, hypothesis)
-    print(reference)
 
     if reference_overlap_correction:
         reference = _map(
