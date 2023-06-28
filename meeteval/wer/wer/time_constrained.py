@@ -138,7 +138,7 @@ class TimeMarkedTranscript:
         return False
 
     @classmethod
-    def create(cls, data) -> 'TimeMarkedTranscript':
+    def create(cls, data: 'TimeMarkedTranscriptLike') -> 'TimeMarkedTranscript':
         if isinstance(data, TimeMarkedTranscript):
             return data
         elif isinstance(data, STM):
@@ -170,6 +170,10 @@ class TimeMarkedTranscript:
         )
         time_marked_transcript.check(None)
         return time_marked_transcript
+
+
+# Annotation for input
+TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
 
 
 def get_pseudo_word_level_timings(
@@ -244,10 +248,10 @@ def sort_segments(s: TimeMarkedTranscript):
 
 
 def time_constrained_siso_word_error_rate(
-        reference: TimeMarkedTranscript,
-        hypothesis: TimeMarkedTranscript,
-        reference_pseudo_word_level_timing='full_segment',
-        hypothesis_pseudo_word_level_timing='equidistant_intervals',
+        reference: TimeMarkedTranscriptLike,
+        hypothesis: TimeMarkedTranscriptLike,
+        reference_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
 ):
     """
@@ -269,13 +273,13 @@ def time_constrained_siso_word_error_rate(
 
 
 def time_constrained_minimum_permutation_word_error_rate(
-        reference: 'List[TimeMarkedTranscript] | Dict[str, TimeMarkedTranscript]',
-        hypothesis: 'List[TimeMarkedTranscript] | Dict[str, TimeMarkedTranscript]',
+        reference: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike]',
+        hypothesis: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike]',
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
         reference_overlap_correction=False,
-        hypothesis_allow_speaker_self_overlap=False,
+        allow_hypothesis_speaker_self_overlap=False,
 ) -> CPErrorRate:
     """
     Time-constrained minimum permutation word error rate for single-speaker transcripts.
@@ -286,9 +290,12 @@ def time_constrained_minimum_permutation_word_error_rate(
         reference_pseudo_word_level_timing: strategy for pseudo-word level timing for reference
         hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
-        reference_overlap_correction: if True, overlaps in the reference are corrected
-        hypothesis_allow_speaker_self_overlap: if True, overlaps in the hypothesis are allowed.
+        reference_overlap_correction: if True, small overlaps in the reference are corrected by shifting the
+            start and end times of the overlapping segments to the center point of the overlap.
+        allow_hypothesis_speaker_self_overlap: if True, overlaps in the hypothesis are allowed.
             This can change the order of words, so it is not recommended to use this option.
+            You may set it when you are too lazy to fix your system or you want to get a preview
+            of the WER, but a valid recognition system should in general never produce self-overlap.
             It is not guaranteed that the returned WER is correct if this option is set!
     """
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_v3
@@ -315,7 +322,7 @@ def time_constrained_minimum_permutation_word_error_rate(
     hypothesis = _map(lambda x: get_pseudo_word_level_timings(x, hypothesis_pseudo_word_level_timing, collar),
                       hypothesis)
 
-    if hypothesis_allow_speaker_self_overlap:
+    if allow_hypothesis_speaker_self_overlap:
         def check_self_overlap(x):
             if x.has_self_overlaps():
                 import warnings

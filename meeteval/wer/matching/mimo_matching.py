@@ -163,4 +163,4 @@ def mimo_matching_v4(
 
 
 # Export the recommended version without a v* postfix
-mimo_matching = mimo_matching_v3
+mimo_matching = mimo_matching_v4

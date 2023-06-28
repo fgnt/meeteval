@@ -298,7 +298,8 @@ def tcpwer(
         hyp_pseudo_word_timing='character_based',
         ref_pseudo_word_timing='character_based',
         verbose=False,
-        hypothesis_allow_speaker_self_overlap=False,
+        allow_hypothesis_speaker_self_overlap=False,
+        reference_overlap_correction=False,
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer import time_constrained_minimum_permutation_word_error_rate
@@ -317,7 +318,8 @@ def tcpwer(
                 reference_pseudo_word_level_timing=ref_pseudo_word_timing,
                 hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
                 collar=collar,
-                hypothesis_allow_speaker_self_overlap=hypothesis_allow_speaker_self_overlap,
+                allow_hypothesis_speaker_self_overlap=allow_hypothesis_speaker_self_overlap,
+                reference_overlap_correction=reference_overlap_correction
             )
         except:
             print(f'Exception in example {example_id}')
@@ -472,12 +474,20 @@ def cli():
                          'equidistant_points: Place time points equally spaded int the segment-level intervals; '
                          'full_segment: Use the full segment for each word that belongs to that segment.'
                 )
-            elif name == 'hypothesis_allow_speaker_self_overlap':
+            elif name == 'allow_hypothesis_speaker_self_overlap':
                 command_parser.add_argument(
-                    '--hypothesis-allow-speaker-self-overlap', action='store_true',
+                    '--allow-hypothesis-speaker-self-overlap', action='store_true',
                     help='Allow speaker self-overlap in the hypothesis. '
                          'This can change the order of words, so it is not recommended to use this option. '
+                         'You may set it when you are too lazy to fix your system or you want to get a preview '
+                         'of the WER, but a valid recognition system should in general never produce self-overlap.'
                          'It is not guaranteed that the returned WER is correct if this option is set!'
+                )
+            elif name == 'reference_overlap_correction':
+                command_parser.add_argument(
+                    '--reference-overlap-correction', action='store_true',
+                    help='Correct small overlaps in the reference by shifting the '
+                         'start and end times of the overlapping segments to the center point of the overlap.'
                 )
             elif name == 'files':
                 command_parser.add_argument('files', nargs='+')

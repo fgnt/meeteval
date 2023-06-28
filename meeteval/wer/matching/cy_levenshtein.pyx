@@ -135,10 +135,13 @@ cdef _validate_inputs(reference, hypothesis, vector[pair[double, double]] refere
     for t in reference_timing:
         if t.second < t.first:
             raise ValueError(
-                f'The end time of an interval must not be smaller than its begin time, but the reference violates this')
+                f'The end time of an interval {t.second} must not be smaller than its begin time {t.first}, '
+                f'but the reference violates this'
+            )
         if t.first < last_start:
             raise ValueError(
                 f'The start times of the annotations must be increasing, which they are not for the reference. '
+                f'(found at least one interval where {t.first} < {last_start}) '
                 f'This might be caused by overlapping segments, see the (potential) previous warning.'
             )
         last_start = t.first
@@ -147,10 +150,13 @@ cdef _validate_inputs(reference, hypothesis, vector[pair[double, double]] refere
     for t in hypothesis_timing:
         if t.second < t.first:
             raise ValueError(
-                f'The end time of an interval must not be smaller than its begin time, but the hypothesis violates this')
+                f'The end time of an interval {t.second} must not be smaller than its begin time {t.first}, '
+                f'but the hypothesis violates this'
+            )
         if t.first < last_start:
             raise ValueError(
                 f'The start times of the annotations must be increasing, which they are not for the hypothesis. '
+                f'(found at least one interval where {t.first} < {last_start}) '
                 f'This might be caused by overlapping segments, see the (potential) previous warning.'
             )
         last_start = t.first
@@ -266,6 +272,8 @@ def time_constrained_levenshtein_distance_with_alignment(
     map2int = False
     if len(reference) and isinstance(reference[0], int) or len(hypothesis) and isinstance(hypothesis[0], int):
         assert isinstance(eps, int), eps
+        assert len(reference) == 0 or isinstance(reference[0], int), reference
+        assert len(hypothesis) == 0 or isinstance(hypothesis[0], int), hypothesis
     else:
         map2int = True
         int2sym = dict(enumerate(sorted(set(reference) | set(hypothesis) | set([eps]))))
