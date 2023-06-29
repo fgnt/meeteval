@@ -68,12 +68,32 @@ def full_segment(interval, words):
     return [interval] * len(words)
 
 
-pseudo_word_level_strategies = dict(
-    equidistant_intervals=equidistant_intervals,
-    equidistant_points=equidistant_points,
-    full_segment=full_segment,
-    character_based=character_based
-)
+def no_segmentation(interval, words):
+    if len(words) != 1:
+        if len(words) > 1:
+            raise ValueError(
+                f'No segmentation strategy was specified, but the number of words '
+                f'is {len(words)} instead of 1 for segment {interval}.\n'
+                f'If "{" ".join(words)}" is indeed a single word, open an issue at '
+                f'github.com/fgnt/meeteval/issues/new'
+            )
+        else:
+            raise ValueError(
+                f'No segmentation strategy was specified (i.e., exactly one timestamp per word is required), '
+                f'but a segment ({interval}) contains no word.'
+            )
+    assert len(words) == 1
+    return [interval]
+
+
+pseudo_word_level_strategies = {
+    'equidistant_intervals': equidistant_intervals,
+    'equidistant_points': equidistant_points,
+    'full_segment': full_segment,
+    'character_based': character_based,
+    'none': no_segmentation,
+    None: no_segmentation,
+}
 
 
 def _check_timing_annotations(t, k):
@@ -181,6 +201,20 @@ def get_pseudo_word_level_timings(
         strategy: str,
         collar: float = 0,
 ) -> TimeMarkedTranscript:
+    """
+    >>> s = TimeMarkedTranscript(['abc b', 'c d e f'], [(0, 4), (4, 8)])
+    >>> get_pseudo_word_level_timings(s, 'full_segment')
+    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0, 4), (0, 4), (4, 8), (4, 8), (4, 8), (4, 8)])
+    >>> get_pseudo_word_level_timings(s, 'equidistant_points')
+    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(1.0, 1.0), (3.0, 3.0), (4.5, 4.5), (5.5, 5.5), (6.5, 6.5), (7.5, 7.5)])
+    >>> get_pseudo_word_level_timings(s, 'equidistant_intervals')
+    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0.0, 2.0), (2.0, 4.0), (4.0, 5.0), (5.0, 6.0), (6.0, 7.0), (7.0, 8.0)])
+    >>> word_level = get_pseudo_word_level_timings(s, 'character_based')
+    >>> word_level
+    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0.0, 3.0), (3.0, 4.0), (4.0, 5.0), (5.0, 6.0), (6.0, 7.0), (7.0, 8.0)])
+    >>> get_pseudo_word_level_timings(word_level, 'none')   # Copies over the timings since word-level timings are already assumed
+    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0.0, 3.0), (3.0, 4.0), (4.0, 5.0), (5.0, 6.0), (6.0, 7.0), (7.0, 8.0)])
+    """
     pseudo_word_level_strategy = pseudo_word_level_strategies[strategy]
 
     all_words = []

@@ -451,13 +451,17 @@ def cli():
                         'equidistant_points',
                         'full_segment',
                         'character_based',
+                        'none',
                     ],
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the hypothesis. Choices: '
                          'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
                          'equidistant_points: Place time points equally spaded int the segment-level intervals; '
-                         'full_segment: Use the full segment for each word that belongs to that segment.'
+                         'full_segment: Use the full segment for each word that belongs to that segment;'
+                         'character_based: Estimate the word length based on the number of characters; '
+                         'none: Do not estimate word-level timings but assume that the provided timings are already '
+                         'given on a word level.'
                 )
             elif name == 'ref_pseudo_word_timing':
                 command_parser.add_argument(
@@ -466,13 +470,17 @@ def cli():
                         'equidistant_points',
                         'full_segment',
                         'character_based',
+                        'none',
                     ],
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the reference. Choices: '
                          'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
                          'equidistant_points: Place time points equally spaded int the segment-level intervals; '
-                         'full_segment: Use the full segment for each word that belongs to that segment.'
+                         'full_segment: Use the full segment for each word that belongs to that segment. '
+                         'character_based: Estimate the word length based on the number of characters; '
+                         'none: Do not estimate word-level timings but assume that the provided timings are already '
+                         'given on a word level.'
                 )
             elif name == 'allow_hypothesis_speaker_self_overlap':
                 command_parser.add_argument(
