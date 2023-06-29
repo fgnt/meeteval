@@ -264,8 +264,12 @@ def time_constrained_siso_word_error_rate(
         hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
     """
+    reference = _map(TimeMarkedTranscript.create, reference)
+    hypothesis = _map(TimeMarkedTranscript.create, hypothesis)
+
     reference = get_pseudo_word_level_timings(reference, reference_pseudo_word_level_timing)
     hypothesis = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing, collar)
+
     return _time_constrained_siso_error_rate(
         reference.transcript, hypothesis.transcript,
         reference.timings, hypothesis.timings,
@@ -331,6 +335,7 @@ def time_constrained_minimum_permutation_word_error_rate(
                     'hypothesis_allow_speaker_self_overlap option is set. '
                     'It is not guaranteed that the WER is correct!'
                 )
+
         _map(check_self_overlap, hypothesis)
         hypothesis = _map(sort_segments, hypothesis)
 
@@ -351,3 +356,34 @@ def time_constrained_minimum_permutation_word_error_rate(
         ),
         missing=TimeMarkedTranscript([], []),
     )
+
+
+def align(
+        reference: TimeMarkedTranscriptLike, hypothesis: TimeMarkedTranscriptLike,
+        reference_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based',
+        collar: int = 0,
+        eps='*'
+):
+    """
+    Align two time-marked transcripts, similar to `kaldialign.align`, but with time constriant.
+
+    >>> align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]))
+    [('a', 'a'), ('b', 'b'), ('c', '*'), ('*', 'c')]
+    >>> align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]), collar=1)
+    [('a', 'a'), ('b', 'b'), ('c', 'c')]
+    >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1)
+    [('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', '*'), ('e', 'e'), ('*', 'f')]
+    """
+    reference = TimeMarkedTranscript.create(reference)
+    hypothesis = TimeMarkedTranscript.create(hypothesis)
+
+    reference = get_pseudo_word_level_timings(reference, reference_pseudo_word_level_timing)
+    hypothesis = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing, collar)
+
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
+    return time_constrained_levenshtein_distance_with_alignment(
+        reference.transcript, hypothesis.transcript,
+        reference.timings, hypothesis.timings,
+        eps=eps
+    )['alignment']
