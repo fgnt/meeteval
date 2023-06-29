@@ -191,6 +191,38 @@ class TimeMarkedTranscript:
         time_marked_transcript.check(None)
         return time_marked_transcript
 
+    def _repr_pretty_(self, p, cycle):
+        """
+        >>> tmt = TimeMarkedTranscript(['abc b', 'c d e f'], [(0, 4), (4, 8)])
+        >>> tmt
+        TimeMarkedTranscript(transcript=['abc b', 'c d e f'], timings=[(0, 4), (4, 8)])
+        >>> from IPython.lib.pretty import pprint
+        >>> pprint(tmt, max_width=30)
+        TimeMarkedTranscript(
+            transcript=['abc b',
+             'c d e f'],
+            timings=[(0, 4), (4, 8)]
+        )
+        """
+        if cycle:
+            p.text(f'{self.__class__.__name__}(...)')
+        else:
+            txt = f'{self.__class__.__name__}('
+            with p.group(4, txt, ''):
+                keys = self.__dataclass_fields__.keys()
+                for i, k in enumerate(keys):
+                    if i:
+                        p.breakable(sep=' ')
+                    else:
+                        p.breakable(sep='')
+                    p.text(f'{k}=')
+                    p.pretty(getattr(self, k))
+                    if i != len(keys) - 1:
+                        p.text(',')
+            p.breakable('')
+            p.text(')')
+
+
 
 # Annotation for input
 TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
@@ -202,18 +234,54 @@ def get_pseudo_word_level_timings(
         collar: float = 0,
 ) -> TimeMarkedTranscript:
     """
+    >>> from IPython.lib.pretty import pprint
     >>> s = TimeMarkedTranscript(['abc b', 'c d e f'], [(0, 4), (4, 8)])
-    >>> get_pseudo_word_level_timings(s, 'full_segment')
-    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0, 4), (0, 4), (4, 8), (4, 8), (4, 8), (4, 8)])
-    >>> get_pseudo_word_level_timings(s, 'equidistant_points')
-    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(1.0, 1.0), (3.0, 3.0), (4.5, 4.5), (5.5, 5.5), (6.5, 6.5), (7.5, 7.5)])
-    >>> get_pseudo_word_level_timings(s, 'equidistant_intervals')
-    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0.0, 2.0), (2.0, 4.0), (4.0, 5.0), (5.0, 6.0), (6.0, 7.0), (7.0, 8.0)])
+    >>> pprint(get_pseudo_word_level_timings(s, 'full_segment'))
+    TimeMarkedTranscript(
+        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
+        timings=[(0, 4), (0, 4), (4, 8), (4, 8), (4, 8), (4, 8)]
+    )
+    >>> pprint(get_pseudo_word_level_timings(s, 'equidistant_points'))
+    TimeMarkedTranscript(
+        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
+        timings=[(1.0, 1.0),
+         (3.0, 3.0),
+         (4.5, 4.5),
+         (5.5, 5.5),
+         (6.5, 6.5),
+         (7.5, 7.5)]
+    )
+    >>> pprint(get_pseudo_word_level_timings(s, 'equidistant_intervals'))
+    TimeMarkedTranscript(
+        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
+        timings=[(0.0, 2.0),
+         (2.0, 4.0),
+         (4.0, 5.0),
+         (5.0, 6.0),
+         (6.0, 7.0),
+         (7.0, 8.0)]
+    )
     >>> word_level = get_pseudo_word_level_timings(s, 'character_based')
-    >>> word_level
-    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0.0, 3.0), (3.0, 4.0), (4.0, 5.0), (5.0, 6.0), (6.0, 7.0), (7.0, 8.0)])
-    >>> get_pseudo_word_level_timings(word_level, 'none')   # Copies over the timings since word-level timings are already assumed
-    TimeMarkedTranscript(transcript=['abc', 'b', 'c', 'd', 'e', 'f'], timings=[(0.0, 3.0), (3.0, 4.0), (4.0, 5.0), (5.0, 6.0), (6.0, 7.0), (7.0, 8.0)])
+    >>> pprint(word_level)
+    TimeMarkedTranscript(
+        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
+        timings=[(0.0, 3.0),
+         (3.0, 4.0),
+         (4.0, 5.0),
+         (5.0, 6.0),
+         (6.0, 7.0),
+         (7.0, 8.0)]
+    )
+    >>> pprint(get_pseudo_word_level_timings(word_level, 'none'))   # Copies over the timings since word-level timings are already assumed
+    TimeMarkedTranscript(
+        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
+        timings=[(0.0, 3.0),
+         (3.0, 4.0),
+         (4.0, 5.0),
+         (5.0, 6.0),
+         (6.0, 7.0),
+         (7.0, 8.0)]
+    )
     """
     pseudo_word_level_strategy = pseudo_word_level_strategies[strategy]
 
