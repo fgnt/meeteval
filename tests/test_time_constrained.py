@@ -80,23 +80,26 @@ def test_time_constrained_levenshtein_distance_vs_with_alignment(a, b):
 
     # Check that the alignment has the right format
     assert max(len(a), len(b)) <= len(s['alignment']) <= len(a) + len(b)
-    assert ''.join([a[0] for a in s['alignment'] if a[0] != '*']) == a
-    assert ''.join([a[1] for a in s['alignment'] if a[1] != '*']) == b
+    assert [a[0] for a in s['alignment'] if a[0] is not None] == list(range(len(a)))
+    assert [a[1] for a in s['alignment'] if a[1] is not None] == list(range(len(b)))
+    assert len([a for a in s['alignment'] if a[0] is None or a[1] is None]) <= distance
 
 
 @given(string, string)
 def test_time_constrained_levenshtein_distance_with_alignment_against_kaldialign(a, b):
     """Check that the returned alignment matches kaldialign then the time intervals span the full length"""
-    from kaldialign import align, edit_distance
+    from kaldialign import align as kaldi_align, edit_distance
+    from meeteval.wer.wer.time_constrained import index_alignment_to_kaldi_alignment
     from meeteval.wer.matching import time_constrained_levenshtein_distance_with_alignment
 
     a_timing = [(0, 1)] * len(a)
     b_timing = [(0, 1)] * len(b)
 
-    kaldialign_alignment = align(a, b, '*')
+    kaldialign_alignment = kaldi_align(a, b, '*')
     kaldialign_statistics = edit_distance(a, b)
     statistics = time_constrained_levenshtein_distance_with_alignment(a, b, a_timing, b_timing)
     alignment = statistics.pop('alignment')
+    alignment = index_alignment_to_kaldi_alignment(alignment, a, b)
     assert alignment == kaldialign_alignment, (alignment, kaldialign_alignment)
     assert kaldialign_statistics['ins'] == statistics['insertions'], (kaldialign_statistics, statistics)
     assert kaldialign_statistics['sub'] == statistics['substitutions'], (kaldialign_statistics, statistics)

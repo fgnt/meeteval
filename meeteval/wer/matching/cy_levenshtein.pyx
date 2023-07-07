@@ -7,6 +7,41 @@ from libcpp.pair cimport pair
 
 ctypedef unsigned int uint
 
+from libcpp cimport bool
+
+cdef extern from "<optional>" namespace "std" nogil:
+    cdef cppclass nullopt_t:
+        nullopt_t()
+
+    cdef nullopt_t nullopt
+
+    cdef cppclass optional[T]:
+        ctypedef T value_type
+        optional()
+        optional(nullopt_t)
+        optional(optional&) except +
+        optional(T&) except +
+        bool has_value()
+        T& value()
+        T& value_or[U](U& default_value)
+        void swap(optional&)
+        void reset()
+        T& emplace(...)
+        T& operator*()
+        #T* operator->() # Not Supported
+        optional& operator=(optional&)
+        optional& operator=[U](U&)
+        bool operator bool()
+        bool operator!()
+        bool operator==[U](optional&, U&)
+        bool operator!=[U](optional&, U&)
+        bool operator<[U](optional&, U&)
+        bool operator>[U](optional&, U&)
+        bool operator<=[U](optional&, U&)
+        bool operator>=[U](optional&, U&)
+
+    optional[T] make_optional[T](...) except +
+
 cdef extern from "levenshtein.h":
     uint levenshtein_distance_(
             vector[uint] reference,
@@ -61,7 +96,7 @@ cdef extern from "levenshtein.h":
         uint substitutions
         uint correct
         uint total
-        vector[pair[uint, uint]] alignment
+        vector[pair[optional[uint], optional[uint]]] alignment
 
     LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_[T](
             vector[uint] reference,
@@ -244,15 +279,16 @@ def time_constrained_levenshtein_distance_with_alignment(
         cost_del=1,
         cost_ins=1,
         cost_sub=1,
-        cost_cor=0,
-        eps='*',
+        cost_cor=0
 ):
-    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(reference, hypothesis,
-                                                                                  reference_timing, hypothesis_timing)
+    reference, hypothesis, reference_timing, hypothesis_timing = _validate_inputs(
+        reference, hypothesis, reference_timing, hypothesis_timing
+    )
+
     if len(reference) == 0:
         return {
             'total': len(hypothesis),
-            'alignment': [(eps, h) for h in hypothesis],
+            'alignment': [(None, i) for i in range(len(hypothesis))],
             'correct': 0,
             'insertions': len(hypothesis) * cost_ins,
             'deletions': 0,
@@ -261,58 +297,70 @@ def time_constrained_levenshtein_distance_with_alignment(
     if len(hypothesis) == 0:
         return {
             'total': len(reference),
-            'alignment': [(r, eps) for r in reference],
+            'alignment': [(i, None) for i in range(len(reference))],
             'correct': 0,
             'insertions': 0,
             'deletions': len(reference) * cost_del,
             'substitutions': 0,
         }
 
-    assert eps not in reference and eps not in hypothesis, (eps, reference, hypothesis)
     map2int = False
     if len(reference) and isinstance(reference[0], int) or len(hypothesis) and isinstance(hypothesis[0], int):
-        assert isinstance(eps, int), eps
         assert len(reference) == 0 or isinstance(reference[0], int), reference
         assert len(hypothesis) == 0 or isinstance(hypothesis[0], int), hypothesis
+        reference_ = reference
+        hypothesis_ = hypothesis
     else:
         map2int = True
-        int2sym = dict(enumerate(sorted(set(reference) | set(hypothesis) | set([eps]))))
+        int2sym = dict(enumerate(sorted(set(reference) | set(hypothesis))))
         sym2int = {v: k for k, v in int2sym.items()}
-        reference = [sym2int[a_] for a_ in reference]
-        hypothesis = [sym2int[b_] for b_ in hypothesis]
-        eps = sym2int[eps]
+        reference_ = [sym2int[a_] for a_ in reference]
+        hypothesis_ = [sym2int[b_] for b_ in hypothesis]
+
+    cdef LevenshteinStatistics statistics
 
     if all(isinstance(t[0], int) and isinstance(t[1], int) for t in reference_timing) and \
             all(isinstance(t[0], int) and isinstance(t[1], int) for t in hypothesis_timing):
         statistics = time_constrained_levenshtein_distance_with_alignment_[int](
-            reference, hypothesis,
+            reference_, hypothesis_,
             reference_timing,
             hypothesis_timing,
             cost_del,
             cost_ins,
             cost_sub,
             cost_cor,
-            eps
         )
     else:
         statistics = time_constrained_levenshtein_distance_with_alignment_[double](
-            reference, hypothesis,
+            reference_, hypothesis_,
             reference_timing,
             hypothesis_timing,
             cost_del,
             cost_ins,
             cost_sub,
             cost_cor,
-            eps
         )
 
-    if map2int:
-        statistics['alignment'] = [
-            (int2sym[e[0]], int2sym[e[1]])
-            for e in statistics['alignment']
-        ]
+    cdef:
+        pair[optional[uint], optional[uint]] e
 
-    return statistics
+    py_alignment = []
+    for e in statistics.alignment:
+        py_alignment.append((
+            e.first.value() if e.first.has_value() else None,
+            e.second.value() if e.second.has_value() else None,
+        ))
+
+    py_statistics = {
+        'insertions': statistics.insertions,
+        'deletions': statistics.deletions,
+        'substitutions': statistics.substitutions,
+        'correct': statistics.correct,
+        'total': statistics.total,
+        'alignment': py_alignment,
+    }
+
+    return py_statistics
 
 import numpy as np
 
