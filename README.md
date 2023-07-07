@@ -1,7 +1,8 @@
 <h1 align="center">MeetEval</h1> 
 <h3 align="center">A meeting transcription evaluation toolkit</h3>
-
+<div align="center"><a href="#features">Features</a> | <a href="#installation">Installation</a> | <a href="#python-interface">Python Interface</a> | <a href="#command-line-interface">Command Line Interface</a> | <a href="#cite">Cite</a></div>
 <a href="https://github.com/fgnt/meeteval/actions"><img src="https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg"/></a>
+
 
 ## Features
 MeetEval supports the following metrics for meeting transcription evaluation:
@@ -24,7 +25,7 @@ pip install -e ./meeteval[cli]
 ```
 
 The `[cli]` is optional, except when you want to use the command line
-interface, that uses `pyyaml`.
+interface which uses `pyyaml`.
 
 ## Computing WERs
 
@@ -60,6 +61,15 @@ ErrorRate(errors=7, length=11, error_rate=0.6363636363636364)
 Note that the combined WER is _not_ the average over the error rates, but the error rate that results from combining the errors and lengths of all error rates.
 `combine_error_rates` also discards any information that cannot be aggregated over multiple examples (such as the ORC WER assignment).
 
+#### Aligning sequences
+
+Sequences can be aligned, similar to `kaldialign.align`, using the tcpWER matching:
+```python
+>>> from meeteval.wer.wer.time_constrained import align
+>>> align([{'words': 'a b', 'start_time': 0, 'end_time': 1}], [{'words': 'a c', 'start_time': 0, 'end_time': 1}, {'words': 'd', 'start_time': 2, 'end_time': 3}])
+[('a', 'a'), ('b', 'c'), ('*', 'd')]
+```
+
 ### Command-line interface
 
 `MeetEval` supports [Segmental Time Mark](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75) (`STM`) files as input.
@@ -68,39 +78,41 @@ Each line in an `STM` file represents one "utterance" and is defined as
 ```STM
 STM :== <filename> <channel> <speaker_id> <begin_time> <end_time> <transcript>
 ```
-e.g.
-```
-recording1 0 Alice 0 0 Hello Bob.
-recording1 0 Bob 1 0 Hello Alice.
-recording1 0 Alice 2 0 How are you?
-...
-recording2 0 Alice 0 0 Hello Carol.
-...
-```
 where
 - `filename`: name of the recording
-- `channel`: ignored
+- `channel`: ignored by MeetEval
 - `speaker_id`: ID of the speaker or system output stream/channel (not microphone channel)
-- `begin_time`: in seconds, used to find the order of the utterances (can also be an int counter)
-- `end_time`: in seconds (currently ignored)
+- `begin_time`: in seconds, used to find the order of the utterances
+- `end_time`: in seconds
 - `transcript`: space-separated list of words
+
+for example:
+```
+recording1 1 Alice 0 0 Hello Bob.
+recording1 1 Bob 1 0 Hello Alice.
+recording1 1 Alice 2 0 How are you?
+...
+recording2 1 Alice 0 0 Hello Carol.
+...
+```
 
 An example `STM` file can be found in [the example_files](example_files/ref.stm).
 
 We chose the `STM` format as the default because it contains all information required to compute the cpWER, ORC WER and MIMO WER.
-`MeetEval` currently does not support use of detailed timing information, so `begin_time` is only used to determine the correct utterance order and `end_time` is ignored.
-This may change in future versions.
+Most metrics in `MeetEval` (all except tcpWER) currently do not support use of detailed timing information.
+For those metrics, `begin_time` is only used to determine the correct utterance order and `end_time` is ignored.
 The speaker-ID field in the hypothesis encodes the output channel for MIMO and ORC WER.
 `MeetEval` does not support alternate transcripts (e.g., `"i've { um / uh / @ } as far as i'm concerned"`).
+
 Once you created an `STM` file, the tool can be called like this:
 
 ```shell
-python -m meeteval.wer [orcwer|mimower|cpwer] -h example_files/hyp.stm -r example_files/ref.stm
+python -m meeteval.wer [orcwer|mimower|cpwer|tcpwer] -h example_files/hyp.stm -r example_files/ref.stm
 # or
-meeteval-wer [orcwer|mimower|cpwer] -h example_files/hyp.stm -r example_files/ref.stm
+meeteval-wer [orcwer|mimower|cpwer|tcpwer] -h example_files/hyp.stm -r example_files/ref.stm
 ```
 
-The command `orcwer`, `mimower` and `cpwer` allow selecting the WER definition to use.
+The command `orcwer`, `mimower`, `cpwer` and `tcpwer` selects the WER definition to use.
 By default, the hypothesis files is used to create the template for the average
 (e.g. `hypothesis.json`) and per_reco `hypothesis_per_reco.json` file.
 They can be changed with `--average-out` and `--per-reco-out`.
