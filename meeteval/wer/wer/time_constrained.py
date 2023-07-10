@@ -120,13 +120,8 @@ def _time_constrained_siso_error_rate(
 ):
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
 
-    if len(reference) == 0 or isinstance(reference[0], int):
-        eps = max(*reference, *hypothesis) + 1
-    else:
-        eps = '*'
     result = time_constrained_levenshtein_distance_with_alignment(
         reference, hypothesis, reference_timing, hypothesis_timing,
-        eps=eps
     )
 
     return ErrorRate(
@@ -163,7 +158,7 @@ class TimeMarkedTranscript:
             return data
         elif isinstance(data, STM):
             return cls.from_stm(data)
-        elif isinstance(data, list) and isinstance(data[0], dict):
+        elif isinstance(data, list) and (len(data) == 0 or isinstance(data[0], dict)):
             return cls.from_segment_dicts(data)
         else:
             raise TypeError(data)
@@ -182,6 +177,8 @@ class TimeMarkedTranscript:
 
     @classmethod
     def from_segment_dicts(cls, data: 'List[Segment]') -> 'TimeMarkedTranscript':
+        if len(data) == 0:
+            return cls([], [])
         if 'speaker' in data[0]:
             assert all(d['speaker'] == data[0]['speaker'] for d in data[1:])
         time_marked_transcript = cls(
@@ -460,15 +457,33 @@ def time_constrained_minimum_permutation_word_error_rate(
     )
 
 
+def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'):
+    return [
+        (eps if a is None else reference[a], eps if b is None else hypothesis[b])
+        for a, b in alignment
+    ]
+
+
 def align(
         reference: TimeMarkedTranscriptLike, hypothesis: TimeMarkedTranscriptLike,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
-        eps='*'
+        style='words',
 ):
     """
     Align two time-marked transcripts, similar to `kaldialign.align`, but with time constriant.
+
+    Args:
+        reference: reference transcript
+        hypothesis: hypothesis transcript
+        reference_pseudo_word_level_timing: strategy for pseudo-word level timing for reference
+        hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
+        collar: collar applied to hypothesis pseudo-word level timings
+        style: Alignment output style. Can be one of
+            - 'words' or 'kaldi': Output in the style of `kaldialign.align`
+            - 'index': Output indices of the reference and hypothesis words instead of the words
+            - 'words_and_times': Output the time interval (pseudo-word-level, without collar) with each word
 
     >>> align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]))
     [('a', 'a'), ('b', 'b'), ('c', '*'), ('*', 'c')]
@@ -476,16 +491,36 @@ def align(
     [('a', 'a'), ('b', 'b'), ('c', 'c')]
     >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1)
     [('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', '*'), ('e', 'e'), ('*', 'f')]
+    >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1, style='index')
+    [(0, 0), (1, 1), (2, 2), (3, None), (4, 3), (None, 4)]
+    >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1, style='words_and_times')
+    [(('a', (0.0, 0.5)), ('a', (0, 1))), (('b', (0.5, 1.0)), ('b', (1.0, 1.5))), (('c', (1, 2)), ('c', (1.5, 2.0))), (('d', (2.0, 2.5)), ('*', (2.0, 2.5))), (('e', (2.5, 3.0)), ('e', (3.0, 3.5))), (('*', (3.5, 4.0)), ('f', (3.5, 4.0)))]
     """
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    reference = get_pseudo_word_level_timings(reference, reference_pseudo_word_level_timing)
-    hypothesis = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing, collar)
+    reference_ = get_pseudo_word_level_timings(reference, reference_pseudo_word_level_timing)
+    hypothesis_ = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing, collar)
 
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
-    return time_constrained_levenshtein_distance_with_alignment(
-        reference.transcript, hypothesis.transcript,
-        reference.timings, hypothesis.timings,
-        eps=eps
+    alignment = time_constrained_levenshtein_distance_with_alignment(
+        reference_.transcript, hypothesis_.transcript,
+        reference_.timings, hypothesis_.timings,
     )['alignment']
+
+    if style in ('kaldi', 'words'):
+        alignment = index_alignment_to_kaldi_alignment(alignment, reference_.transcript, hypothesis_.transcript)
+    elif style == 'words_and_times':
+        hypothesis_ = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing)
+        reference_ = list(zip(reference_.transcript, reference_.timings))
+        hypothesis_ = list(zip(hypothesis_.transcript, hypothesis_.timings))
+
+        alignment = [
+            (('*', hypothesis_[b][1]) if a is None else reference_[a],
+             ('*', reference_[a][1]) if b is None else hypothesis_[b])
+            for a, b in alignment
+        ]
+    elif style != 'index':
+        raise ValueError(f'Unknown alignment style: {style}')
+
+    return alignment
