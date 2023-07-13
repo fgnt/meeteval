@@ -1,11 +1,28 @@
+from distutils.extension import Extension
+
 from setuptools import setup
 
 from Cython.Build import cythonize
 ext_modules = cythonize(
     [
-        'meeteval/wer/matching/cy_orc_matching.pyx',
-        'meeteval/wer/matching/cy_mimo_matching.pyx',
-        'meeteval/wer/matching/cy_levenshtein.pyx',
+        Extension(
+            'meeteval.wer.matching.cy_orc_matching',
+            ['meeteval/wer/matching/cy_orc_matching.pyx'],
+            extra_compile_args=['-std=c++20'],
+            extra_link_args=['-std=c++20'],
+        ),
+        Extension(
+            'meeteval.wer.matching.cy_mimo_matching',
+            ['meeteval/wer/matching/cy_mimo_matching.pyx'],
+            extra_compile_args=['-std=c++20'],
+            extra_link_args=['-std=c++20'],
+        ),
+        Extension(
+            'meeteval.wer.matching.cy_levenshtein',
+            ['meeteval/wer/matching/cy_levenshtein.pyx'],
+            extra_compile_args=['-std=c++20'],
+            extra_link_args=['-std=c++20'],
+        ),
      ]
 )
 
