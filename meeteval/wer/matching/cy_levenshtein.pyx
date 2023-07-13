@@ -10,6 +10,8 @@ ctypedef unsigned int uint
 
 
 cdef extern from "levenshtein.h":
+    const uint ALIGNMENT_EPS
+
     uint levenshtein_distance_(
             vector[uint] reference,
             vector[uint] hypothesis,
@@ -313,8 +315,8 @@ def time_constrained_levenshtein_distance_with_alignment(
     py_statistics: dict = statistics
     py_statistics['alignment'] = [
         (
-            None if a == numeric_limits[uint].max() else a,
-            None if b == numeric_limits[uint].max() else b,
+            None if a == ALIGNMENT_EPS else a,
+            None if b == ALIGNMENT_EPS else b,
          )
         for (a, b) in py_statistics['alignment']
     ]

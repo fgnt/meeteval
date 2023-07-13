@@ -248,6 +248,7 @@ struct LevenshteinStatistics {
     unsigned int total;
     std::vector<std::pair<unsigned int, unsigned int>> alignment;
 };
+const unsigned int ALIGNMENT_EPS = std::numeric_limits<unsigned int>::max();
 
 template<typename T>
 LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
@@ -339,7 +340,6 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
     // Backtracking
     unsigned int hyp_index = hypothesis.size();
     unsigned int ref_index = reference.size();
-    auto eps = std::numeric_limits<unsigned int>::max();
     LevenshteinStatistics statistics;
     statistics.total = matrix.back().back();
     statistics.insertions = 0;
@@ -350,11 +350,11 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
     while (ref_index > 0 || hyp_index > 0) {
         if (ref_index == 0) {
             // always insertion
-            statistics.alignment.push_back(std::make_pair(eps, --hyp_index));
+            statistics.alignment.push_back(std::make_pair(ALIGNMENT_EPS, --hyp_index));
             statistics.insertions++;
         } else if (hyp_index == 0) {
             // always deletion
-            statistics.alignment.push_back(std::make_pair(--ref_index, eps));
+            statistics.alignment.push_back(std::make_pair(--ref_index, ALIGNMENT_EPS));
             statistics.deletions++;
         } else {
             unsigned int cost_insertion = matrix[ref_index][hyp_index - 1] + cost_ins;
@@ -375,11 +375,11 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
 
            if (cost_deletion < cost_insertion) {
                 // deletion
-                statistics.alignment.push_back(std::make_pair(--ref_index, eps));
+                statistics.alignment.push_back(std::make_pair(--ref_index, ALIGNMENT_EPS));
                 statistics.deletions++;
             } else {
                 // insertion
-                statistics.alignment.push_back(std::make_pair(eps, --hyp_index));
+                statistics.alignment.push_back(std::make_pair(ALIGNMENT_EPS, --hyp_index));
                 statistics.insertions++;
             }
         }
