@@ -246,8 +246,9 @@ struct LevenshteinStatistics {
     unsigned int substitutions;
     unsigned int correct;
     unsigned int total;
-    std::vector<std::pair<std::optional<unsigned int>, std::optional<unsigned int>>> alignment;
+    std::vector<std::pair<unsigned int, unsigned int>> alignment;
 };
+const unsigned int ALIGNMENT_EPS = std::numeric_limits<unsigned int>::max();
 
 template<typename T>
 LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
@@ -349,11 +350,11 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
     while (ref_index > 0 || hyp_index > 0) {
         if (ref_index == 0) {
             // always insertion
-            statistics.alignment.push_back(std::make_pair(std::nullopt, --hyp_index));
+            statistics.alignment.push_back(std::make_pair(ALIGNMENT_EPS, --hyp_index));
             statistics.insertions++;
         } else if (hyp_index == 0) {
             // always deletion
-            statistics.alignment.push_back(std::make_pair(--ref_index, std::nullopt));
+            statistics.alignment.push_back(std::make_pair(--ref_index, ALIGNMENT_EPS));
             statistics.deletions++;
         } else {
             unsigned int cost_insertion = matrix[ref_index][hyp_index - 1] + cost_ins;
@@ -374,11 +375,11 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
 
            if (cost_deletion < cost_insertion) {
                 // deletion
-                statistics.alignment.push_back(std::make_pair(--ref_index, std::nullopt));
+                statistics.alignment.push_back(std::make_pair(--ref_index, ALIGNMENT_EPS));
                 statistics.deletions++;
             } else {
                 // insertion
-                statistics.alignment.push_back(std::make_pair(std::nullopt, --hyp_index));
+                statistics.alignment.push_back(std::make_pair(ALIGNMENT_EPS, --hyp_index));
                 statistics.insertions++;
             }
         }

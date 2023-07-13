@@ -363,8 +363,8 @@ def time_constrained_siso_word_error_rate(
         hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
     """
-    reference = _map(TimeMarkedTranscript.create, reference)
-    hypothesis = _map(TimeMarkedTranscript.create, hypothesis)
+    reference = TimeMarkedTranscript.create(reference)
+    hypothesis = TimeMarkedTranscript.create(hypothesis)
 
     reference = get_pseudo_word_level_timings(reference, reference_pseudo_word_level_timing)
     hypothesis = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing, collar)

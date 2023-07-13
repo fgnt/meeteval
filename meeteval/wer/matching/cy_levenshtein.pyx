@@ -4,45 +4,14 @@
 import numpy as np
 from libcpp.vector cimport vector
 from libcpp.pair cimport pair
+from libcpp.limits cimport numeric_limits
 
 ctypedef unsigned int uint
 
-from libcpp cimport bool
-
-cdef extern from "<optional>" namespace "std" nogil:
-    cdef cppclass nullopt_t:
-        nullopt_t()
-
-    cdef nullopt_t nullopt
-
-    cdef cppclass optional[T]:
-        ctypedef T value_type
-        optional()
-        optional(nullopt_t)
-        optional(optional&) except +
-        optional(T&) except +
-        bool has_value()
-        T& value()
-        T& value_or[U](U& default_value)
-        void swap(optional&)
-        void reset()
-        T& emplace(...)
-        T& operator*()
-        #T* operator->() # Not Supported
-        optional& operator=(optional&)
-        optional& operator=[U](U&)
-        bool operator bool()
-        bool operator!()
-        bool operator==[U](optional&, U&)
-        bool operator!=[U](optional&, U&)
-        bool operator<[U](optional&, U&)
-        bool operator>[U](optional&, U&)
-        bool operator<=[U](optional&, U&)
-        bool operator>=[U](optional&, U&)
-
-    optional[T] make_optional[T](...) except +
 
 cdef extern from "levenshtein.h":
+    const uint ALIGNMENT_EPS
+
     uint levenshtein_distance_(
             vector[uint] reference,
             vector[uint] hypothesis,
@@ -96,7 +65,7 @@ cdef extern from "levenshtein.h":
         uint substitutions
         uint correct
         uint total
-        vector[pair[optional[uint], optional[uint]]] alignment
+        vector[pair[uint, uint]] alignment
 
     LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_[T](
             vector[uint] reference,
@@ -341,24 +310,16 @@ def time_constrained_levenshtein_distance_with_alignment(
             cost_cor,
         )
 
-    cdef:
-        pair[optional[uint], optional[uint]] e
-
-    py_alignment = []
-    for e in statistics.alignment:
-        py_alignment.append((
-            e.first.value() if e.first.has_value() else None,
-            e.second.value() if e.second.has_value() else None,
-        ))
-
-    py_statistics = {
-        'insertions': statistics.insertions,
-        'deletions': statistics.deletions,
-        'substitutions': statistics.substitutions,
-        'correct': statistics.correct,
-        'total': statistics.total,
-        'alignment': py_alignment,
-    }
+    # Translate sentinel to None
+    # This is hacky, but we want to support c++11, which doesn't have std::optional
+    py_statistics: dict = statistics
+    py_statistics['alignment'] = [
+        (
+            None if a == ALIGNMENT_EPS else a,
+            None if b == ALIGNMENT_EPS else b,
+         )
+        for (a, b) in py_statistics['alignment']
+    ]
 
     return py_statistics
 
