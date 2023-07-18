@@ -274,10 +274,16 @@ def cpwer(
     reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
     results = {}
     for example_id in reference.keys():
+        # Some recordings may have no transcription and hence are missing in
+        # hypothesis. This can happen, when a system rejects a recording
+        # for some reason (too short, outlier, ...) or simply predicts only
+        # silence. In _load_texts is a plausibility check:
+        #     Only some percentage could be missing, otherwise it is more
+        #     likely that something serious went wrong.
         if verbose:
             print(f'Processing example {example_id}')
             print(f'  reference speakers: {reference[example_id].grouped_by_speaker_id().keys()}')
-            print(f'  num hypothesis speakers: {hypothesis[example_id].grouped_by_speaker_id().keys()}')
+            print(f'  num hypothesis speakers: {hypothesis.get(example_id, STM([])).grouped_by_speaker_id().keys()}')
         results[example_id] = cp_word_error_rate(
             reference={
                 k: r.merged_transcripts()
@@ -285,7 +291,7 @@ def cpwer(
             },
             hypothesis={
                 k: h.merged_transcripts()
-                for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
+                for k, h in hypothesis.get(example_id, STM([])).grouped_by_speaker_id().items()
             },
         )
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
