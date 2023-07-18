@@ -35,15 +35,15 @@ class CTMLine(BaseLine):
     confidence: Optional[int] = None
 
     @classmethod
-    def parse(cls, line: str) -> 'CTMLine':
+    def parse(cls, line: str, parse_float=float) -> 'CTMLine':
         try:
             filename, channel, begin_time, duration, word, *confidence = line.strip().split()
             assert len(confidence) < 2, confidence
             ctm_line = CTMLine(
                 filename,
                 int(channel) if begin_time.isdigit() else channel,
-                int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
-                int(duration) if duration.isdigit() else float(duration),  # Keep type, int or float
+                int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float
+                int(duration) if duration.isdigit() else parse_float(duration),  # Keep type, int or float
                 word,
                 confidence[0] if confidence else None
             )
@@ -64,9 +64,9 @@ class CTM(Base):
     line_cls = CTMLine
 
     @classmethod
-    def _load(cls, file_descriptor) -> 'List[CTMLine]':
+    def _load(cls, file_descriptor, parse_float) -> 'List[CTMLine]':
         return [
-            CTMLine.parse(line)
+            CTMLine.parse(line, parse_float=parse_float)
             for line in map(str.strip, file_descriptor)
             if len(line) > 0
             if not line.startswith(';;')
@@ -85,8 +85,9 @@ class CTMGroup:
     ctms: 'Dict[str, CTM]'
 
     @classmethod
-    def load(cls, ctm_files):
-        return cls({str(ctm_file): CTM.load(ctm_file) for ctm_file in ctm_files})
+    def load(cls, ctm_files, parse_float=float):
+        return cls({str(ctm_file): CTM.load(ctm_file, parse_float=parse_float)
+                    for ctm_file in ctm_files})
 
     def grouped_by_filename(self) -> Dict[str, 'CTMGroup']:
         groups = {
