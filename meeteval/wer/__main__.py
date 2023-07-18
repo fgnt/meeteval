@@ -126,11 +126,40 @@ def _load_texts(reference_paths: List[str], hypothesis_paths: List[str]):
 
     # Check that the input is valid
     if reference.keys() != hypothesis.keys():
-        raise RuntimeError(
-            'Keys of reference and hypothesis differ\n'
-            f'hypothesis - reference: e.g. {list(set(hypothesis.keys()) - set(reference.keys()))[:5]}\n'
-            f'reference - hypothesis: e.g. {list(set(reference.keys()) - set(hypothesis.keys()))[:5]}'
-        )
+        h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
+        r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
+
+        ratio = len(r_minus_h) / len(reference.keys())
+
+        if h_minus_r:
+            # This is a warning, because missing in reference is not a problem,
+            # we can safely ignore it. Missing in hypothesis is a problem,
+            # because we cannot distinguish between silence and missing.
+            print(
+                'WARNING: Keys of reference and hypothesis differ\n'
+                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(reference)})\n'
+                f'Drop them.',
+                file=sys.stderr,
+            )
+            hypothesis = {
+                k: v
+                for k, v in hypothesis.items()
+                if k not in h_minus_r
+            }
+
+        if len(r_minus_h) == 0 and ratio <= 0.1:
+            print(
+                f'WARNING: Missing {ratio*100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
+                f'Please check your system, if it ignored some recordings or predicted no transcriptions for some recordings.\n'
+                f'Continue with the assumption, that the system predicted silence for the missing recordings.',
+                file=sys.stderr
+            )
+        else:
+            raise RuntimeError(
+                'Keys of reference and hypothesis differ\n'
+                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(hypothesis)})\n'
+                f'reference - hypothesis: e.g. {r_minus_h[:5]} (Total: {len(r_minus_h)} of {len(reference)})'
+            )
 
     return reference, reference_paths, hypothesis, hypothesis_paths
 
