@@ -537,7 +537,7 @@ def cli():
             elif name == 'verbose':
                 command_parser.add_argument('--verbose', action='store_true')
             else:
-                raise AssertionError("Error in command definition")
+                raise AssertionError("Error in command definition", name)
 
         # Get defaults from signature
         command_parser.set_defaults(
