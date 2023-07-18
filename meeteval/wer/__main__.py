@@ -5,6 +5,7 @@ import json
 import io
 import os
 import glob
+import re
 from pathlib import Path
 from typing import List
 
@@ -98,7 +99,7 @@ def _load_hypothesis(hypothesis: List[Path]):
         raise RuntimeError(hypothesis, filename)
 
 
-def _load_texts(reference_paths: List[str], hypothesis_paths: List[str]):
+def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex=None):
     """Load and validate reference and hypothesis texts.
 
     Validation checks that reference and hypothesis have the same example IDs.
@@ -124,6 +125,16 @@ def _load_texts(reference_paths: List[str], hypothesis_paths: List[str]):
     reference = reference.grouped_by_filename()
     hypothesis = hypothesis.grouped_by_filename()
 
+    if regex:
+        r = re.compile(regex)
+        def filter(grouped):
+            keys = grouped.keys()
+            grouped = {k: v for k, v in grouped.items() if r.fullmatch(k)}
+            assert grouped, (regex, keys, 'Found nothing')
+            return grouped
+
+        reference = filter(reference)
+        hypothesis = filter(hypothesis)
     # Check that the input is valid
     if reference.keys() != hypothesis.keys():
         h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
@@ -268,10 +279,11 @@ def cpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_cpwer.json',
         per_reco_out='{parent}/{stem}_cpwer_per_reco.json',
+        regex=None,
         verbose=False,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
-    reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
+    reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis, regex)
     results = {}
     for example_id in reference.keys():
         # Some recordings may have no transcription and hence are missing in
@@ -478,6 +490,11 @@ def cli():
                 command_parser.add_argument(
                     '--collar', type=positive_number,
                     help='Collar applied to the hypothesis timings'
+                )
+            elif name == 'regex':
+                command_parser.add_argument(
+                    '--regex',
+                    help='A regex pattern to select only particular filenames.'
                 )
             elif name == 'hyp_pseudo_word_timing':
                 command_parser.add_argument(
