@@ -2,6 +2,7 @@ import dataclasses
 import itertools
 import string
 from typing import Optional, Tuple, List, Dict, Any
+
 from meeteval._typing import Literal
 
 from meeteval.wer.wer.error_rate import ErrorRate
@@ -248,6 +249,7 @@ def _cp_word_error_rate(
         siso_error_rate(r, hypothesis_new[speaker])
         for speaker, r in _items(reference_new)
     ])
+
     assert distance == er.errors, (distance, er)
 
     return CPErrorRate(
@@ -347,8 +349,9 @@ def apply_cp_assignment(
         assert None not in hypothesis, hypothesis.keys()
 
         r_keys, h_keys = zip(*assignment)
-        r_keys = set(filter(None, r_keys))
-        h_keys = set(filter(None, h_keys))
+        # CB: Why do we need to remove None?
+        r_keys = set(r_keys) - {None}
+        h_keys = set(h_keys) - {None}
         assert r_keys == set(reference.keys()), (r_keys, reference.keys(), assignment)
         assert h_keys == set(hypothesis.keys()), (h_keys, hypothesis.keys(), assignment)
 
