@@ -120,6 +120,21 @@ class STM(Base):
             for line in self.lines
         ])
 
+    def to_array_interval(self, sample_rate, group=True):
+        import paderbox as pb
+        if group:
+            return {
+                f: {
+                    s: v2.to_array_interval(sample_rate, group=False)
+                    for s, v2 in v1.grouped_by_speaker_id().items()
+                }
+                for f, v1 in self.grouped_by_filename().items()
+            }
+        else:
+            return pb.array.interval.ArrayInterval.from_pairs([
+                (round(line.begin_time * sample_rate), round(line.end_time * sample_rate))
+                for line in self.lines])
+
     def utterance_transcripts(self) -> List[str]:
         return [x.transcript for x in sorted(self.lines, key=lambda x: x.begin_time)]
 
