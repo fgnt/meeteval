@@ -26,6 +26,27 @@ ext_modules = cythonize(
      ]
 )
 
+extras_require = {
+    'cli': [
+        'pyyaml',
+        'fire',
+    ],
+    'test': [
+        'editdistance',     # Faulty for long sequences, but useful for testing
+        'pytest',
+        'hypothesis',
+        'click',
+        'coverage',
+        'pytest-cov',
+        'ipython',  # IPython.lib.pretty.pprint
+        'pyyaml',
+    ],
+    'all': [  # List only missing from the other lists
+        'lazy_dataset',
+    ],
+}
+extras_require['all'] = list(dict.fromkeys(sum(extras_require.values(), [])))
+
 setup(
     name="meeteval",
     python_requires=">=3.5",
@@ -39,21 +60,7 @@ setup(
         "cached_property; python_version<'3.8'",  # Missing functools.cached_property in py37
         'Cython'
     ],
-    extras_require={
-        'cli': [
-            'pyyaml',
-        ],
-        'test': [
-            'editdistance',     # Faulty for long sequences, but useful for testing
-            'pytest',
-            'hypothesis',
-            'click',
-            'coverage',
-            'pytest-cov',
-            'ipython',  # IPython.lib.pretty.pprint
-            'pyyaml',
-        ]
-    },
+    extras_require=extras_require,
     entry_points={
         'console_scripts': [
             'meeteval-wer=meeteval.wer.__main__:cli'
