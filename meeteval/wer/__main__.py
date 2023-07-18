@@ -99,7 +99,7 @@ def _load_hypothesis(hypothesis: List[Path]):
         raise RuntimeError(hypothesis, filename)
 
 
-def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex=None):
+def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex):
     """Load and validate reference and hypothesis texts.
 
     Validation checks that reference and hypothesis have the same example IDs.
@@ -255,10 +255,12 @@ def orcwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_orcwer.json',
         per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
+        regex=None,
         verbose=False,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
-    reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
+    reference, _, hypothesis, hypothesis_paths = _load_texts(
+        reference, hypothesis, regex=regex)
     results = {}
     for example_id in reference.keys():
         if verbose:
@@ -283,7 +285,8 @@ def cpwer(
         verbose=False,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
-    reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis, regex)
+    reference, _, hypothesis, hypothesis_paths = _load_texts(
+        reference, hypothesis, regex)
     results = {}
     for example_id in reference.keys():
         # Some recordings may have no transcription and hence are missing in
@@ -313,10 +316,12 @@ def mimower(
         reference, hypothesis,
         average_out='{parent}/{stem}_mimower.json',
         per_reco_out='{parent}/{stem}_mimower_per_reco.json',
+        regex=None,
         verbose=False,
 ):
     """Computes the MIMO WER"""
-    reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
+    reference, _, hypothesis, hypothesis_paths = _load_texts(
+        reference, hypothesis, regex=regex)
 
     results = {}
     for example_id in reference.keys():
@@ -344,13 +349,15 @@ def tcpwer(
         collar=0,
         hyp_pseudo_word_timing='character_based',
         ref_pseudo_word_timing='character_based',
+        regex=None,
         verbose=False,
         allow_hypothesis_speaker_self_overlap=False,
         reference_overlap_correction=False,
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer import time_constrained_minimum_permutation_word_error_rate
-    reference, _, hypothesis, hypothesis_paths = _load_texts(reference, hypothesis)
+    reference, _, hypothesis, hypothesis_paths = _load_texts(
+        reference, hypothesis, regex=regex)
 
     results = {}
     for example_id in reference.keys():
