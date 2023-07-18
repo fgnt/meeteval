@@ -45,7 +45,7 @@ class RTTMLine(BaseLine):
     signal_look_ahead_time: str = '<NA>'
 
     @classmethod
-    def parse(cls, line: str) -> 'RTTMLine':
+    def parse(cls, line: str, parse_float=float) -> 'RTTMLine':
         """
         >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
         RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration=2.35, othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
@@ -58,8 +58,8 @@ class RTTMLine(BaseLine):
             type=type_,
             filename=filename,
             channel=int(channel) if begin_time.isdigit() else channel,
-            begin_time=int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float,
-            duration=int(duration) if duration.isdigit() else float(duration),  # Keep type, int or float,
+            begin_time=int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float,
+            duration=int(duration) if duration.isdigit() else parse_float(duration),  # Keep type, int or float,
             othography=othography,
             speaker_type=speaker_type,
             speaker_id=speaker_id,
@@ -85,9 +85,9 @@ class RTTM(Base):
     line_cls = RTTMLine
 
     @classmethod
-    def _load(cls, file_descriptor) -> 'List[RTTMLine]':
+    def _load(cls, file_descriptor, parse_float) -> 'List[RTTMLine]':
         return [
-            RTTMLine.parse(line)
+            RTTMLine.parse(line, parse_float)
             for line in file_descriptor
             if len(line.strip()) > 0 and not line.strip().startswith(';')
         ]

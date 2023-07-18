@@ -38,7 +38,7 @@ class STMLine(BaseLine):
     transcript: str
 
     @classmethod
-    def parse(cls, line: str) -> 'STMLine':
+    def parse(cls, line: str, parse_float=float) -> 'STMLine':
         filename, channel, speaker_id, begin_time, end_time, *transcript = line.strip().split(maxsplit=5)
 
         if len(transcript) == 1:
@@ -52,8 +52,8 @@ class STMLine(BaseLine):
                 filename,
                 int(channel) if begin_time.isdigit() else channel,
                 speaker_id,
-                int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
-                int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float
+                int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float
+                int(end_time) if end_time.isdigit() else parse_float(end_time),  # Keep type, int or float
                 transcript
             )
         except Exception as e:
@@ -89,9 +89,9 @@ class STM(Base):
     line_cls = STMLine
 
     @classmethod
-    def _load(cls, file_descriptor) -> 'List[STMLine]':
+    def _load(cls, file_descriptor, parse_float) -> 'List[STMLine]':
         return [
-            STMLine.parse(line)
+            STMLine.parse(line, parse_float)
             for line in file_descriptor
             if len(line.strip()) > 0 and not line.strip().startswith(';')
         ]

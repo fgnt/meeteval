@@ -38,7 +38,7 @@ class UEMLine(BaseLine):
     end_time: 'float | int | decimal.Decimal' = 0
 
     @classmethod
-    def parse(cls, line: str) -> 'UEMLine':
+    def parse(cls, line: str, parse_float=float) -> 'UEMLine':
         """
         >>> UEMLine.parse('S01 1 60.001 79.003')
         UEMLine(filename='S01', channel='1', begin_time=60.001, end_time=79.003)
@@ -48,8 +48,8 @@ class UEMLine(BaseLine):
         return UEMLine(
             filename=filename,
             channel=int(channel) if begin_time.isdigit() else channel,
-            begin_time=int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float,
-            end_time=int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float,
+            begin_time=int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float,
+            end_time=int(end_time) if end_time.isdigit() else parse_float(end_time),  # Keep type, int or float,
         )
 
     def serialize(self):
@@ -74,9 +74,9 @@ class UEM(Base):
         return {k: v for v, k in enumerate(keys)}
 
     @classmethod
-    def _load(cls, file_descriptor) -> 'List[UEMLine]':
+    def _load(cls, file_descriptor, parse_float) -> 'List[UEMLine]':
         return [
-            UEMLine.parse(line)
+            UEMLine.parse(line, parse_float)
             for line in file_descriptor
             if len(line.strip()) > 0  # and not line.strip().startswith(';')  # Does uem allow comments?
         ]
