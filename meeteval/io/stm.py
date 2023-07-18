@@ -112,7 +112,7 @@ class STM(Base):
                 filename=line.filename,
                 channel=line.channel,
                 begin_time=line.begin_time,
-                duration_time=line.end_time - line.begin_time,
+                duration=line.end_time - line.begin_time,
                 speaker_id=line.speaker_id,
                 # line.transcript  RTTM doesn't support transcript
                 # hence this information is dropped.
