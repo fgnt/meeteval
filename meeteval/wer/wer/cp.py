@@ -2,6 +2,7 @@ import dataclasses
 import itertools
 import string
 from typing import Optional, Tuple, List, Dict, Any
+
 from meeteval._typing import Literal
 
 from meeteval.wer.wer.error_rate import ErrorRate
@@ -89,8 +90,8 @@ class CPErrorRate(ErrorRate):
 
 
 def cp_word_error_rate(
-        reference: 'List[str] | Dict[str, str]',
-        hypothesis: 'List[str] | Dict[str, str]',
+        reference: 'List[str | List[str]] | Dict[str, str | List[str]]',
+        hypothesis: 'List[str | List[str]] | Dict[str, str | List[str]]',
 ) -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
@@ -123,15 +124,49 @@ def cp_word_error_rate(
 
     >>> cp_word_error_rate({'r0': 'a b'}, {'h0': 'z', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
     CPErrorRate(errors=3, length=2, insertions=2, deletions=0, substitutions=1, error_rate=1.5, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
+
+    >>> cp_word_error_rate({'r0': 'a b', 'r1': 'k'}, {'h0': ' ', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
+    CPErrorRate(errors=3, length=3, insertions=1, deletions=1, substitutions=1, error_rate=1.0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=(('r0', 'h1'), ('r1', 'h0')))
+
+    >>> from meeteval.io import STM, STMLine
+    >>> r = STM([STMLine.parse('file1 0 r0 0 1 Hello World')])
+    >>> h = STM([STMLine.parse('file1 0 h0 0 1 Hello World')])
+    >>> cp_word_error_rate(r, h)
+    CPErrorRate(errors=0, length=2, insertions=0, deletions=0, substitutions=0, error_rate=0.0, missed_speaker=0, falarm_speaker=0, scored_speaker=1, assignment=(('r0', 'h0'),))
+
+    >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
+    CPErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     """
     from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
+    import meeteval.io
+
     def transcription_to_words(x):
+        def split(words):
+            if isinstance(words, str):
+                return words.split()
+            elif isinstance(words, list):
+                assert isinstance(words[0], str), (type(words[0]), words)
+                return words
+            elif isinstance(words, meeteval.io.stm.STM):
+                assert len({(line.filename, line.speaker_id) for line in words}) == 1, words
+                return [
+                    word
+                    for line in words.sorted_by_begin_time()
+                    for word in line.transcript.split()
+                ]
+            else:
+                raise TypeError(type(words), words)
+
         if isinstance(x, dict):
-            return {k: v.split() for k, v in x.items()}
+            return {k: split(v) for k, v in x.items()}
         elif isinstance(x, list):
-            return [e.split() for e in x]
+            return [split(e) for e in x]
         elif isinstance(x, tuple):
-            return [e.split() for e in x]
+            return [split(e) for e in x]
+        elif isinstance(x, meeteval.io.stm.STM):
+            unique_filenames = {line.filename for line in x}
+            assert len(unique_filenames) == 1, (len(unique_filenames), unique_filenames, x)
+            return transcription_to_words(x.grouped_by_speaker_id())
         else:
             raise TypeError(x)
 
@@ -214,6 +249,7 @@ def _cp_word_error_rate(
         siso_error_rate(r, hypothesis_new[speaker])
         for speaker, r in _items(reference_new)
     ])
+
     assert distance == er.errors, (distance, er)
 
     return CPErrorRate(
@@ -313,8 +349,9 @@ def apply_cp_assignment(
         assert None not in hypothesis, hypothesis.keys()
 
         r_keys, h_keys = zip(*assignment)
-        r_keys = set(filter(None, r_keys))
-        h_keys = set(filter(None, h_keys))
+        # CB: Why do we need to remove None?
+        r_keys = set(r_keys) - {None}
+        h_keys = set(h_keys) - {None}
         assert r_keys == set(reference.keys()), (r_keys, reference.keys(), assignment)
         assert h_keys == set(hypothesis.keys()), (h_keys, hypothesis.keys(), assignment)
 

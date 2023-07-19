@@ -118,17 +118,17 @@ class Base:
     line_cls = 'LineSubclasses'
 
     @classmethod
-    def _load(cls, file_descriptor) -> 'List[Self.line_cls]':
+    def _load(cls, file_descriptor, parse_float) -> 'List[Self.line_cls]':
         raise NotImplementedError()
 
     @classmethod
-    def load(cls, file: [Path, str, io.TextIOBase, tuple, list]) -> 'Self':
+    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=float) -> 'Self':
         files = file if isinstance(file, (tuple, list)) else [file]
 
         parsed_lines = []
         for f in files:
             with _open(f, 'r') as fd:
-                parsed_lines.extend(cls._load(fd))
+                parsed_lines.extend(cls._load(fd, parse_float=parse_float))
 
         return cls(parsed_lines)
 
@@ -162,6 +162,11 @@ class Base:
     def __len__(self):
         return len(self.lines)
 
+    def __add__(self, other):
+        if type(self) != type(other):
+            return NotImplemented
+        return self.__class__(self.lines + other.lines)
+
     def groupby(self, key) -> Dict[str, 'Self']:
         """
         >>> from meeteval.io.stm import STM, STMLine
@@ -192,7 +197,7 @@ class Base:
     def grouped_by_speaker_id(self):
         return self.groupby(lambda x: x.speaker_id)
 
-    def sorted(self, key: 'str | callable | tuple | list' = None):
+    def sorted(self, key: 'str | callable | tuple | list' = None, reverse=False):
         """
         This wrapper of sorted.
 
@@ -216,10 +221,10 @@ class Base:
             attributes = key
             key = lambda x: tuple([getattr(x, a) for a in attributes])
 
-        return self.__class__(sorted(self.lines, key=key))
+        return self.__class__(sorted(self.lines, key=key, reverse=reverse))
 
-    def sorted_by_begin_time(self):
-        return self.sorted(lambda x: x.begin_time)
+    def sorted_by_begin_time(self, reverse=False):
+        return self.sorted(lambda x: x.begin_time, reverse=reverse)
 
     def filter_by_uem(self: 'Subclasses', uem: 'UEM', verbose=False):
         """
@@ -315,3 +320,19 @@ def _open(f, mode='r'):
         return open(f, mode)
     else:
         raise TypeError(type(f), f)
+
+
+def load(file, parse_float=float):
+    import meeteval
+    file = Path(file)
+    if file.suffix == '.stm':
+        load_fn = meeteval.io.stm.STM.load
+    elif file.suffix == '.rttm':
+        load_fn = meeteval.io.rttm.RTTM.load
+    elif file.suffix == '.uem':
+        load_fn = meeteval.io.uem.UEM.load
+    elif file.suffix == '.ctm':
+        load_fn = meeteval.io.ctm.CTM.load
+    else:
+        raise ValueError(f'Unknown file type: {file}')
+    return load_fn(file, parse_float=parse_float)

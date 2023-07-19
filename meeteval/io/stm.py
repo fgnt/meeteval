@@ -38,7 +38,7 @@ class STMLine(BaseLine):
     transcript: str
 
     @classmethod
-    def parse(cls, line: str) -> 'STMLine':
+    def parse(cls, line: str, parse_float=float) -> 'STMLine':
         filename, channel, speaker_id, begin_time, end_time, *transcript = line.strip().split(maxsplit=5)
 
         if len(transcript) == 1:
@@ -52,8 +52,8 @@ class STMLine(BaseLine):
                 filename,
                 int(channel) if begin_time.isdigit() else channel,
                 speaker_id,
-                int(begin_time) if begin_time.isdigit() else float(begin_time),  # Keep type, int or float
-                int(end_time) if end_time.isdigit() else float(end_time),  # Keep type, int or float
+                int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float
+                int(end_time) if end_time.isdigit() else parse_float(end_time),  # Keep type, int or float
                 transcript
             )
         except Exception as e:
@@ -89,9 +89,9 @@ class STM(Base):
     line_cls = STMLine
 
     @classmethod
-    def _load(cls, file_descriptor) -> 'List[STMLine]':
+    def _load(cls, file_descriptor, parse_float) -> 'List[STMLine]':
         return [
-            STMLine.parse(line)
+            STMLine.parse(line, parse_float)
             for line in file_descriptor
             if len(line.strip()) > 0 and not line.strip().startswith(';')
         ]
@@ -112,13 +112,28 @@ class STM(Base):
                 filename=line.filename,
                 channel=line.channel,
                 begin_time=line.begin_time,
-                duration_time=line.end_time - line.begin_time,
+                duration=line.end_time - line.begin_time,
                 speaker_id=line.speaker_id,
                 # line.transcript  RTTM doesn't support transcript
                 # hence this information is dropped.
             )
             for line in self.lines
         ])
+
+    def to_array_interval(self, sample_rate, group=True):
+        import paderbox as pb
+        if group:
+            return {
+                f: {
+                    s: v2.to_array_interval(sample_rate, group=False)
+                    for s, v2 in v1.grouped_by_speaker_id().items()
+                }
+                for f, v1 in self.grouped_by_filename().items()
+            }
+        else:
+            return pb.array.interval.ArrayInterval.from_pairs([
+                (round(line.begin_time * sample_rate), round(line.end_time * sample_rate))
+                for line in self.lines])
 
     def utterance_transcripts(self) -> List[str]:
         return [x.transcript for x in sorted(self.lines, key=lambda x: x.begin_time)]

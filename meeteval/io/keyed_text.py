@@ -10,7 +10,7 @@ class KeyedTextLine(BaseLine):
     transcript: str
 
     @classmethod
-    def parse(cls, line: str) -> 'KeyedTextLine':
+    def parse(cls, line: str, parse_float=float) -> 'KeyedTextLine':
         """
         >>> KeyedTextLine.parse("key a transcript")
         KeyedTextLine(filename='key', transcript='a transcript')
@@ -36,9 +36,9 @@ class KeyedText(Base):
     line_cls = KeyedTextLine
 
     @classmethod
-    def _load(cls, file_descriptor) -> 'List[KeyedTextLine]':
+    def _load(cls, file_descriptor, parse_float) -> 'List[KeyedTextLine]':
         return [
-            KeyedTextLine.parse(line)
+            KeyedTextLine.parse(line, parse_float=parse_float)
             for line in map(str.strip, file_descriptor)
             if len(line) > 0
             # if not line.startswith(';;')
