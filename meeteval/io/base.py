@@ -247,11 +247,11 @@ class Base:
         ...     STMLine('file', 1, 'A', 24, 28, 'words'),  # dropped
         ...     STMLine('file2', 1, 'A', 24, 28, 'words'),
         ... ])
-        >>> pprint(stm.filter_by_uem(uem).lines)
-        [STMLine(filename='file', channel=1, speaker_id='A', begin_time=8, end_time=12, transcript='words'),
-         STMLine(filename='file', channel=1, speaker_id='B', begin_time=14, end_time=16, transcript='words'),
-         STMLine(filename='file', channel=1, speaker_id='A', begin_time=18, end_time=22, transcript='words'),
-         STMLine(filename='file2', channel=1, speaker_id='A', begin_time=24, end_time=28, transcript='words')]
+        >>> for line in stm.filter_by_uem(uem).lines: print(line)
+        STMLine(filename='file', channel=1, speaker_id='A', begin_time=8, end_time=12, transcript='words')
+        STMLine(filename='file', channel=1, speaker_id='B', begin_time=14, end_time=16, transcript='words')
+        STMLine(filename='file', channel=1, speaker_id='A', begin_time=18, end_time=22, transcript='words')
+        STMLine(filename='file2', channel=1, speaker_id='A', begin_time=24, end_time=28, transcript='words')
         """
         uem = {line.filename: line for line in uem}
 
@@ -286,11 +286,11 @@ class Base:
         ...     STMLine('file', 1, 'A', 24, 28, 'words'),  # dropped
         ...     STMLine('file2', 1, 'A', 24, 28, 'words'),
         ... ])
-        >>> pprint(stm.cut_by_uem(uem).lines)
-        [STMLine(filename='file', channel=1, speaker_id='A', begin_time=0, end_time=2, transcript='words'),
-         STMLine(filename='file', channel=1, speaker_id='B', begin_time=4, end_time=6, transcript='words'),
-         STMLine(filename='file', channel=1, speaker_id='A', begin_time=8, end_time=10, transcript='words'),
-         STMLine(filename='file2', channel=1, speaker_id='A', begin_time=24, end_time=28, transcript='words')]
+        >>> for line in stm.cut_by_uem(uem).lines: print(line)
+        STMLine(filename='file', channel=1, speaker_id='A', begin_time=0, end_time=2, transcript='words')
+        STMLine(filename='file', channel=1, speaker_id='B', begin_time=4, end_time=6, transcript='words')
+        STMLine(filename='file', channel=1, speaker_id='A', begin_time=8, end_time=10, transcript='words')
+        STMLine(filename='file2', channel=1, speaker_id='A', begin_time=24, end_time=28, transcript='words')
         """
         uem = {line.filename: line for line in uem}
         from meeteval.io.uem import UEMLine
