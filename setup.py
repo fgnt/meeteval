@@ -1,6 +1,6 @@
 from distutils.extension import Extension
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 from Cython.Build import cythonize
 ext_modules = cythonize(
@@ -52,7 +52,7 @@ setup(
     python_requires=">=3.5",
     author="Thilo von Neumann",
     ext_modules=ext_modules,
-    packages=["meeteval"],
+    packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
         'kaldialign',
         'scipy',  # scipy.optimize.linear_sum_assignment
