@@ -20,7 +20,7 @@ You need to have [Cython](https://cython.org/) installed.
 
 ```shell
 pip install cython
-git clone git@github.com:fgnt/meeteval.git
+git clone https://github.com/fgnt/meeteval
 pip install -e ./meeteval[cli]
 ```
 

@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: pytest
+name: None-Editable-Install-Test
 
 on:
   push:
@@ -13,17 +13,12 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: [3.7, 3.8, 3.9, '3.10', '3.11']
-
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '>=3.10'
         cache: 'pip'
     - name: Install dependencies
       run: |
@@ -35,7 +30,7 @@ jobs:
         python -m pip install wheel
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         python -m pip list
-        python -m pip install -e '.[test]'
+        python -m pip install '.[test]'
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -44,4 +39,4 @@ jobs:
         python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        python -m pytest
+        python -m pytest tests/test_cli.py  # Cli test are here enough
