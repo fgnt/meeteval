@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from typing import NamedTuple
@@ -103,15 +104,30 @@ class CTMGroup:
         groups = {
             k: ctm.grouped_by_filename() for k, ctm in self.ctms.items()
         }
-        keys = next(iter(groups.values())).keys()
+        # keys = next(iter(groups.values())).keys()
+        keys = dict.fromkeys([
+            k
+            for v in groups.values()
+            for k in v.keys()
+        ])
 
-        for group in groups.values():
-            if group.keys() != keys:
-                raise ValueError('Example IDs must match across CTM files!')
+        for file, group in groups.items():
+            if set(group.keys()) != set(keys) and len(group.keys()) <= len(keys) / 2:
+                # CB: We may remove this warning in the future, once we find a
+                # case, where it printed, while it is obviously not relevant.
+                # It might happen, when a diraization system is used, where
+                # the number of speakers is not known in advance/or different
+                # between different recording.
+                warnings.warn(
+                    'Example IDs do not match across CTM files!\n'
+                    f'{file} has {len(group.keys())}, while it should have {len(keys)}.\n'
+                    f'Some missing example IDs: {list(set(keys) - set(group.keys()))[:5]}\n'
+                    f'While this can happen (no estimate on a stream), it could also be a bug.\n'
+                )
 
         return {
             key: CTMGroup({
-                k: g[key] for k, g in groups.items()
+                k: g.get(key, CTM([])) for k, g in groups.items()
             })
             for key in keys
         }
