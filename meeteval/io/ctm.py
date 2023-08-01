@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from typing import NamedTuple
@@ -37,6 +38,7 @@ class CTMLine(BaseLine):
     @classmethod
     def parse(cls, line: str, parse_float=float) -> 'CTMLine':
         try:
+            # CB: Should we disable the support for missing confidence?
             filename, channel, begin_time, duration, word, *confidence = line.strip().split()
             assert len(confidence) < 2, confidence
             ctm_line = CTMLine(
@@ -54,8 +56,13 @@ class CTMLine(BaseLine):
         return ctm_line
 
     def serialize(self):
-        # ToDO, when someone needs it.
-        raise NotImplementedError(type(self))
+        """
+        >>> line = CTMLine.parse('rec1 0 10 2 Hello 1')
+        >>> line.serialize()
+        'rec1 0 10 2 Hello 1'
+        """
+        return (f'{self.filename} {self.channel} {self.begin_time} '
+                f'{self.duration} {self.word} {self.confidence}')
 
 
 @dataclass(frozen=True)
@@ -93,18 +100,77 @@ class CTMGroup:
         groups = {
             k: ctm.grouped_by_filename() for k, ctm in self.ctms.items()
         }
-        keys = next(iter(groups.values())).keys()
+        # keys = next(iter(groups.values())).keys()
+        keys = dict.fromkeys([
+            k
+            for v in groups.values()
+            for k in v.keys()
+        ])
 
-        for group in groups.values():
-            if group.keys() != keys:
-                raise ValueError('Example IDs must match across CTM files!')
+        for file, group in groups.items():
+            if set(group.keys()) != set(keys) and len(group.keys()) <= len(keys) / 2:
+                # CB: We may remove this warning in the future, once we find a
+                # case, where it printed, while it is obviously not relevant.
+                # It might happen, when a diraization system is used, where
+                # the number of speakers is not known in advance/or different
+                # between different recording.
+                warnings.warn(
+                    'Example IDs do not match across CTM files!\n'
+                    f'{file} has {len(group.keys())}, while it should have {len(keys)}.\n'
+                    f'Some missing example IDs: {list(set(keys) - set(group.keys()))[:5]}\n'
+                    f'While this can happen (no estimate on a stream), it could also be a bug.\n'
+                )
 
         return {
             key: CTMGroup({
-                k: g[key] for k, g in groups.items()
+                k: g.get(key, CTM([])) for k, g in groups.items()
             })
             for key in keys
         }
 
     def grouped_by_speaker_id(self) -> Dict[str, CTM]:
         return self.ctms
+
+
+if __name__ == '__main__':
+    def to_stm(*files):
+        from pathlib import Path
+        from meeteval.io.stm import STM, STMLine
+        import decimal
+
+        ctm_files = []
+        stm_file = None
+        for i, file in enumerate(files):
+            file = Path(file)
+            if file.suffix == '.ctm':
+                ctm_files.append(file)
+            elif file.suffix == '.stm':
+                assert i == len(files) - 1, 'STM file must be last'
+                stm_file = file
+
+        if stm_file is None:
+            stm_file = '-'
+        else:
+            assert not Path(stm_file).exists(), stm_file
+
+        ctm_group = CTMGroup.load(ctm_files, parse_float=decimal.Decimal)
+        stm = []
+        for filename, v1 in ctm_group.grouped_by_filename().items():
+            for speaker_id, v2 in v1.grouped_by_speaker_id().items():
+                for line in v2.lines:
+                    stm.append(STMLine(
+                        filename=filename,
+                        channel=0,
+                        speaker_id=speaker_id,
+                        begin_time=line.begin_time,
+                        end_time=line.duration,
+                        transcript=line.word,
+                    ))
+
+        STM(stm).dump(stm_file)
+        print(f'Wrote {len(stm)} lines to {stm_file}')
+
+    import fire
+    fire.Fire({
+        'to_stm': to_stm,
+    })
