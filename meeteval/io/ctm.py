@@ -38,9 +38,8 @@ class CTMLine(BaseLine):
     @classmethod
     def parse(cls, line: str, parse_float=float) -> 'CTMLine':
         try:
-            # Use ' ' for split to allow noword as estimate.
             # CB: Should we disable the support for missing confidence?
-            filename, channel, begin_time, duration, word, *confidence = line.strip().split(' ')
+            filename, channel, begin_time, duration, word, *confidence = line.strip().split()
             assert len(confidence) < 2, confidence
             ctm_line = CTMLine(
                 filename,
@@ -61,9 +60,6 @@ class CTMLine(BaseLine):
         >>> line = CTMLine.parse('rec1 0 10 2 Hello 1')
         >>> line.serialize()
         'rec1 0 10 2 Hello 1'
-        >>> line = CTMLine.parse('rec1 0 10 2  1')
-        >>> line.serialize()
-        'rec1 0 10 2  1'
         """
         return (f'{self.filename} {self.channel} {self.begin_time} '
                 f'{self.duration} {self.word} {self.confidence}')
