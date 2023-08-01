@@ -54,8 +54,13 @@ class CTMLine(BaseLine):
         return ctm_line
 
     def serialize(self):
-        # ToDO, when someone needs it.
-        raise NotImplementedError(type(self))
+        """
+        >>> line = CTMLine.parse('rec1 0 10 2 Hello 1')
+        >>> line.serialize()
+        'rec1 0 10 2 Hello 1'
+        """
+        return (f'{self.filename} {self.channel} {self.begin_time} '
+                f'{self.duration} {self.word} {self.confidence}')
 
 
 @dataclass(frozen=True)
