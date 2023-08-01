@@ -134,3 +134,47 @@ class CTMGroup:
 
     def grouped_by_speaker_id(self) -> Dict[str, CTM]:
         return self.ctms
+
+
+if __name__ == '__main__':
+    def to_stm(*files):
+        from pathlib import Path
+        from meeteval.io.stm import STM, STMLine
+        import decimal
+
+        ctm_files = []
+        stm_file = None
+        for i, file in enumerate(files):
+            file = Path(file)
+            if file.suffix == '.ctm':
+                ctm_files.append(file)
+            elif file.suffix == '.stm':
+                assert i == len(files) - 1, 'STM file must be last'
+                stm_file = file
+
+        if stm_file is None:
+            stm_file = '-'
+        else:
+            assert not Path(stm_file).exists(), stm_file
+
+        ctm_group = CTMGroup.load(ctm_files, parse_float=decimal.Decimal)
+        stm = []
+        for filename, v1 in ctm_group.grouped_by_filename().items():
+            for speaker_id, v2 in v1.grouped_by_speaker_id().items():
+                for line in v2.lines:
+                    stm.append(STMLine(
+                        filename=filename,
+                        channel=0,
+                        speaker_id=speaker_id,
+                        begin_time=line.begin_time,
+                        end_time=line.duration,
+                        transcript=line.word,
+                    ))
+
+        STM(stm).dump(stm_file)
+        print(f'Wrote {len(stm)} lines to {stm_file}')
+
+    import fire
+    fire.Fire({
+        'to_stm': to_stm,
+    })
