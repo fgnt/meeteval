@@ -1,5 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "UnreachableCode"
 #include <vector>
 #include <numeric>
 #include <stdio.h>
@@ -105,7 +103,7 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> mimo
     for (unsigned int i = 1; i < hyp_layout.total_size; i++) {
         // Find the largest stride that is smaller than or equal to i. Must
         // be increasing with i and v can only increase by one
-        if (v < hyp_layout.strides.size() && i == hyp_layout.strides[v + 1]) v++;
+        if (v < hyp_layout.strides.size() - 1 && i == hyp_layout.strides[v + 1]) v++;
         state[i].cost = state[i - hyp_layout.strides[v]].cost + 1;
     }
     ref_grid[0] = state;
@@ -195,5 +193,3 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> mimo
     std::reverse(assignment.begin(), assignment.end());
     return std::make_pair(ref_grid.back().back().cost, assignment);
 }
-
-#pragma clang diagnostic pop
