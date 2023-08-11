@@ -9,7 +9,6 @@ if typing.TYPE_CHECKING:
     from meeteval.io.uem import UEM, UEMLine
     from meeteval.wer import ErrorRate
 
-
 __all__ = [
     'STMLine',
     'STM',
@@ -150,7 +149,7 @@ class STM(Base):
         return {l.filename for l in self}
 
 
-def iter_examples(reference: 'STM', hypothesis: 'STM'):
+def iter_examples(reference: 'STM', hypothesis: 'STM', *, allowed_empty_examples_ratio=0.1):
     reference = reference.grouped_by_filename()
     hypothesis = hypothesis.grouped_by_filename()
 
@@ -176,9 +175,9 @@ def iter_examples(reference: 'STM', hypothesis: 'STM'):
                 if k not in h_minus_r
             }
 
-        if len(r_minus_h) == 0 and ratio <= 0.1:
+        if len(r_minus_h) == 0 and ratio <= allowed_empty_examples_ratio:
             print(
-                f'WARNING: Missing {ratio*100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
+                f'WARNING: Missing {ratio * 100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
                 f'Please check your system, if it ignored some recordings or predicted no transcriptions for some recordings.\n'
                 f'Continue with the assumption, that the system predicted silence for the missing recordings.',
                 file=sys.stderr
@@ -194,5 +193,14 @@ def iter_examples(reference: 'STM', hypothesis: 'STM'):
         yield filename, reference[filename], hypothesis[filename]
 
 
-def apply_stm_multi_file(fn: 'typing.Callable[[STM, STM], ErrorRate]', reference: 'STM', hypothesis: 'STM'):
-    return {f: fn(r, h) for f, r, h in iter_examples(reference, hypothesis)}
+def apply_stm_multi_file(
+        fn: 'typing.Callable[[STM, STM], ErrorRate]',
+        reference: 'STM',
+        hypothesis: 'STM',
+        *,
+        allowed_empty_examples_ratio=0.1
+):
+    return {f: fn(r, h) for f, r, h in iter_examples(
+        reference, hypothesis,
+        allowed_empty_examples_ratio=allowed_empty_examples_ratio
+    )}
