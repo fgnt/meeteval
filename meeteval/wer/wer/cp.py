@@ -1,9 +1,10 @@
 import dataclasses
 import itertools
 import string
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any, Iterable
 
 from meeteval._typing import Literal
+from meeteval.io import STM
 
 from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
@@ -89,10 +90,24 @@ class CPErrorRate(ErrorRate):
         )
 
 
-def cp_word_error_rate(
-        reference: 'List[str | List[str]] | Dict[str, str | List[str]]',
-        hypothesis: 'List[str | List[str]] | Dict[str, str | List[str]]',
+def cp_error_rate(
+        reference: 'List[Iterable] | Dict[Any, Iterable]',
+        hypothesis: 'List[Iterable] | Dict[Any, Iterable]',
 ) -> CPErrorRate:
+    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
+
+    return _cp_word_error_rate(
+        reference,
+        hypothesis,
+        distance_fn=levenshtein_distance,
+        siso_error_rate=_siso_error_rate,
+    )
+
+
+def cp_word_error_rate(
+    reference: 'List[str | Iterable[str]] | Dict[str | Iterable[str]] | STM',
+    hypothesis: 'List[str | Iterable[str]] | Dict[str | Iterable[str]] | STM',
+):
     """
     The Concatenated minimum Permutation WER (cpWER).
 
@@ -137,7 +152,6 @@ def cp_word_error_rate(
     >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
     CPErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     """
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
     import meeteval.io
 
     def transcription_to_words(x):
@@ -157,25 +171,25 @@ def cp_word_error_rate(
             else:
                 raise TypeError(type(words), words)
 
-        if isinstance(x, dict):
-            return {k: split(v) for k, v in x.items()}
-        elif isinstance(x, list):
-            return [split(e) for e in x]
-        elif isinstance(x, tuple):
-            return [split(e) for e in x]
-        elif isinstance(x, meeteval.io.stm.STM):
-            unique_filenames = {line.filename for line in x}
-            assert len(unique_filenames) == 1, (len(unique_filenames), unique_filenames, x)
+        if isinstance(x, meeteval.io.stm.STM):
+            assert len(x.filenames()) == 1, (len(x.filenames()), x.filenames(), x)
             return transcription_to_words(x.grouped_by_speaker_id())
         else:
-            raise TypeError(x)
+            return _map(split, x)
 
-    return _cp_word_error_rate(
+    return cp_error_rate(
         transcription_to_words(reference),
         transcription_to_words(hypothesis),
-        distance_fn=levenshtein_distance,
-        siso_error_rate=_siso_error_rate,
     )
+
+
+def cp_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, CPErrorRate]':
+    """
+    TODO: doc
+    TODO: return some kind of summary type?
+    """
+    from meeteval.io.stm import apply_stm_multi_file
+    return apply_stm_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
 
 
 def _cp_word_error_rate(

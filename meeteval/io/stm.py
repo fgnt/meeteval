@@ -1,3 +1,4 @@
+import sys
 import typing
 from dataclasses import dataclass
 from typing import List, NamedTuple
@@ -6,6 +7,7 @@ from meeteval.io.base import Base, BaseLine
 if typing.TYPE_CHECKING:
     import decimal
     from meeteval.io.uem import UEM, UEMLine
+    from meeteval.wer import ErrorRate
 
 
 __all__ = [
@@ -143,3 +145,54 @@ class STM(Base):
 
     def segments(self):
         return [l.segment_dict() for l in self]
+
+    def filenames(self):
+        return {l.filename for l in self}
+
+
+def iter_examples(reference: 'STM', hypothesis: 'STM'):
+    reference = reference.grouped_by_filename()
+    hypothesis = hypothesis.grouped_by_filename()
+
+    if reference.keys() != hypothesis.keys():
+        h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
+        r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
+
+        ratio = len(r_minus_h) / len(reference.keys())
+
+        if h_minus_r:
+            # This is a warning, because missing in reference is not a problem,
+            # we can safely ignore it. Missing in hypothesis is a problem,
+            # because we cannot distinguish between silence and missing.
+            print(
+                'WARNING: Keys of reference and hypothesis differ\n'
+                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(reference)})\n'
+                f'Drop them.',
+                file=sys.stderr,
+            )
+            hypothesis = {
+                k: v
+                for k, v in hypothesis.items()
+                if k not in h_minus_r
+            }
+
+        if len(r_minus_h) == 0 and ratio <= 0.1:
+            print(
+                f'WARNING: Missing {ratio*100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
+                f'Please check your system, if it ignored some recordings or predicted no transcriptions for some recordings.\n'
+                f'Continue with the assumption, that the system predicted silence for the missing recordings.',
+                file=sys.stderr
+            )
+        else:
+            raise RuntimeError(
+                'Keys of reference and hypothesis differ\n'
+                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(hypothesis)})\n'
+                f'reference - hypothesis: e.g. {r_minus_h[:5]} (Total: {len(r_minus_h)} of {len(reference)})'
+            )
+
+    for filename in reference:
+        yield filename, reference[filename], hypothesis[filename]
+
+
+def apply_stm_multi_file(fn: 'typing.Callable[[STM, STM], ErrorRate]', reference: 'STM', hypothesis: 'STM'):
+    return {f: fn(r, h) for f, r, h in iter_examples(reference, hypothesis)}

@@ -1,14 +1,14 @@
 import collections
 import dataclasses
 import typing
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Iterable, Any
 
 from .error_rate import ErrorRate
-from .siso import siso_word_error_rate
-from ..utils import _items, _keys
+from .siso import siso_word_error_rate, _siso_error_rate
+from ..utils import _items, _keys, _values, _map
 
 if typing.TYPE_CHECKING:
-    from meeteval.io.stm import STM
+    from meeteval.io.stm import STM, apply_stm_multi_file
 
 __all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm', 'apply_orc_assignment']
 
@@ -42,29 +42,60 @@ class OrcErrorRate(ErrorRate):
         return ref, hypothesis
 
 
-def orc_word_error_rate_stm(
-        reference_stm: 'STM',
-        hypothesis_stm: 'STM',
-) -> 'Dict[OrcErrorRate]':
-    reference = reference_stm.grouped_by_filename()
-    hypothesis = hypothesis_stm.grouped_by_filename()
-    assert reference.keys() == hypothesis.keys(), (reference.keys(), hypothesis.keys())
+def orc_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, OrcErrorRate]':
+    """
+    TODO: doc
+    TODO: return some kind of summary type?
+    """
+    return apply_stm_multi_file(orc_word_error_rate, reference_stm, hypothesis_stm)
 
-    ret = {}
-    for filename in reference_stm:
-        r = reference[filename].utterance_transcripts()
-        h = {
-            speaker_id: h_.merged_transcripts()
-            for speaker_id, h_ in hypothesis[filename].grouped_by_speaker_id().items()
-        }
-        ret[filename] = orc_word_error_rate(reference=r, hypothesis=h)
 
-    return ret
+def orc_error_rate(
+        reference: 'List[Iterable]',
+        hypothesis: 'List[Iterable] | Dict[Any, Iterable]',
+):
+    # Safety check: The complexity explodes for large numbers of speakers
+    if len(hypothesis) > 10:
+        raise RuntimeError(
+            f'Are you sure?\n'
+            f'Found a total of {len(hypothesis)} speakers in the input.\n'
+            f'This indicates a mistake in the input, or does your use-case '
+            f'really require scoring with that many speakers?\n'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
+        )
+
+    from meeteval.wer.matching.mimo_matching import mimo_matching_v3
+    distance, assignment = mimo_matching_v3([reference], _values(hypothesis))
+    assignment = tuple([_keys(hypothesis)[x[1]] for x in assignment])
+
+    reference_new, hypothesis = apply_orc_assignment(
+        assignment,
+        reference=reference,
+        hypothesis=hypothesis,
+    )
+
+    er = sum([
+        _siso_error_rate(
+            [t for r_ in r for t in r_],  # Concatenate all utterances from one speaker
+            hypothesis[speaker],
+        )
+        for speaker, r in _items(reference_new)
+    ])
+    assert er.errors == distance, (distance, er)
+
+    return OrcErrorRate(
+        er.errors, er.length,
+        insertions=er.insertions,
+        deletions=er.deletions,
+        substitutions=er.substitutions,
+        assignment=assignment,
+    )
+
 
 
 def orc_word_error_rate(
-        reference: 'List[str]',
-        hypothesis: 'List[str] | dict[str]',
+        reference: 'List[str] | STM',
+        hypothesis: 'List[str] | dict[str] | STM',
 ) -> OrcErrorRate:
     """
     The Optimal Reference Combination (ORC) WER, implemented efficiently.
@@ -90,46 +121,19 @@ def orc_word_error_rate(
     >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
     """
-    # Safety check: The complexity explodes for large numbers of speakers
-    if len(hypothesis) > 10:
-        raise RuntimeError(
-            f'Are you sure?\n'
-            f'Found a total of {len(hypothesis)} speakers in the input.\n'
-            f'This indicates a mistake in the input, or does your use-case '
-            f'really require scoring with that many speakers?\n'
-            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
-        )
+    if isinstance(reference, STM) or isinstance(hypothesis, STM):
+        assert isinstance(hypothesis, STM) and isinstance(reference, STM)
+        assert len(reference.filenames()) == 1, (len(reference.filenames()), reference.filenames(), reference)
+        assert len(hypothesis.filenames()) == 1, (len(hypothesis.filenames()), hypothesis.filenames(), hypothesis)
+        reference = reference.utterance_transcripts()
+        hypothesis = {
+            speaker_id: h_.merged_transcripts()
+            for speaker_id, h_ in hypothesis.grouped_by_speaker_id().items()
+        }
 
-    from meeteval.wer.matching.mimo_matching import mimo_matching_v3
     reference_words = [r.split() for r in reference]
-    # length = sum([len(r) for r in reference])
-    hypothesis_keys, hypothesis_words = zip(*[
-        (k, h.split()) for k, h in _items(hypothesis)])
-    distance, assignment = mimo_matching_v3([reference_words], hypothesis_words)
-    assignment = tuple([hypothesis_keys[x[1]] for x in assignment])
-
-    reference_new, hypothesis = apply_orc_assignment(
-        assignment,
-        reference=reference,
-        hypothesis=hypothesis,
-    )
-
-    er = sum([
-        siso_word_error_rate(
-            ' '.join(r),  # Concatenate all utterances from one speaker
-            hypothesis[speaker],
-        )
-        for speaker, r in _items(reference_new)
-    ])
-    assert er.errors == distance, (distance, er)
-
-    return OrcErrorRate(
-        er.errors, er.length,
-        insertions=er.insertions,
-        deletions=er.deletions,
-        substitutions=er.substitutions,
-        assignment=assignment,
-    )
+    hypothesis_words = _map(str.split, hypothesis)
+    return orc_error_rate(reference_words, hypothesis_words)
 
 
 def apply_orc_assignment(

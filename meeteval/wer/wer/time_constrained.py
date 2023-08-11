@@ -220,7 +220,6 @@ class TimeMarkedTranscript:
             p.text(')')
 
 
-
 # Annotation for input
 TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
 
@@ -376,8 +375,8 @@ def time_constrained_siso_word_error_rate(
 
 
 def time_constrained_minimum_permutation_word_error_rate(
-        reference: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike]',
-        hypothesis: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike]',
+        reference: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike] | STM',
+        hypothesis: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike] | STM',
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
@@ -403,6 +402,11 @@ def time_constrained_minimum_permutation_word_error_rate(
     """
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_v3
     from meeteval.wer.wer.cp import _cp_word_error_rate
+
+    if isinstance(reference, STM):
+        reference = reference.grouped_by_speaker_id()
+    if isinstance(hypothesis, STM):
+        hypothesis = hypothesis.grouped_by_speaker_id()
 
     reference = _map(TimeMarkedTranscript.create, reference)
     hypothesis = _map(TimeMarkedTranscript.create, hypothesis)
@@ -455,6 +459,31 @@ def time_constrained_minimum_permutation_word_error_rate(
         ),
         missing=TimeMarkedTranscript([], []),
     )
+
+
+tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
+
+
+def tcp_word_error_rate_stm(
+        reference_stm: 'STM', hypothesis_stm: 'STM',
+        reference_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based',
+        collar: int = 0,
+        reference_overlap_correction=False,
+        allow_hypothesis_speaker_self_overlap=False,
+) -> 'Dict[str, CPErrorRate]':
+    """
+    TODO: doc
+    """
+    from meeteval.io.stm import apply_stm_multi_file
+    return apply_stm_multi_file(lambda r, h: time_constrained_minimum_permutation_word_error_rate(
+        r, h,
+        reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+        hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+        collar=collar,
+        reference_overlap_correction=reference_overlap_correction,
+        allow_hypothesis_speaker_self_overlap=allow_hypothesis_speaker_self_overlap
+    ), reference_stm, hypothesis_stm)
 
 
 def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'):
