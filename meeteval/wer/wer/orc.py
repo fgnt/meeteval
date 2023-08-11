@@ -4,11 +4,9 @@ import typing
 from typing import Tuple, List, Dict, Iterable, Any
 
 from .error_rate import ErrorRate
-from .siso import siso_word_error_rate, _siso_error_rate
+from .siso import _siso_error_rate
 from ..utils import _items, _keys, _values, _map
-
-if typing.TYPE_CHECKING:
-    from meeteval.io.stm import STM, apply_stm_multi_file
+from meeteval.io.stm import STM
 
 __all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm', 'apply_orc_assignment']
 
@@ -47,6 +45,7 @@ def orc_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dic
     TODO: doc
     TODO: return some kind of summary type?
     """
+    from meeteval.io.stm import apply_stm_multi_file
     return apply_stm_multi_file(orc_word_error_rate, reference_stm, hypothesis_stm)
 
 
