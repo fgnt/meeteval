@@ -1,10 +1,8 @@
 import argparse
 import dataclasses
-import itertools
-import json
-import io
-import os
 import glob
+import json
+import os
 import re
 from pathlib import Path
 from typing import List
@@ -12,14 +10,7 @@ from typing import List
 from meeteval.io.ctm import CTMGroup
 from meeteval.io.keyed_text import KeyedText
 from meeteval.io.stm import STM
-from meeteval.wer.wer import (
-    cp_word_error_rate,
-    orc_word_error_rate,
-    mimo_word_error_rate,
-    combine_error_rates,
-    ErrorRate,
-    CPErrorRate, siso_word_error_rate,
-)
+from meeteval.wer.wer import combine_error_rates, ErrorRate
 import sys
 
 
@@ -86,9 +77,9 @@ def _load_hypothesis(hypothesis: List[Path]):
 
     if filename.endswith('.ctm'):
         if isinstance(hypothesis, list):
-            return CTMGroup.load(hypothesis)
+            return CTMGroup.load(hypothesis).to_stm()
         else:
-            return CTMGroup.load([hypothesis])
+            return CTMGroup.load([hypothesis]).to_stm()
     elif filename.endswith('.stm'):
         return STM.load(hypothesis)
     elif filename.startswith('/dev/fd/') or filename.startswith('/proc/self/fd/'):
@@ -99,7 +90,7 @@ def _load_hypothesis(hypothesis: List[Path]):
         raise RuntimeError(hypothesis, filename)
 
 
-def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex):
+def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex) -> (STM, List[Path], STM, List[Path]):
     """Load and validate reference and hypothesis texts.
 
     Validation checks that reference and hypothesis have the same example IDs.
@@ -121,56 +112,18 @@ def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex):
     # which one we have and load it
     hypothesis = _load_hypothesis(hypothesis_paths)
 
-    # Group by example IDs
-    reference = reference.grouped_by_filename()
-    hypothesis = hypothesis.grouped_by_filename()
-
+    # Filter lines with regex based on filename
     if regex:
         r = re.compile(regex)
-        def filter(grouped):
-            keys = grouped.keys()
-            grouped = {k: v for k, v in grouped.items() if r.fullmatch(k)}
-            assert grouped, (regex, keys, 'Found nothing')
-            return grouped
+
+        def filter(stm):
+            filenames = stm.filenames()
+            filtered_filenames = [f for f in filenames if r.fullmatch(f)]
+            assert filtered_filenames, (regex, filenames, 'Found nothing')
+            return stm.filter(lambda l: l.filename in filtered_filenames)
 
         reference = filter(reference)
         hypothesis = filter(hypothesis)
-    # Check that the input is valid
-    if reference.keys() != hypothesis.keys():
-        h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
-        r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
-
-        ratio = len(r_minus_h) / len(reference.keys())
-
-        if h_minus_r:
-            # This is a warning, because missing in reference is not a problem,
-            # we can safely ignore it. Missing in hypothesis is a problem,
-            # because we cannot distinguish between silence and missing.
-            print(
-                'WARNING: Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(reference)})\n'
-                f'Drop them.',
-                file=sys.stderr,
-            )
-            hypothesis = {
-                k: v
-                for k, v in hypothesis.items()
-                if k not in h_minus_r
-            }
-
-        if len(r_minus_h) == 0 and ratio <= 0.1:
-            print(
-                f'WARNING: Missing {ratio*100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
-                f'Please check your system, if it ignored some recordings or predicted no transcriptions for some recordings.\n'
-                f'Continue with the assumption, that the system predicted silence for the missing recordings.',
-                file=sys.stderr
-            )
-        else:
-            raise RuntimeError(
-                'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(hypothesis)})\n'
-                f'reference - hypothesis: e.g. {r_minus_h[:5]} (Total: {len(r_minus_h)} of {len(reference)})'
-            )
 
     return reference, reference_paths, hypothesis, hypothesis_paths
 
@@ -232,22 +185,10 @@ def wer(
         raise ValueError(f'Only (kaldi-style) text files are supported, i.e., files without an extension '
                          f'(not dot allowed in the file name).\n'
                          f'Got: {reference_paths} for reference and {hypothesis_paths} for hypothesis.')
-    reference = KeyedText.load(reference).grouped_by_filename()
-    hypothesis = KeyedText.load(hypothesis).grouped_by_filename()
-    if reference.keys() != hypothesis.keys():
-        raise RuntimeError(
-            'Keys of reference and hypothesis differ\n'
-            f'hypothesis - reference: e.g. {list(set(hypothesis.keys()) - set(reference.keys()))[:5]}\n'
-            f'reference - hypothesis: e.g. {list(set(reference.keys()) - set(hypothesis.keys()))[:5]}'
-        )
-    results = {}
-    for filename in reference.keys():
-        assert len(reference[filename].lines) == 1
-        assert len(hypothesis[filename].lines) == 1
-        results[filename] = siso_word_error_rate(
-            reference[filename].lines[0].transcript,
-            hypothesis[filename].lines[0].transcript,
-        )
+    reference = KeyedText.load(reference)
+    hypothesis = KeyedText.load(hypothesis)
+    from meeteval.wer.wer.siso import siso_word_error_rate_stm
+    results = siso_word_error_rate_stm(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -256,24 +197,12 @@ def orcwer(
         average_out='{parent}/{stem}_orcwer.json',
         per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
         regex=None,
-        verbose=False,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
+    from meeteval.wer.wer.orc import orc_word_error_rate_stm
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex=regex)
-    results = {}
-    for example_id in reference.keys():
-        if verbose:
-            print(f'Processing example {example_id}')
-            print(f'  num reference utterances: {len(reference[example_id].utterance_transcripts())}')
-            print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
-        results[example_id] = orc_word_error_rate(
-            reference=reference[example_id].utterance_transcripts(),
-            hypothesis={
-                k: h.merged_transcripts()
-                for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
-            },
-        )
+    results = orc_word_error_rate_stm(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -282,33 +211,12 @@ def cpwer(
         average_out='{parent}/{stem}_cpwer.json',
         per_reco_out='{parent}/{stem}_cpwer_per_reco.json',
         regex=None,
-        verbose=False,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
+    from meeteval.wer.wer.cp import cp_word_error_rate_stm
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex)
-    results = {}
-    for example_id in reference.keys():
-        # Some recordings may have no transcription and hence are missing in
-        # hypothesis. This can happen, when a system rejects a recording
-        # for some reason (too short, outlier, ...) or simply predicts only
-        # silence. In _load_texts is a plausibility check:
-        #     Only some percentage could be missing, otherwise it is more
-        #     likely that something serious went wrong.
-        if verbose:
-            print(f'Processing example {example_id}')
-            print(f'  reference speakers: {reference[example_id].grouped_by_speaker_id().keys()}')
-            print(f'  num hypothesis speakers: {hypothesis.get(example_id, STM([])).grouped_by_speaker_id().keys()}')
-        results[example_id] = cp_word_error_rate(
-            reference={
-                k: r.merged_transcripts()
-                for k, r in reference[example_id].grouped_by_speaker_id().items()
-            },
-            hypothesis={
-                k: h.merged_transcripts()
-                for k, h in hypothesis.get(example_id, STM([])).grouped_by_speaker_id().items()
-            },
-        )
+    results = cp_word_error_rate_stm(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -317,28 +225,12 @@ def mimower(
         average_out='{parent}/{stem}_mimower.json',
         per_reco_out='{parent}/{stem}_mimower_per_reco.json',
         regex=None,
-        verbose=False,
 ):
     """Computes the MIMO WER"""
+    from meeteval.wer.wer.mimo import mimo_word_error_rate_stm
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex=regex)
-
-    results = {}
-    for example_id in reference.keys():
-        if verbose:
-            print(f'Processing example {example_id}')
-            print(f'  num reference utterances: {len(reference[example_id].grouped_by_speaker_id().items())}')
-            print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
-        results[example_id] = mimo_word_error_rate(
-            reference={
-                k: r.utterance_transcripts()
-                for k, r in reference[example_id].grouped_by_speaker_id().items()
-            },
-            hypothesis={
-                k: h.merged_transcripts()
-                for k, h in hypothesis[example_id].grouped_by_speaker_id().items()
-            },
-        )
+    results = mimo_word_error_rate_stm(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -355,29 +247,17 @@ def tcpwer(
         reference_overlap_correction=False,
 ):
     """Computes the time-constrained minimum permutation WER"""
-    from meeteval.wer.wer import time_constrained_minimum_permutation_word_error_rate
+    from meeteval.wer.wer.time_constrained import tcp_word_error_rate_stm
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex=regex)
-
-    results = {}
-    for example_id in reference.keys():
-        if verbose:
-            print(f'Processing example {example_id}')
-            print(f'  num reference utterances: {len(reference[example_id].grouped_by_speaker_id().items())}')
-            print(f'  num hypotheses: {len(hypothesis[example_id].grouped_by_speaker_id())}')
-        try:
-            results[example_id] = time_constrained_minimum_permutation_word_error_rate(
-                reference=reference[example_id].sorted_by_begin_time().grouped_by_speaker_id(),
-                hypothesis=hypothesis[example_id].sorted_by_begin_time().grouped_by_speaker_id(),
-                reference_pseudo_word_level_timing=ref_pseudo_word_timing,
-                hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
-                collar=collar,
-                allow_hypothesis_speaker_self_overlap=allow_hypothesis_speaker_self_overlap,
-                reference_overlap_correction=reference_overlap_correction
-            )
-        except:
-            print(f'Exception in example {example_id}')
-            raise
+    results = tcp_word_error_rate_stm(
+        reference, hypothesis,
+        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+        collar=collar,
+        allow_hypothesis_speaker_self_overlap=allow_hypothesis_speaker_self_overlap,
+        reference_overlap_correction=reference_overlap_correction
+    )
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
