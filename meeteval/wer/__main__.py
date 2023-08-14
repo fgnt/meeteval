@@ -5,7 +5,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from meeteval.io.ctm import CTMGroup
 from meeteval.io.keyed_text import KeyedText
@@ -90,7 +90,7 @@ def _load_hypothesis(hypothesis: List[Path]):
         raise RuntimeError(hypothesis, filename)
 
 
-def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex) -> (STM, List[Path], STM, List[Path]):
+def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex) -> Tuple[STM, List[Path], STM, List[Path]]:
     """Load and validate reference and hypothesis texts.
 
     Validation checks that reference and hypothesis have the same example IDs.

@@ -45,16 +45,19 @@ def siso_word_error_rate(
     >>> siso_word_error_rate(reference='This is wikipedia', hypothesis='This wikipedia')  # Deletion example from https://en.wikipedia.org/wiki/Word_error_rate
     ErrorRate(errors=1, length=3, insertions=0, deletions=1, substitutions=0, error_rate=0.3333333333333333)
     """
-    if isinstance(reference, (KeyedText, STM)) or isinstance(hypothesis, (KeyedText, STM)):
-        assert isinstance(hypothesis, (KeyedText, STM)) and isinstance(reference, (KeyedText, STM))
-        assert len(reference.filenames()) == 1, (len(reference.filenames()), reference.filenames(), reference)
-        assert len(hypothesis.filenames()) == 1, (len(hypothesis.filenames()), hypothesis.filenames(), hypothesis)
-        assert reference.filenames() == hypothesis.filenames(), (reference.filenames(), hypothesis.filenames())
-        assert len(reference.lines) == 1, (len(reference.lines), reference.lines, reference)
-        assert len(hypothesis.lines) == 1, (len(hypothesis.lines), hypothesis.lines, hypothesis)
+    if isinstance(reference, KeyedText) or isinstance(hypothesis, KeyedText):
+        from meeteval.wer.wer.utils import _check_valid_input_files
+        _check_valid_input_files(reference, hypothesis)
+        if len(reference.lines) != 1:
+            raise ValueError(
+                f'Reference must contain exactly one line, but found {len(reference.lines)} lines in {reference}.'
+            )
+        if len(hypothesis.lines) != 1:
+            raise ValueError(
+                f'Hypothesis must contain exactly one line, but found {len(hypothesis.lines)} lines in {reference}.'
+            )
         reference = reference.lines[0].transcript
         hypothesis = hypothesis.lines[0].transcript
-
 
     return _siso_error_rate(
         reference.split(),

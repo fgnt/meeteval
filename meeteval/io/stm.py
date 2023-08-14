@@ -145,9 +145,6 @@ class STM(Base):
     def segments(self):
         return [l.segment_dict() for l in self]
 
-    def filenames(self):
-        return {l.filename for l in self}
-
 
 def iter_examples(reference: 'STM', hypothesis: 'STM', *, allowed_empty_examples_ratio=0.1):
     reference = reference.grouped_by_filename()

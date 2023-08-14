@@ -51,7 +51,7 @@ def mimo_error_rate(
 
     er = sum([
         _siso_error_rate(
-            [t for r_ in r for t in r_],  # Concatenate all utterances from one speaker
+            [t for r_ in r for t in r_],  # Create list with all words from one speaker
             h,
         )
         for r, h in zip(_values(reference_new), _values(hypothesis))
@@ -65,6 +65,9 @@ def mimo_error_rate(
         substitutions=er.substitutions,
         assignment=assignment,
     )
+
+
+
 
 
 def mimo_word_error_rate(
@@ -91,9 +94,8 @@ def mimo_word_error_rate(
 
     """
     if isinstance(reference, STM) or isinstance(hypothesis, STM):
-        assert isinstance(hypothesis, STM) and isinstance(reference, STM)
-        assert len(reference.filenames()) == 1, (len(reference.filenames()), reference.filenames(), reference)
-        assert len(hypothesis.filenames()) == 1, (len(hypothesis.filenames()), hypothesis.filenames(), hypothesis)
+        from meeteval.wer.wer.utils import _check_valid_input_files
+        _check_valid_input_files(reference, hypothesis)
         reference = {
             speaker_id: r.utterance_transcripts()
             for speaker_id, r in reference.grouped_by_speaker_id().items()

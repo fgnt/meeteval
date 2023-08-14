@@ -75,7 +75,7 @@ def orc_error_rate(
 
     er = sum([
         _siso_error_rate(
-            [t for r_ in r for t in r_],  # Concatenate all utterances from one speaker
+            [t for r_ in r for t in r_],  # Create list with all words from one speaker
             hypothesis[speaker],
         )
         for speaker, r in _items(reference_new)
@@ -121,9 +121,8 @@ def orc_word_error_rate(
     ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
     """
     if isinstance(reference, STM) or isinstance(hypothesis, STM):
-        assert isinstance(hypothesis, STM) and isinstance(reference, STM)
-        assert len(reference.filenames()) == 1, (len(reference.filenames()), reference.filenames(), reference)
-        assert len(hypothesis.filenames()) == 1, (len(hypothesis.filenames()), hypothesis.filenames(), hypothesis)
+        from meeteval.wer.wer.utils import _check_valid_input_files
+        _check_valid_input_files(reference, hypothesis)
         reference = reference.utterance_transcripts()
         hypothesis = {
             speaker_id: h_.merged_transcripts()

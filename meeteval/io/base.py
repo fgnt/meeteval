@@ -315,6 +315,9 @@ class Base:
             print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.', file=sys.stderr)
         return self.__class__(new)
 
+    def filenames(self):
+        return {x.filename for x in self.lines}
+
 
 def _open(f, mode='r'):
     if isinstance(f, io.TextIOBase):

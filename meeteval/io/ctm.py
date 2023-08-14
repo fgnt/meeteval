@@ -139,7 +139,9 @@ class CTMGroup:
                 for line in v2.lines:
                     stm.append(STMLine(
                         filename=filename,
-                        channel=0,
+                        # The channel is usually ignored, but https://github.com/nryant/dscore assumes
+                        # 1 as the default for the channel in RTTM files
+                        channel=1,
                         speaker_id=speaker_id,
                         begin_time=line.begin_time,
                         end_time=line.duration,

@@ -50,6 +50,3 @@ class KeyedText(Base):
     def utterance_transcripts(self) -> List[str]:
         """There is no notion of an "utterance" in CTM files."""
         raise NotImplementedError()
-
-    def filenames(self):
-        return {x.filename for x in self.lines}
