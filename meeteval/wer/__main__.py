@@ -187,8 +187,8 @@ def wer(
                          f'Got: {reference_paths} for reference and {hypothesis_paths} for hypothesis.')
     reference = KeyedText.load(reference)
     hypothesis = KeyedText.load(hypothesis)
-    from meeteval.wer.wer.siso import siso_word_error_rate_stm
-    results = siso_word_error_rate_stm(reference, hypothesis)
+    from meeteval.wer.wer.siso import siso_word_error_rate_keyed_text
+    results = siso_word_error_rate_keyed_text(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
