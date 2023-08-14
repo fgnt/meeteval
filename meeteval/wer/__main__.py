@@ -41,7 +41,7 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
             import yaml
             yaml.dump(obj, fd, sort_keys=False)
         else:
-            raise NotImplemented(f'Unknown file ext: {suffix}')
+            raise NotImplementedError(f'Unknown file ext: {suffix}')
 
     if path.stem != '-':
         print(f'Wrote: {path}', file=sys.stderr)
@@ -55,7 +55,7 @@ def _load(path: Path):
             import yaml
             return yaml.load(fd)
         else:
-            raise NotImplemented(f'Unknown file ext: {path.suffix}')
+            raise NotImplementedError(f'Unknown file ext: {path.suffix}')
 
 
 def _load_reference(reference: 'Path | List[Path]'):

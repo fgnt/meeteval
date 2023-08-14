@@ -58,7 +58,7 @@ class ErrorRate:
     def __add__(self, other: 'ErrorRate') -> 'ErrorRate':
         """Combines two error rates"""
         if not isinstance(other, ErrorRate):
-            raise NotImplemented
+            raise NotImplementedError()
         # Return the base class here. Meta information can become
         # meaningless and should be handled in subclasses
         return ErrorRate(
