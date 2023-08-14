@@ -5,7 +5,7 @@ from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
 from meeteval.wer.utils import _keys, _items, _values, _map
 
-__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment']
+__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mimo_word_error_rate_stm']
 
 from meeteval.io import STM
 

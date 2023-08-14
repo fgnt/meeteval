@@ -4,7 +4,7 @@ from meeteval.io.keyed_text import KeyedText
 from meeteval.io.stm import STM
 from meeteval.wer.wer.error_rate import ErrorRate
 
-__all__ = ['siso_word_error_rate', 'siso_character_error_rate']
+__all__ = ['siso_word_error_rate', 'siso_character_error_rate', 'siso_word_error_rate_keyed_text']
 
 
 def _siso_error_rate(

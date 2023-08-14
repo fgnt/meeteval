@@ -10,7 +10,7 @@ from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
 from meeteval.wer.utils import _items, _values, _keys, _map
 
-__all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment']
+__all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_stm']
 
 
 @dataclasses.dataclass(frozen=True)

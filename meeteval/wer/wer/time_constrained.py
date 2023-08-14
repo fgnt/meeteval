@@ -22,7 +22,11 @@ if typing.TYPE_CHECKING:
         end_time: 'int | float'
         speaker: typing.Optional[str]
 
-__all__ = ['time_constrained_minimum_permutation_word_error_rate', 'time_constrained_siso_word_error_rate']
+__all__ = [
+    'time_constrained_minimum_permutation_word_error_rate',
+    'time_constrained_siso_word_error_rate',
+    'tcp_word_error_rate_stm'
+]
 
 
 # pseudo-timestamp strategies
