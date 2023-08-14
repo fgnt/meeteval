@@ -65,9 +65,11 @@ def siso_word_error_rate(
     )
 
 
-def siso_word_error_rate_stm(reference: 'STM | KeyedText', hypothesis: 'STM | KeyedText') -> 'Dict[str, ErrorRate]':
+def siso_word_error_rate_keyed_text(reference: 'STM | KeyedText', hypothesis: 'STM | KeyedText') -> 'Dict[str, ErrorRate]':
     """
-    TODO: doc
+    Computes the standard WER for each example in the reference and hypothesis files.
+
+    To compute the overall WER, use `sum(siso_word_error_rate_keyed_text(r, h).values())`.
     """
     from meeteval.io.stm import apply_stm_multi_file
     return apply_stm_multi_file(siso_word_error_rate, reference, hypothesis, allowed_empty_examples_ratio=0)

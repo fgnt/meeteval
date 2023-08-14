@@ -112,8 +112,9 @@ def mimo_word_error_rate(
 
 def mimo_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, MimoErrorRate]':
     """
-    TODO: doc
-    TODO: return some kind of summary type?
+    Computes the MIMO WER for each example in the reference and hypothesis STM files.
+
+    To compute the overall WER, use `sum(mimo_word_error_rate_stm(r, h).values())`.
     """
     from meeteval.io.stm import apply_stm_multi_file
     return apply_stm_multi_file(mimo_word_error_rate, reference_stm, hypothesis_stm)

@@ -473,7 +473,9 @@ def tcp_word_error_rate_stm(
         allow_hypothesis_speaker_self_overlap=False,
 ) -> 'Dict[str, CPErrorRate]':
     """
-    TODO: doc
+    Computes the tcpWER for each example in the reference and hypothesis STM files.
+    
+    To compute the overall WER, use `sum(tcp_word_error_rate_stm(r, h).values())`.
     """
     from meeteval.io.stm import apply_stm_multi_file
     return apply_stm_multi_file(lambda r, h: time_constrained_minimum_permutation_word_error_rate(

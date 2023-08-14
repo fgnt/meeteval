@@ -185,8 +185,9 @@ def cp_word_error_rate(
 
 def cp_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, CPErrorRate]':
     """
-    TODO: doc
-    TODO: return some kind of summary type?
+    Computes the cpWER for each example in the reference and hypothesis STM files.
+
+    To compute the overall WER, use `sum(cp_word_error_rate_stm(r, h).values())`.
     """
     from meeteval.io.stm import apply_stm_multi_file
     return apply_stm_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
