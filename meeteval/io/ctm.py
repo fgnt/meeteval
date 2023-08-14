@@ -131,6 +131,25 @@ class CTMGroup:
     def grouped_by_speaker_id(self) -> Dict[str, CTM]:
         return self.ctms
 
+    def to_stm(self):
+        from meeteval.io import STM, STMLine
+        stm = []
+        for filename, v1 in self.grouped_by_filename().items():
+            for speaker_id, v2 in v1.grouped_by_speaker_id().items():
+                for line in v2.lines:
+                    stm.append(STMLine(
+                        filename=filename,
+                        # The channel is usually ignored, but https://github.com/nryant/dscore assumes
+                        # 1 as the default for the channel in RTTM files
+                        channel=1,
+                        speaker_id=speaker_id,
+                        begin_time=line.begin_time,
+                        end_time=line.duration,
+                        transcript=line.word,
+                    ))
+
+        return STM(stm)
+
 
 if __name__ == '__main__':
     def to_stm(*files):
@@ -154,20 +173,8 @@ if __name__ == '__main__':
             assert not Path(stm_file).exists(), stm_file
 
         ctm_group = CTMGroup.load(ctm_files, parse_float=decimal.Decimal)
-        stm = []
-        for filename, v1 in ctm_group.grouped_by_filename().items():
-            for speaker_id, v2 in v1.grouped_by_speaker_id().items():
-                for line in v2.lines:
-                    stm.append(STMLine(
-                        filename=filename,
-                        channel=0,
-                        speaker_id=speaker_id,
-                        begin_time=line.begin_time,
-                        end_time=line.duration,
-                        transcript=line.word,
-                    ))
-
-        STM(stm).dump(stm_file)
+        stm = ctm_group.to_stm()
+        stm.dump(stm_file)
         print(f'Wrote {len(stm)} lines to {stm_file}')
 
     import fire

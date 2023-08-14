@@ -226,6 +226,9 @@ class Base:
     def sorted_by_begin_time(self, reverse=False):
         return self.sorted(lambda x: x.begin_time, reverse=reverse)
 
+    def filter(self, filter_fn):
+        return self.__class__(list(filter(filter_fn, self.lines)))
+
     def filter_by_uem(self: 'Subclasses', uem: 'UEM', verbose=False):
         """
         Remove segments that are outside of the region that is specified by the
@@ -311,6 +314,9 @@ class Base:
         if verbose:
             print(f'Applied uem and reduced STM from {len(self)} to {len(new)} lines.', file=sys.stderr)
         return self.__class__(new)
+
+    def filenames(self):
+        return {x.filename for x in self.lines}
 
 
 def _open(f, mode='r'):
