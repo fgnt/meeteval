@@ -1,4 +1,5 @@
 from distutils.extension import Extension
+from pathlib import Path
 
 from setuptools import setup, find_packages
 
@@ -47,14 +48,58 @@ extras_require = {
 }
 extras_require['all'] = list(dict.fromkeys(sum(extras_require.values(), [])))
 
+# Get the long description from the relevant file
+try:
+    from os import path
+
+    here = path.abspath(path.dirname(__file__))
+    with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+        long_description = f.read()
+except FileNotFoundError:
+    long_description = ''
+
 setup(
     name="meeteval",
 
     # Versions should comply with PEP440.
     version='0.0.0',
 
+    # The project's main homepage.
+    url='https://github.com/fgnt/meeteval/',
+
+    # Choose your license
+    license='MIT',
+
+    # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
+    classifiers=[
+        # How mature is this project? Common values are
+        #   3 - Alpha
+        #   4 - Beta
+        #   5 - Production/Stable
+        'Development Status :: 5 - Production/Stable',
+
+        # Indicate who your project is intended for
+        'Intended Audience :: Science/Research',
+
+        # Pick your license as you wish (should match "license" above)
+        'License :: OSI Approved :: MIT License',
+
+        # Specify the Python versions you support here. In particular, ensure
+        # that you indicate whether you support Python 2, Python 3 or both.
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+    ],
+
     python_requires=">=3.5",
-    author="Thilo von Neumann",
+    author="Department of Communications Engineering, Paderborn University",
+    author_email='sek@nt.upb.de',
+    keywords='speech recognition, word error rate, evaluation, meeting, ASR, WER',
+    long_description=long_description,
+    long_description_content_type='text/markdown',  # Optional (see note above)
+
     ext_modules=ext_modules,
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
