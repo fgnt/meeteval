@@ -49,6 +49,12 @@ extras_require['all'] = list(dict.fromkeys(sum(extras_require.values(), [])))
 
 setup(
     name="meeteval",
+
+    # Versions should comply with PEP440.  For a discussion on single-sourcing
+    # the version across setup.py and the project code, see
+    # https://packaging.python.org/en/latest/single_source_version.html
+    version='0.0.0',
+
     python_requires=">=3.5",
     author="Thilo von Neumann",
     ext_modules=ext_modules,
