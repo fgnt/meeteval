@@ -1,4 +1,4 @@
-from hypothesis import given, strategies as st
+from hypothesis import settings, given, strategies as st
 
 # Limit alphabet to ensure a few correct matches
 string = st.text(alphabet='abcdefg', min_size=0, max_size=100)
@@ -22,6 +22,7 @@ def string_with_timing(draw):
 
 
 @given(string, string)
+@settings(deadline=None)
 def test_time_constrained_against_levenshtein(a, b):
     """Check that the Levenshtein distance with time constraints is equal to computation without time constraints
     when all time intervals span the full length"""
@@ -34,6 +35,7 @@ def test_time_constrained_against_levenshtein(a, b):
 
 
 @given(string_with_timing(), string_with_timing())
+@settings(deadline=None)
 def test_time_constrained_levenshtein_distance_within_bounds(a, b):
     """Test that the distance is bound by the unconstrained Levenshtein distance (lower bound) and the max len
     of the inputs (upper bound)"""
@@ -48,6 +50,7 @@ def test_time_constrained_levenshtein_distance_within_bounds(a, b):
 
 
 @given(string_with_timing(), string_with_timing())
+@settings(deadline=None)
 def test_time_constrained_levenshtein_distance_optimized(a, b):
     """Check whether the pruning optimization always yields the correct result"""
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance, \
@@ -63,6 +66,7 @@ def test_time_constrained_levenshtein_distance_optimized(a, b):
 
 
 @given(string_with_timing(), string_with_timing())
+@settings(deadline=None)
 def test_time_constrained_levenshtein_distance_vs_with_alignment(a, b):
     """Check that the alignment function gives the same distance as the version that does not return the alignment"""
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance, \
@@ -86,6 +90,7 @@ def test_time_constrained_levenshtein_distance_vs_with_alignment(a, b):
 
 
 @given(string, string)
+@settings(deadline=None)
 def test_time_constrained_levenshtein_distance_with_alignment_against_kaldialign(a, b):
     """Check that the returned alignment matches kaldialign then the time intervals span the full length"""
     from kaldialign import align as kaldi_align, edit_distance
@@ -123,6 +128,7 @@ def test_time_constrained_levenshtein_distance_with_alignment_against_kaldialign
         for _ in range(draw(st.integers(min_value=2, max_value=10)))
     ])(),
 )
+@settings(deadline=None)
 def test_tcpwer_vs_cpwer(
         a, b
 ):
