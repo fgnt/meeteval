@@ -47,7 +47,7 @@ This class bundles statistics (errors, total number of words) and potential auxi
 To compute an "overall" WER over multiple examples, use the `combine_error_rates` function:
 
 ```python
->>> form meeteval.wer import wer
+>>> from meeteval.wer import wer
 >>> wer1 = wer.siso_word_error_rate('The quick brown fox jumps over the lazy dog', 'The kwik browne focks jumps over the lay dock')
 >>> wer1
 ErrorRate(errors=5, length=9, error_rate=0.5555555555555556)
