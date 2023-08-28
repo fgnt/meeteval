@@ -161,7 +161,7 @@ def mimo_matching_v4(
     from .cy_mimo_matching import cpp_mimo_matching
     try:
         return cpp_mimo_matching(refs, hyps)
-    except MemoryError as e:
+    except (MemoryError, OverflowError) as e:
         import math
         memory_size = math.prod([len(hyp) for hyp in hyps]) * math.prod([len(ref) for ref in refs]) * 16
         raise MemoryError(

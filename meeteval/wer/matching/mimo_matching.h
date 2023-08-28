@@ -2,6 +2,7 @@
 #include <numeric>
 #include <stdio.h>
 #include <algorithm>
+#include <cstddef>
 
 
 struct UpdateState {
@@ -57,18 +58,21 @@ unsigned int levenshtein_distance_(
 }
 
 struct Layout {
-    std::vector<unsigned long> strides;
-    std::vector<unsigned long> dimensions;
-    unsigned long total_size;
+    std::vector<size_t> strides;
+    std::vector<size_t> dimensions;
+    size_t total_size;
 };
 
 template<typename T>
 Layout inline make_layout(const std::vector<std::vector<T>> vec) {
     Layout layout;
     for (auto v : vec) layout.dimensions.push_back(v.size() + 1);
-    unsigned long j = 1;
+    size_t j = 1;
     for (auto i : layout.dimensions) {
         layout.strides.push_back(j);
+
+        // Check for overflow before multiplying
+        if (j * i / i  != j) throw std::overflow_error("overflow_error");
         j *= i;
     }
     layout.total_size = j;
