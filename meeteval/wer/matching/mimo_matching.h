@@ -57,16 +57,16 @@ unsigned int levenshtein_distance_(
 }
 
 struct Layout {
-    std::vector<unsigned int> strides;
-    std::vector<unsigned int> dimensions;
-    unsigned int total_size;
+    std::vector<unsigned long> strides;
+    std::vector<unsigned long> dimensions;
+    unsigned long total_size;
 };
 
 template<typename T>
 Layout inline make_layout(const std::vector<std::vector<T>> vec) {
     Layout layout;
     for (auto v : vec) layout.dimensions.push_back(v.size() + 1);
-    unsigned int j = 1;
+    unsigned long j = 1;
     for (auto i : layout.dimensions) {
         layout.strides.push_back(j);
         j *= i;
@@ -135,6 +135,9 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> mimo
 
             // Forward levenshtein row
             for (unsigned int active_hypothesis_index = 0; active_hypothesis_index < hypotheses.size(); active_hypothesis_index++) {
+
+                // Iterate over all starting points of of levenshtein rows along the active_hypothesis_index dimension
+                // These are all numbers i that satisfy i / hyp_layout.strides[active_hypothesis_index] % hyp_layout.dimensions[active_hypothesis_index] == 0
                 for (
                         unsigned int _i = 0;
                         _i < hyp_layout.total_size;
