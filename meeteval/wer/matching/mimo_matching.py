@@ -1,8 +1,8 @@
 import typing
 
-Utterance = typing.Iterable[typing.Hashable]
-Reference = typing.List[Utterance]
-Hypothesis = typing.List[typing.Iterable[typing.Hashable]]
+Utterance = typing.Sequence[typing.Hashable]
+Hypothesis = typing.List[Utterance]
+Reference = typing.List[typing.List[Utterance]]
 Assignment = typing.List[typing.Tuple[int, int]]
 
 
@@ -159,7 +159,21 @@ def mimo_matching_v4(
     A C++ implementation of mimo matching
     """
     from .cy_mimo_matching import cpp_mimo_matching
-    return cpp_mimo_matching(refs, hyps)
+    try:
+        return cpp_mimo_matching(refs, hyps)
+    except MemoryError as e:
+        import math
+        memory_size = math.prod([len(hyp) for hyp in hyps]) * math.prod([len(ref) for ref in refs]) * 16
+        raise MemoryError(
+            f'Not enough memory to compute the MIMO WER. \n'
+            f'You are trying to compute the MIMO or ORC WER for {len(refs)} references streams (for ORC always 1) and '
+            f'{len(hyps)} hypothesis streams. \n'
+            f'The reference streams contain {[len(ref) for ref in refs]} utterances and the hypothesis streams have '
+            f'lengths {[len(hyp) for hyp in hyps]} (in words).\n'
+            f'The requested computation needs more than {memory_size/10**9:_} G bytes.\n'
+            f'MIMO-WER and ORC-WER are designed for 1 and 2 hypothesis streams of 10 minutes of audio.\n'
+            f'If you use significantly more, you can encounter OOM errors.'
+        ) from e
 
 
 # Export the recommended version without a v* postfix
