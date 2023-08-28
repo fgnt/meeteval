@@ -172,7 +172,7 @@ def cp_word_error_rate(
                 raise TypeError(type(words), words)
 
         if isinstance(x, meeteval.io.stm.STM):
-            assert len(x.filenames()) == 1, (len(x.filenames()), x.filenames(), x)
+            assert len(x.filenames()) <= 1, (len(x.filenames()), x.filenames(), x)
             return transcription_to_words(x.grouped_by_speaker_id())
         else:
             return _map(split, x)
