@@ -10,7 +10,7 @@ ctypedef unsigned int uint
 
 cdef extern from "mimo_matching.h":
     uint levenshtein_distance_(vector[uint] reference, vector[uint] hypothesis)
-    pair[uint, vector[pair[uint, uint]]] mimo_matching_(vector[vector[vector[uint]]] references, vector[vector[uint]] hypotheses)
+    pair[uint, vector[pair[uint, uint]]] mimo_matching_(vector[vector[vector[uint]]] references, vector[vector[uint]] hypotheses) except +
 
 
 def obj2vec(a, b):

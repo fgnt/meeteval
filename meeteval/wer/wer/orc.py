@@ -64,8 +64,8 @@ def orc_error_rate(
             f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
         )
 
-    from meeteval.wer.matching.mimo_matching import mimo_matching_v3
-    distance, assignment = mimo_matching_v3([reference], _values(hypothesis))
+    from meeteval.wer.matching.mimo_matching import mimo_matching
+    distance, assignment = mimo_matching([reference], _values(hypothesis))
     assignment = tuple([_keys(hypothesis)[x[1]] for x in assignment])
 
     reference_new, hypothesis = apply_orc_assignment(
