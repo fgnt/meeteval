@@ -140,14 +140,16 @@ Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges th
 
 ## Cite
 
-The MIMO WER and efficient implementation of ORC WER are presented in the paper "On Word Error Rate Definitions and
-their Efficient Computation for Multi-Speaker Speech Recognition Systems".
+The MIMO WER and efficient implementation of ORC WER are presented in the paper 
+["On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems"](https://ieeexplore.ieee.org/iel7/10094559/10094560/10094784.pdf).
 
 ```bibtex
-@Article{MeetEval22,
+@InProceedings{MeetEval23,
   author    = {von Neumann, Thilo and Boeddeker, Christoph and Kinoshita, Keisuke and Delcroix, Marc and Haeb-Umbach, Reinhold},
   title     = {On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems},
-  journal   = {arXiv preprint arXiv:2211.16112},
-  year      = {2022},
+  booktitle={ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={1--5},
+  year={2023},
+  organization={IEEE}
 }
 ```
