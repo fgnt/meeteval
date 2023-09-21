@@ -13,6 +13,8 @@ from meeteval.io.stm import STM
 from meeteval.wer.wer import combine_error_rates, ErrorRate
 import sys
 
+from meeteval.wer.wer.time_constrained import pseudo_word_level_strategies
+
 
 def _dump(obj, path: 'Path | str', default_suffix='.json'):
     """
@@ -385,13 +387,7 @@ def cli():
                 )
             elif name == 'hyp_pseudo_word_timing':
                 command_parser.add_argument(
-                    '--hyp-pseudo-word-timing', choices=[
-                        'equidistant_intervals',
-                        'equidistant_points',
-                        'full_segment',
-                        'character_based',
-                        'none',
-                    ],
+                    '--hyp-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the hypothesis. Choices: '
@@ -399,18 +395,14 @@ def cli():
                          'equidistant_points: Place time points equally spaded int the segment-level intervals; '
                          'full_segment: Use the full segment for each word that belongs to that segment;'
                          'character_based: Estimate the word length based on the number of characters; '
+                         'character_based_points: Estimates the word length based on the number of characters and '
+                         'creates a point in the center of each word; '
                          'none: Do not estimate word-level timings but assume that the provided timings are already '
                          'given on a word level.'
                 )
             elif name == 'ref_pseudo_word_timing':
                 command_parser.add_argument(
-                    '--ref-pseudo-word-timing', choices=[
-                        'equidistant_intervals',
-                        'equidistant_points',
-                        'full_segment',
-                        'character_based',
-                        'none',
-                    ],
+                    '--ref-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
                     help='Specifies how word-level timings are '
                          'determined from segment-level timing '
                          'for the reference. Choices: '
@@ -418,6 +410,8 @@ def cli():
                          'equidistant_points: Place time points equally spaded int the segment-level intervals; '
                          'full_segment: Use the full segment for each word that belongs to that segment. '
                          'character_based: Estimate the word length based on the number of characters; '
+                         'character_based_points: Estimates the word length based on the number of characters and '
+                         'creates a point in the center of each word; '
                          'none: Do not estimate word-level timings but assume that the provided timings are already '
                          'given on a word level.'
                 )
