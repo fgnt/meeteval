@@ -241,7 +241,7 @@ def tcpwer(
         average_out='{parent}/{stem}_tcpwer.json',
         per_reco_out='{parent}/{stem}_tcpwer_per_reco.json',
         collar=0,
-        hyp_pseudo_word_timing='character_based',
+        hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
         verbose=False,
