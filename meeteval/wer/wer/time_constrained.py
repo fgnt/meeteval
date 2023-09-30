@@ -31,7 +31,8 @@ __all__ = [
 
 # pseudo-timestamp strategies
 def equidistant_intervals(interval, words):
-    """Divides the interval into `count` equally sized intervals"""
+    """Divides the interval into `count` equally sized intervals
+    """
     count = len(words)
     if count == 0:
         return []
@@ -54,6 +55,8 @@ def equidistant_points(interval, words):
 
 
 def character_based(interval, words):
+    """Divides the interval into one interval per word where the size of the interval is
+    proportional to the word length in characters."""
     if len(words) == 0:
         return []
     elif len(words) == 1:
@@ -65,6 +68,13 @@ def character_based(interval, words):
     character_length = (interval[1] - interval[0]) / total_num_characters
     return [(interval[0] + character_length * start, interval[0] + character_length * end) for start, end in
             zip([0] + list(end_points[:-1]), end_points)]
+
+
+def character_based_points(interval, words):
+    """Places points in the center of the character-based intervals"""
+    intervals = character_based(interval, words)
+    intervals = [((interval[1] + interval[0]) / 2,) * 2 for interval in intervals]
+    return intervals
 
 
 def full_segment(interval, words):
@@ -95,6 +105,7 @@ pseudo_word_level_strategies = {
     'equidistant_points': equidistant_points,
     'full_segment': full_segment,
     'character_based': character_based,
+    'character_based_points': character_based_points,
     'none': no_segmentation,
     None: no_segmentation,
 }
@@ -281,6 +292,16 @@ def get_pseudo_word_level_timings(
          (5.0, 6.0),
          (6.0, 7.0),
          (7.0, 8.0)]
+    )
+    >>> pprint(get_pseudo_word_level_timings(s, 'character_based_points'))
+    TimeMarkedTranscript(
+        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
+        timings=[(1.5, 1.5),
+         (3.5, 3.5),
+         (4.5, 4.5),
+         (5.5, 5.5),
+         (6.5, 6.5),
+         (7.5, 7.5)]
     )
     """
     pseudo_word_level_strategy = pseudo_word_level_strategies[strategy]
