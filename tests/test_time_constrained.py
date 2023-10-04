@@ -1,3 +1,4 @@
+import pytest
 from hypothesis import settings, given, strategies as st
 
 # Limit alphabet to ensure a few correct matches
@@ -53,14 +54,13 @@ def test_time_constrained_levenshtein_distance_within_bounds(a, b):
 @settings(deadline=None)
 def test_time_constrained_levenshtein_distance_optimized(a, b):
     """Check whether the pruning optimization always yields the correct result"""
-    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance, \
-        time_constrained_levenshtein_distance_unoptimized
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
 
     a, a_timing = a
     b, b_timing = b
 
-    unoptimized = time_constrained_levenshtein_distance_unoptimized(a, b, a_timing, b_timing)
-    optimized = time_constrained_levenshtein_distance(a, b, a_timing, b_timing)
+    unoptimized = time_constrained_levenshtein_distance(a, b, a_timing, b_timing, prune=False)
+    optimized = time_constrained_levenshtein_distance(a, b, a_timing, b_timing, prune=True)
 
     assert optimized == unoptimized, (optimized, unoptimized)
 
@@ -180,3 +180,59 @@ def test_tcpwer_input_formats():
     assert r1.error_rate == r3.error_rate
     assert r1.error_rate == r4.error_rate
     assert r1.error_rate == r5.error_rate
+
+
+def test_time_constrained_sorting_options():
+    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate, \
+        TimeMarkedTranscript
+
+    r1 = TimeMarkedTranscript(['a b', 'c d'], [(0, 1), (0, 1)])
+
+    # "True" checks whether word order matches the word-level timestamps.
+    # Here, it doesn't match, so ValueError is raised.
+    with pytest.raises(ValueError):
+        time_constrained_minimum_permutation_word_error_rate(
+            [r1], [r1], reference_sort=True, hypothesis_sort=True
+        )
+
+    er = time_constrained_minimum_permutation_word_error_rate(
+        [r1], [r1], reference_sort='word', hypothesis_sort='word'
+    )
+    assert er.error_rate == 0
+
+    r1 = TimeMarkedTranscript(['a b c d', 'e f g h'], [(0, 4), (2, 6)])
+    r2 = TimeMarkedTranscript(['a b c d e f g h'], [(0, 6)])
+    er = time_constrained_minimum_permutation_word_error_rate(
+        [r1], [r2], reference_sort='word',
+    )
+    assert er.error_rate == 0.25
+
+    er = time_constrained_minimum_permutation_word_error_rate(
+        [r1], [r2], reference_sort='segment',
+    )
+    assert er.error_rate == 0.375
+
+    # With collar: "segment" keeps word order, so the error becomes 0
+    er = time_constrained_minimum_permutation_word_error_rate(
+        [r1], [r2], reference_sort='segment', collar=1
+    )
+    assert er.error_rate == 0
+
+    # With collar: "word" does not keep word order, so the overlap gets penalized
+    er = time_constrained_minimum_permutation_word_error_rate(
+        [r1], [r2], reference_sort='word', collar=1
+    )
+    assert er.error_rate == 0.25
+
+    # False means the user provides the sorting, so we can pass anything
+    r1 = TimeMarkedTranscript(['e f g h', 'a b c d'], [(4, 7), (0, 3)])
+    r2 = TimeMarkedTranscript(['a b c d e f g h'], [(0, 7)])
+    er = time_constrained_minimum_permutation_word_error_rate(
+        [r1], [r2], reference_sort='segment'
+    )
+    assert er.error_rate == 0
+
+    er = time_constrained_minimum_permutation_word_error_rate(
+        [r1], [r2], reference_sort=False, hypothesis_sort=False
+    )
+    assert er.error_rate == 1
