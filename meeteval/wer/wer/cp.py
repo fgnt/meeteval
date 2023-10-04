@@ -96,7 +96,7 @@ def cp_error_rate(
 ) -> CPErrorRate:
     from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
-    return _cp_word_error_rate(
+    return _cp_error_rate(
         reference,
         hypothesis,
         distance_fn=levenshtein_distance,
@@ -193,7 +193,7 @@ def cp_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict
     return apply_stm_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
 
 
-def _cp_word_error_rate(
+def _cp_error_rate(
         reference,
         hypothesis,
         distance_fn: callable,

@@ -10,7 +10,7 @@ from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.cp import CPErrorRate
 from typing import List, Dict
 
-from meeteval.wer.utils import _values, _map, _items
+from meeteval.wer.utils import _values, _map, _keys
 
 if typing.TYPE_CHECKING:
     from meeteval._typing import TypedDict
@@ -157,15 +157,21 @@ class TimeMarkedTranscript:
         _check_timing_annotations(self.timings, msg)
 
     def has_self_overlaps(self):
-        # Timings are sorted by start time, so it is enough to check
-        # that the end time of each segment is not smaller
-        # than the start time of the next segment
         last_end = 0
-        for t in self.timings:
+        for t in sorted(self.timings):
             if last_end > t[0]:
                 return True
             last_end = t[1]
         return False
+
+    def get_self_overlap_amount(self):
+        last_end = 0
+        self_overlap = 0
+        for t in self.timings:
+            if last_end > t[0]:
+                self_overlap += last_end - t[0]
+            last_end = t[1]
+        return self_overlap
 
     @classmethod
     def create(cls, data: 'TimeMarkedTranscriptLike') -> 'TimeMarkedTranscript':
@@ -182,7 +188,6 @@ class TimeMarkedTranscript:
     def from_stm(cls, stm: STM) -> 'TimeMarkedTranscript':
         speaker_ids = stm.grouped_by_speaker_id().keys()
         assert len(speaker_ids) == 1, 'Only single-speaker STMs are supported'
-        stm = stm.sorted_by_begin_time()
         time_marked_transcript = cls(
             [l.transcript for l in stm.lines],
             [(l.begin_time, l.end_time) for l in stm.lines],
@@ -370,12 +375,57 @@ def sort_segments(s: TimeMarkedTranscript):
     )
 
 
+def _prepare_transcript(segments, sort, pseudo_word_level_timing, collar=0):
+    # Check that all timings are valid
+    if len(segments.transcript) != len(segments.timings):
+        raise ValueError(
+            f'Number of words does not match number of timings {len(segments.transcript)} != {len(segments.timings)}')
+
+    for t in segments.timings:
+        if t[1] < t[0]:
+            raise ValueError(f'The end time of an interval must be larger than the start time. Found {t}')
+
+    prune = True
+
+    # Find self-overlap. Print warning if self-overlap is found.
+    if segments.has_self_overlaps():
+        self_overlap_amount = segments.get_self_overlap_amount()
+
+        import warnings
+        warnings.warn(f'Found self-overlaps in transcript. Overlap amount: {self_overlap_amount}')
+
+    assert sort in (True, False, 'segment', 'word')
+    if sort in (True, 'segment', 'word'):
+        segments = sort_segments(segments)
+
+    words = get_pseudo_word_level_timings(segments, pseudo_word_level_timing, collar)
+    # Check whether words are sorted by start time
+    words_sorted = sort_segments(words)
+    if words_sorted != words:
+        if sort is not True:
+            import warnings
+            warnings.warn(f'The order of word-level timings contradicts the segment-level order')
+            prune = False
+        else:
+            raise ValueError(
+                f'The order of word-level timings contradicts the segment-level order!\n'
+                f'Consider setting sort to False or "segment" or "word".\n'
+            )
+
+    if sort == 'word':
+        words = words_sorted
+        prune = True  # Pruning always works when words are sorted by start time
+    return words, prune
+
+
 def time_constrained_siso_word_error_rate(
         reference: TimeMarkedTranscriptLike,
         hypothesis: TimeMarkedTranscriptLike,
         reference_pseudo_word_level_timing='character_based',
-        hypothesis_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ):
     """
     Time-constrained word error rate for single-speaker transcripts.
@@ -386,12 +436,31 @@ def time_constrained_siso_word_error_rate(
         reference_pseudo_word_level_timing: strategy for pseudo-word level timing for reference
         hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
+        reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        
+    Reference / Hypothesis sorting options:
+    - True: sort by segment start time and assert that the word-level timings are sorted by start time
+    - False: do not sort and don't check word order
+    - 'segment': sort by segment start time and don't check word order
+    - 'word': sort by word start time
+
+    >>> time_constrained_siso_word_error_rate(TimeMarkedTranscript(['a b', 'c d'], [(0,2), (0,2)]), TimeMarkedTranscript(['a'], [(0,1)]))
     """
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    reference = get_pseudo_word_level_timings(reference, reference_pseudo_word_level_timing)
-    hypothesis = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing, collar)
+    try:
+        reference, _ = _prepare_transcript(reference, reference_sort, reference_pseudo_word_level_timing)
+    except ValueError as e:
+        raise ValueError(f'Invalid reference') from e
+    try:
+        hypothesis, _ = _prepare_transcript(
+            hypothesis, hypothesis_sort,
+            hypothesis_pseudo_word_level_timing, collar
+        )
+    except ValueError as e:
+        raise ValueError(f'Invalid hypothesis') from e
 
     return _time_constrained_siso_error_rate(
         reference.transcript, hypothesis.transcript,
@@ -405,8 +474,8 @@ def time_constrained_minimum_permutation_word_error_rate(
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
-        reference_overlap_correction=False,
-        allow_hypothesis_speaker_self_overlap=False,
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ) -> CPErrorRate:
     """
     Time-constrained minimum permutation word error rate for single-speaker transcripts.
@@ -417,16 +486,17 @@ def time_constrained_minimum_permutation_word_error_rate(
         reference_pseudo_word_level_timing: strategy for pseudo-word level timing for reference
         hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
-        reference_overlap_correction: if True, small overlaps in the reference are corrected by shifting the
-            start and end times of the overlapping segments to the center point of the overlap.
-        allow_hypothesis_speaker_self_overlap: if True, overlaps in the hypothesis are allowed.
-            This can change the order of words, so it is not recommended to use this option.
-            You may set it when you are too lazy to fix your system or you want to get a preview
-            of the WER, but a valid recognition system should in general never produce self-overlap.
-            It is not guaranteed that the returned WER is correct if this option is set!
+        reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        
+    Reference / Hypothesis sorting options:
+    - True: sort by segment start time and assert that the word-level timings are sorted by start time
+    - False: do not sort and don't check word order
+    - 'segment': sort by segment start time and don't check word order
+    - 'word': sort by word start time
     """
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_v3
-    from meeteval.wer.wer.cp import _cp_word_error_rate
+    from meeteval.wer.wer.cp import _cp_error_rate
 
     if isinstance(reference, STM):
         reference = reference.grouped_by_speaker_id()
@@ -436,36 +506,22 @@ def time_constrained_minimum_permutation_word_error_rate(
     reference = _map(TimeMarkedTranscript.create, reference)
     hypothesis = _map(TimeMarkedTranscript.create, hypothesis)
 
-    if reference_overlap_correction:
-        reference = _map(
-            lambda x: remove_overlaps(
-                x,
-                warn_message='A speaker overlaps with itself in the reference! This is likely '
-                             'caused by numerical errors during reference creation and '
-                             'corrected by MeetEval by shifting the boundaries to the center '
-                             'point of the overlapping region.'
-            ),
-            reference
-        )
-
     # Convert segments into lists of words and word-level timings
-    reference = _map(lambda x: get_pseudo_word_level_timings(x, reference_pseudo_word_level_timing),
-                     reference)
-    hypothesis = _map(lambda x: get_pseudo_word_level_timings(x, hypothesis_pseudo_word_level_timing, collar),
-                      hypothesis)
+    allow_prune = True
+    for k in _keys(reference):
+        try:
+            reference[k], p = _prepare_transcript(reference[k], reference_sort, reference_pseudo_word_level_timing)
+            allow_prune = allow_prune and p
+        except ValueError as e:
+            raise ValueError(f'Invalid reference for speaker {k}') from e
 
-    if allow_hypothesis_speaker_self_overlap:
-        def check_self_overlap(x):
-            if x.has_self_overlaps():
-                import warnings
-                warnings.warn(
-                    'A speaker overlaps with itself in the hypothesis! This is ignored because the '
-                    'hypothesis_allow_speaker_self_overlap option is set. '
-                    'It is not guaranteed that the WER is correct!'
-                )
-
-        _map(check_self_overlap, hypothesis)
-        hypothesis = _map(sort_segments, hypothesis)
+    for k in _keys(hypothesis):
+        try:
+            hypothesis[k], p = _prepare_transcript(hypothesis[k], hypothesis_sort, hypothesis_pseudo_word_level_timing,
+                                                   collar=collar)
+            allow_prune = allow_prune and p
+        except ValueError as e:
+            raise ValueError(f'Invalid hypothesis for speaker {k}') from e
 
     sym2int = {v: i for i, v in enumerate({
         word for words in itertools.chain(_values(reference), _values(hypothesis)) for word in words.transcript
@@ -474,7 +530,7 @@ def time_constrained_minimum_permutation_word_error_rate(
     reference = _map(lambda x: TimeMarkedTranscript([sym2int[s] for s in x.transcript], x.timings), reference)
     hypothesis = _map(lambda x: TimeMarkedTranscript([sym2int[s] for s in x.transcript], x.timings), hypothesis)
 
-    return _cp_word_error_rate(
+    return _cp_error_rate(
         reference, hypothesis,
         distance_fn=lambda tt, et: time_constrained_levenshtein_distance_v3(
             tt.transcript, et.transcript, tt.timings, et.timings
@@ -494,11 +550,12 @@ def tcp_word_error_rate_stm(
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
-        reference_overlap_correction=False,
-        allow_hypothesis_speaker_self_overlap=False,
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ) -> 'Dict[str, CPErrorRate]':
     """
     Computes the tcpWER for each example in the reference and hypothesis STM files.
+    See `time_constrained_minimum_permutation_word_error_rate` for details.
     
     To compute the overall WER, use `sum(tcp_word_error_rate_stm(r, h).values())`.
     """
@@ -508,8 +565,8 @@ def tcp_word_error_rate_stm(
         reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
         hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
         collar=collar,
-        reference_overlap_correction=reference_overlap_correction,
-        allow_hypothesis_speaker_self_overlap=allow_hypothesis_speaker_self_overlap
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
     ), reference_stm, hypothesis_stm)
 
 
@@ -526,6 +583,8 @@ def align(
         hypothesis_pseudo_word_level_timing='character_based',
         collar: int = 0,
         style='words',
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ):
     """
     Align two time-marked transcripts, similar to `kaldialign.align`, but with time constriant.
@@ -540,6 +599,14 @@ def align(
             - 'words' or 'kaldi': Output in the style of `kaldialign.align`
             - 'index': Output indices of the reference and hypothesis words instead of the words
             - 'words_and_times': Output the time interval (pseudo-word-level, without collar) with each word
+        reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        
+    Reference / Hypothesis sorting options:
+    - True: sort by segment start time and assert that the word-level timings are sorted by start time
+    - False: do not sort and don't check word order
+    - 'segment': sort by segment start time and don't check word order
+    - 'word': sort by word start time
 
     >>> align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]))
     [('a', 'a'), ('b', 'b'), ('c', '*'), ('*', 'c')]
@@ -555,8 +622,14 @@ def align(
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    reference_ = get_pseudo_word_level_timings(reference, reference_pseudo_word_level_timing)
-    hypothesis_ = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing, collar)
+    try:
+        reference_, _ = _prepare_transcript(reference, reference_sort, reference_pseudo_word_level_timing)
+    except ValueError as e:
+        raise ValueError('Invalid reference') from e
+    try:
+        hypothesis_, _ = _prepare_transcript(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, collar)
+    except ValueError as e:
+        raise ValueError('Invalid hypothesis') from e
 
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
     alignment = time_constrained_levenshtein_distance_with_alignment(
@@ -567,7 +640,7 @@ def align(
     if style in ('kaldi', 'words'):
         alignment = index_alignment_to_kaldi_alignment(alignment, reference_.transcript, hypothesis_.transcript)
     elif style == 'words_and_times':
-        hypothesis_ = get_pseudo_word_level_timings(hypothesis, hypothesis_pseudo_word_level_timing)
+        hypothesis_, _ = _prepare_transcript(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, collar=0)
         reference_ = list(zip(reference_.transcript, reference_.timings))
         hypothesis_ = list(zip(hypothesis_.transcript, hypothesis_.timings))
 
