@@ -2,6 +2,7 @@ import argparse
 import dataclasses
 import glob
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -46,7 +47,7 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
             raise NotImplementedError(f'Unknown file ext: {suffix}')
 
     if path.stem != '-':
-        print(f'Wrote: {path}', file=sys.stderr)
+        logging.info(f'Wrote: {path}')
 
 
 def _load(path: Path):
@@ -315,6 +316,14 @@ def cli():
     # Define argument parser and commands
     parser = argparse.ArgumentParser()
     parser.add_argument('--version', action='store_true', help='Show version')
+
+    # Logging and verbosity
+    logging.addLevelName(100, 'SILENT')     # Add a level that creates no output
+    parser.add_argument(
+        '--log-level', help='Log level', default='WARNING',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'SILENT']
+    )
+
     commands = parser.add_subparsers(title='Subcommands')
 
     def positive_number(x: str):
@@ -340,6 +349,7 @@ def cli():
             action='help',
             default=argparse.SUPPRESS,
         )
+
         # Get arguments from signature
         import inspect
         parameters = inspect.signature(fn).parameters
@@ -350,12 +360,14 @@ def cli():
                     '-r', '--reference',
                     help='Reference file(s) in STM or CTM format',
                     nargs='+', action='append',
+                    required=True,
                 )
             elif name == 'hypothesis':
                 command_parser.add_argument(
                     '-h', '--hypothesis',
                     help='Hypothesis file(s) in STM or CTM format',
                     nargs='+', action='append',
+                    required=True,
                 )
             elif name == 'average_out':
                 command_parser.add_argument(
@@ -442,8 +454,6 @@ def cli():
                 )
             elif name == 'files':
                 command_parser.add_argument('files', nargs='+')
-            elif name == 'verbose':
-                command_parser.add_argument('--verbose', action='store_true')
             else:
                 raise AssertionError("Error in command definition", name)
 
@@ -468,12 +478,16 @@ def cli():
     # Parse arguments and find command to execute
     args = parser.parse_args()
 
+    # Logging
+    logging.basicConfig(level=args.log_level.upper(), format='%(levelname)s - %(message)s')
+
     if hasattr(args, 'func'):
         kwargs = vars(args)
         fn = args.func
         # Pop also removes from args namespace
         kwargs.pop('func')
         kwargs.pop('version')
+        kwargs.pop('log_level')
         if 'reference' in kwargs:
             kwargs['reference'] = [
                 r for reference in kwargs['reference'] for r in reference

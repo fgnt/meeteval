@@ -24,7 +24,6 @@ def levenshtein_distance_cpp(
         hypothesis,
 ):
     reference, hypothesis = obj2vec(reference, hypothesis)
-    print(reference, hypothesis)
     return levenshtein_distance_(reference, hypothesis)
 
 
