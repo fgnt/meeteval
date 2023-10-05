@@ -633,9 +633,8 @@ def align(
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    sort_and_validate = SortAndValidate()
-    reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
-    hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
+    reference, _ = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
+    hypothesis, _ = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
 
     hypothesis_ = apply_collar(hypothesis)
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
