@@ -89,6 +89,8 @@ def orc_error_rate(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=assignment,
+        hypothesis_self_overlap=None,
+        reference_self_overlap=None,
     )
 
 

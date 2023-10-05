@@ -64,6 +64,8 @@ def mimo_error_rate(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=assignment,
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None,
     )
 
 
