@@ -36,6 +36,10 @@ class SelfOverlap:
             self.total_time + other.total_time,
         )
 
+    @classmethod
+    def from_dict(cls, d: dict):
+        return cls(d['overlap_time'], d['total_time'])
+
     def warn(self, name):
         if self.overlap_rate > 0:
             # TODO: what level? Is this the correct place?
@@ -55,6 +59,8 @@ class ErrorRate:
     This class is frozen because an error rate should not change after it
     has been computed.
     """
+    error_rate: int = dataclasses.field(init=False)
+
     errors: int
     length: int
 
@@ -65,7 +71,6 @@ class ErrorRate:
     reference_self_overlap: Optional[SelfOverlap]
     hypothesis_self_overlap: Optional[SelfOverlap]
 
-    error_rate: int = dataclasses.field(init=False)
 
     @classmethod
     def zero(cls):
@@ -119,26 +124,36 @@ class ErrorRate:
     @classmethod
     def from_dict(self, d: dict):
         """
-        >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1)))
-        ErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0)
+        >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1, None, None)))
+        ErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None)
         >>> from meeteval.wer.wer.cp import CPErrorRate
-        >>> ErrorRate.from_dict(dataclasses.asdict(CPErrorRate(1, 1, 0, 0, 1, 1, 1, 1)))
-        CPErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, missed_speaker=1, falarm_speaker=1, scored_speaker=1, assignment=None)
+        >>> ErrorRate.from_dict(dataclasses.asdict(CPErrorRate(1, 1, 0, 0, 1, None, None, 1, 1, 1)))
+        CPErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=1, falarm_speaker=1, scored_speaker=1, assignment=None)
         >>> from meeteval.wer.wer.orc import OrcErrorRate
-        >>> ErrorRate.from_dict(dataclasses.asdict(OrcErrorRate(1, 1, 0, 0, 1, (0, 1))))
-        OrcErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, assignment=(0, 1))
+        >>> ErrorRate.from_dict(dataclasses.asdict(OrcErrorRate(1, 1, 0, 0, 1, None, None, (0, 1))))
+        OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=(0, 1))
         >>> from meeteval.wer.wer.mimo import MimoErrorRate
-        >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, 0, 0, 1, [(0, 1)])))
-        MimoErrorRate(errors=1, length=1, insertions=0, deletions=0, substitutions=1, error_rate=1.0, assignment=[(0, 1)])
+        >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, 0, 0, 1, None, None, [(0, 1)])))
+        MimoErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=[(0, 1)])
+        >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1, SelfOverlap(10, 100), SelfOverlap(0, 90))))
+        ErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=SelfOverlap(overlap_time=10, total_time=100, overlap_rate=0.1), hypothesis_self_overlap=SelfOverlap(overlap_time=0, total_time=90, overlap_rate=0.0))
         """
         # For backward compatibility, set default values.
         d.setdefault('insertions', None)
         d.setdefault('deletions', None)
         d.setdefault('substitutions', None)
+        d.setdefault('reference_self_overlap', None)
+        d.setdefault('hypothesis_self_overlap', None)
+
+        def _get_self_overlap(so):
+            if so is None:
+                return None
+            return SelfOverlap.from_dict(so)
 
         if d.keys() == {
             'errors', 'length', 'error_rate',
             'insertions', 'deletions', 'substitutions',
+            'reference_self_overlap', 'hypothesis_self_overlap'
         }:
             return ErrorRate(
                 errors=d['errors'],
@@ -146,8 +161,8 @@ class ErrorRate:
                 insertions=d['insertions'],
                 deletions=d['deletions'],
                 substitutions=d['substitutions'],
-                reference_self_overlap=d.get('reference_self_overlap'),
-                hypothesis_self_overlap=d.get('hypothesis_self_overlap'),
+                reference_self_overlap=_get_self_overlap(d['reference_self_overlap']),
+                hypothesis_self_overlap=_get_self_overlap(d['hypothesis_self_overlap']),
             )
 
         if d.keys() == {
@@ -155,8 +170,9 @@ class ErrorRate:
             'insertions', 'deletions', 'substitutions',
             'missed_speaker', 'falarm_speaker', 'scored_speaker',
             'assignment',
+            'reference_self_overlap', 'hypothesis_self_overlap'
         }:
-            from .cp import CPErrorRate
+            from meeteval.wer.wer.cp import CPErrorRate
             return CPErrorRate(
                 errors=d['errors'], length=d['length'],
                 insertions=d['insertions'],
@@ -166,20 +182,21 @@ class ErrorRate:
                 falarm_speaker=d['falarm_speaker'],
                 scored_speaker=d['scored_speaker'],
                 assignment=d['assignment'],
-                reference_self_overlap=d.get('reference_self_overlap'),
-                hypothesis_self_overlap=d.get('hypothesis_self_overlap'),
+                reference_self_overlap=_get_self_overlap(d['reference_self_overlap']),
+                hypothesis_self_overlap=_get_self_overlap(d['hypothesis_self_overlap']),
             )
 
         if d.keys() == {
             'errors', 'length', 'error_rate',
             'insertions', 'deletions', 'substitutions',
             'assignment',
+            'reference_self_overlap', 'hypothesis_self_overlap'
         }:
             if isinstance(d['assignment'][0], (tuple, list)):
-                from .mimo import MimoErrorRate
+                from meeteval.wer.wer.mimo import MimoErrorRate
                 XErrorRate = MimoErrorRate
             else:
-                from .orc import OrcErrorRate
+                from meeteval.wer.wer.orc import OrcErrorRate
                 XErrorRate = OrcErrorRate
 
             return XErrorRate(
@@ -189,20 +206,20 @@ class ErrorRate:
                 deletions=d['deletions'],
                 substitutions=d['substitutions'],
                 assignment=d['assignment'],
-                reference_self_overlap=d.get('reference_self_overlap'),
-                hypothesis_self_overlap=d.get('hypothesis_self_overlap'),
+                reference_self_overlap=_get_self_overlap(d['reference_self_overlap']),
+                hypothesis_self_overlap=_get_self_overlap(d['hypothesis_self_overlap']),
             )
         raise ValueError(d.keys(), d)
 
 
 def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
-    >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10), ErrorRate(0, 10, 0, 0, 0))
-    ErrorRate(errors=10, length=20, insertions=0, deletions=0, substitutions=10, error_rate=0.5)
-    >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10))
-    ErrorRate(errors=10, length=10, insertions=0, deletions=0, substitutions=10, error_rate=1.0)
-    >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10)]*10))
-    ErrorRate(errors=100, length=100, insertions=0, deletions=0, substitutions=100, error_rate=1.0)
+    >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None), ErrorRate(0, 10, 0, 0, 0, None, None))
+    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10, reference_self_overlap=None, hypothesis_self_overlap=None)
+    >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None))
+    ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10, reference_self_overlap=None, hypothesis_self_overlap=None)
+    >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10, None, None)]*10))
+    ErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100, reference_self_overlap=None, hypothesis_self_overlap=None)
     """
     if len(error_rates) == 1:
         return error_rates[0]

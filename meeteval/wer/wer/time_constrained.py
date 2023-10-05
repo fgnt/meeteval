@@ -248,7 +248,7 @@ class TimeMarkedTranscript:
 TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
 
 
-def apply_collar(s: TimeMarkedTranscript, collar: float = 0):
+def apply_collar(s: TimeMarkedTranscript, collar: float):
     return replace(s, timings=[(max(t[0] - collar, 0), t[1] + collar) for t in s.timings])
 
 
@@ -448,6 +448,7 @@ def time_constrained_siso_word_error_rate(
     - 'word': sort by word start time
 
     >>> time_constrained_siso_word_error_rate(TimeMarkedTranscript(['a b', 'c d'], [(0,2), (0,2)]), TimeMarkedTranscript(['a'], [(0,1)]))
+    ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_time=4, total_time=4, overlap_rate=1.0), hypothesis_self_overlap=SelfOverlap(overlap_time=0, total_time=1, overlap_rate=0.0))
     """
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
@@ -628,7 +629,7 @@ def align(
     >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1, style='index')
     [(0, 0), (1, 1), (2, 2), (3, None), (4, 3), (None, 4)]
     >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1, style='words_and_times')
-    [(('a', (0.0, 0.5)), ('a', (0, 1))), (('b', (0.5, 1.0)), ('b', (1.0, 1.5))), (('c', (1, 2)), ('c', (1.5, 2.0))), (('d', (2.0, 2.5)), ('*', (2.0, 2.5))), (('e', (2.5, 3.0)), ('e', (3.0, 3.5))), (('*', (3.5, 4.0)), ('f', (3.5, 4.0)))]
+    [(('a', (0.0, 0.5)), ('a', (0.5, 0.5))), (('b', (0.5, 1.0)), ('b', (1.25, 1.25))), (('c', (1, 2)), ('c', (1.75, 1.75))), (('d', (2.0, 2.5)), ('*', (2.0, 2.5))), (('e', (2.5, 3.0)), ('e', (3.25, 3.25))), (('*', (3.75, 3.75)), ('f', (3.75, 3.75)))]
     """
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
@@ -636,7 +637,7 @@ def align(
     reference, _ = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
     hypothesis, _ = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
 
-    hypothesis_ = apply_collar(hypothesis)
+    hypothesis_ = apply_collar(hypothesis, collar=collar)
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
     alignment = time_constrained_levenshtein_distance_with_alignment(
         reference.transcript, hypothesis_.transcript,

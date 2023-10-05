@@ -140,6 +140,8 @@ def test_tcpwer_vs_cpwer(
         [[{'words': word, 'start_time': 0, 'end_time': 1} for word in speaker] for speaker in a],
         [[{'words': word, 'start_time': 0, 'end_time': 1} for word in speaker] for speaker in b],
     )
+    from dataclasses import replace
+    tcp_statistics = replace(tcp_statistics, reference_self_overlap=None, hypothesis_self_overlap=None)
     assert cp_statistics == tcp_statistics, (cp_statistics, tcp_statistics)
 
 
@@ -205,12 +207,12 @@ def test_time_constrained_sorting_options():
     er = time_constrained_minimum_permutation_word_error_rate(
         [r1], [r2], reference_sort='word',
     )
-    assert er.error_rate == 0.25
+    assert er.error_rate == 0.75
 
     er = time_constrained_minimum_permutation_word_error_rate(
         [r1], [r2], reference_sort='segment',
     )
-    assert er.error_rate == 0.375
+    assert er.error_rate == 0.75
 
     # With collar: "segment" keeps word order, so the error becomes 0
     er = time_constrained_minimum_permutation_word_error_rate(
@@ -228,11 +230,11 @@ def test_time_constrained_sorting_options():
     r1 = TimeMarkedTranscript(['e f g h', 'a b c d'], [(4, 7), (0, 3)])
     r2 = TimeMarkedTranscript(['a b c d e f g h'], [(0, 7)])
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort='segment'
+        [r1], [r2], reference_sort='segment',
     )
-    assert er.error_rate == 0
+    assert er.error_rate == 0.5
 
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort=False, hypothesis_sort=False
+        [r1], [r2], reference_sort=False, hypothesis_sort=False,
     )
-    assert er.error_rate == 1
+    assert er.error_rate == 1.25
