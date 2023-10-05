@@ -33,7 +33,7 @@ class CPErrorRate(ErrorRate):
 
     @classmethod
     def zero(cls):
-        return cls(0, 0, 0, 0, 0, 0, 0, 0)
+        return cls(0, 0, 0, 0, 0, None, None, 0, 0, 0)
 
     def __add__(self, other: 'CPErrorRate'):
         if not isinstance(other, self.__class__):
@@ -48,6 +48,8 @@ class CPErrorRate(ErrorRate):
             missed_speaker=self.missed_speaker + other.missed_speaker,
             falarm_speaker=self.falarm_speaker + other.falarm_speaker,
             scored_speaker=self.scored_speaker + other.scored_speaker,
+            reference_self_overlap=self.reference_self_overlap + other.reference_self_overlap if self.reference_self_overlap is not None and other.reference_self_overlap is not None else None,
+            hypothesis_self_overlap=self.hypothesis_self_overlap + other.hypothesis_self_overlap if self.hypothesis_self_overlap is not None and other.hypothesis_self_overlap is not None else None,
         )
 
     def apply_assignment(
@@ -276,6 +278,8 @@ def _cp_error_rate(
         falarm_speaker=falarm_speaker,
         scored_speaker=len(reference),
         assignment=assignment,
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None,
     )
 
 

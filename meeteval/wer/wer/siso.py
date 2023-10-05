@@ -25,6 +25,8 @@ def _siso_error_rate(
         insertions=result['ins'],
         deletions=result['del'],
         substitutions=result['sub'],
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None,
     )
 
 

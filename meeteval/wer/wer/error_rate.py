@@ -2,6 +2,48 @@ import dataclasses
 
 __all__ = ['ErrorRate', 'combine_error_rates']
 
+from typing import Optional
+import logging
+logger = logging.getLogger('error_rate')
+
+@dataclasses.dataclass(frozen=True)
+class SelfOverlap:
+    """
+    This class represents the self-overlap of a reference or a hypothesis
+    """
+    overlap_time: float
+    total_time: float
+
+    overlap_rate: float = dataclasses.field(init=False)
+
+    def __post_init__(self):
+        if self.overlap_time < 0:
+            raise ValueError()
+        if self.total_time < 0:
+            raise ValueError()
+
+        object.__setattr__(
+            self, 'overlap_rate',
+            self.overlap_time / self.total_time if self.total_time > 0 else 0
+        )
+
+    def __add__(self, other: 'SelfOverlap') -> 'SelfOverlap':
+        """Combines two error rates"""
+        if not isinstance(other, SelfOverlap):
+            return NotImplemented
+        return SelfOverlap(
+            self.overlap_time + other.overlap_time,
+            self.total_time + other.total_time,
+        )
+
+    def warn(self, name):
+        if self.overlap_rate > 0:
+            # TODO: what level? Is this the correct place?
+            logger.warning(
+                f'Self-overlap detected in {name}. Total overlap: '
+                f'{self.overlap_time:.2f} of {self.total_time:.2f} '
+                f'({self.overlap_rate * 100:.2f}%).'
+            )
 
 @dataclasses.dataclass(frozen=True)
 class ErrorRate:
@@ -20,6 +62,9 @@ class ErrorRate:
     deletions: int
     substitutions: int
 
+    reference_self_overlap: Optional[SelfOverlap]
+    hypothesis_self_overlap: Optional[SelfOverlap]
+
     error_rate: int = dataclasses.field(init=False)
 
     @classmethod
@@ -28,7 +73,7 @@ class ErrorRate:
         The "neutral element" for error rates.
         Useful as a starting point in sum.
         """
-        return ErrorRate(0, 0, 0, 0, 0)
+        return ErrorRate(0, 0, 0, 0, 0, None, None)
 
     def __post_init__(self):
         if self.errors < 0:
@@ -67,6 +112,8 @@ class ErrorRate:
             insertions=self.insertions + other.insertions,
             deletions=self.deletions + other.deletions,
             substitutions=self.substitutions + other.substitutions,
+            reference_self_overlap=self.reference_self_overlap + other.reference_self_overlap if self.reference_self_overlap is not None and other.reference_self_overlap is not None else None,
+            hypothesis_self_overlap=self.hypothesis_self_overlap + other.hypothesis_self_overlap if self.hypothesis_self_overlap is not None and other.hypothesis_self_overlap is not None else None,
         )
 
     @classmethod
@@ -99,6 +146,8 @@ class ErrorRate:
                 insertions=d['insertions'],
                 deletions=d['deletions'],
                 substitutions=d['substitutions'],
+                reference_self_overlap=d.get('reference_self_overlap'),
+                hypothesis_self_overlap=d.get('hypothesis_self_overlap'),
             )
 
         if d.keys() == {
@@ -117,6 +166,8 @@ class ErrorRate:
                 falarm_speaker=d['falarm_speaker'],
                 scored_speaker=d['scored_speaker'],
                 assignment=d['assignment'],
+                reference_self_overlap=d.get('reference_self_overlap'),
+                hypothesis_self_overlap=d.get('hypothesis_self_overlap'),
             )
 
         if d.keys() == {
@@ -138,6 +189,8 @@ class ErrorRate:
                 deletions=d['deletions'],
                 substitutions=d['substitutions'],
                 assignment=d['assignment'],
+                reference_self_overlap=d.get('reference_self_overlap'),
+                hypothesis_self_overlap=d.get('hypothesis_self_overlap'),
             )
         raise ValueError(d.keys(), d)
 
@@ -153,4 +206,4 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
     if len(error_rates) == 1:
         return error_rates[0]
-    return sum(error_rates, error_rates[0].zero())
+    return sum(error_rates)

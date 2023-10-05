@@ -3,14 +3,18 @@ This file contains the time-constrained minimum permutation word error rate
 """
 import itertools
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from meeteval.io.stm import STM
-from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
 from typing import List, Dict
+import logging
 
 from meeteval.wer.utils import _values, _map, _keys
+
+logger = logging.getLogger('time_constrained')
+
 
 if typing.TYPE_CHECKING:
     from meeteval._typing import TypedDict
@@ -145,6 +149,8 @@ def _time_constrained_siso_error_rate(
         insertions=result['insertions'],
         deletions=result['deletions'],
         substitutions=result['substitutions'],
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None
     )
 
 
@@ -152,9 +158,6 @@ def _time_constrained_siso_error_rate(
 class TimeMarkedTranscript:
     transcript: List[str]
     timings: List[typing.Tuple[float, float]]
-
-    def check(self, msg):
-        _check_timing_annotations(self.timings, msg)
 
     def has_self_overlaps(self):
         last_end = 0
@@ -164,14 +167,17 @@ class TimeMarkedTranscript:
             last_end = t[1]
         return False
 
-    def get_self_overlap_amount(self):
+    def get_self_overlap(self):
         last_end = 0
         self_overlap = 0
-        for t in self.timings:
+        total = 0
+        for t in sorted(self.timings):
             if last_end > t[0]:
-                self_overlap += last_end - t[0]
+                # TODO: Is this the best way to measure self-overlap?
+                self_overlap += 2 * (last_end - t[0])
             last_end = t[1]
-        return self_overlap
+            total += t[1] - t[0]
+        return SelfOverlap(self_overlap, total)
 
     @classmethod
     def create(cls, data: 'TimeMarkedTranscriptLike') -> 'TimeMarkedTranscript':
@@ -192,7 +198,6 @@ class TimeMarkedTranscript:
             [l.transcript for l in stm.lines],
             [(l.begin_time, l.end_time) for l in stm.lines],
         )
-        time_marked_transcript.check(next(iter(speaker_ids)))
         return time_marked_transcript
 
     @classmethod
@@ -205,7 +210,6 @@ class TimeMarkedTranscript:
             transcript=[s['words'] for s in data],
             timings=[(s['start_time'], s['end_time']) for s in data],
         )
-        time_marked_transcript.check(None)
         return time_marked_transcript
 
     def _repr_pretty_(self, p, cycle):
@@ -244,10 +248,13 @@ class TimeMarkedTranscript:
 TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
 
 
+def apply_collar(s: TimeMarkedTranscript, collar: float = 0):
+    return replace(s, timings=[(max(t[0] - collar, 0), t[1] + collar) for t in s.timings])
+
+
 def get_pseudo_word_level_timings(
         s: TimeMarkedTranscript,
         strategy: str,
-        collar: float = 0,
 ) -> TimeMarkedTranscript:
     """
     >>> from IPython.lib.pretty import pprint
@@ -321,7 +328,6 @@ def get_pseudo_word_level_timings(
         all_words.extend(words)
         assert len(words) == len(segment_timings), (words, segment_timings)
 
-    word_level_timings = [(max(t[0] - collar, 0), t[1] + collar) for t in word_level_timings]
     return TimeMarkedTranscript(all_words, word_level_timings)
 
 
@@ -375,46 +381,42 @@ def sort_segments(s: TimeMarkedTranscript):
     )
 
 
-def _prepare_transcript(segments, sort, pseudo_word_level_timing, collar=0):
+def sort_and_validate( segments, sort, pseudo_word_level_timing, name):
     # Check that all timings are valid
     if len(segments.transcript) != len(segments.timings):
         raise ValueError(
-            f'Number of words does not match number of timings {len(segments.transcript)} != {len(segments.timings)}')
+            f'Number of words does not match number of timings in {name}: '
+            f'{len(segments.transcript)} != {len(segments.timings)}'
+        )
 
     for t in segments.timings:
         if t[1] < t[0]:
-            raise ValueError(f'The end time of an interval must be larger than the start time. Found {t}')
+            raise ValueError(f'The end time of an interval must be larger than the start time. Found {t} in {name}')
 
     prune = True
-
-    # Find self-overlap. Print warning if self-overlap is found.
-    if segments.has_self_overlaps():
-        self_overlap_amount = segments.get_self_overlap_amount()
-
-        import warnings
-        warnings.warn(f'Found self-overlaps in transcript. Overlap amount: {self_overlap_amount}')
 
     assert sort in (True, False, 'segment', 'word')
     if sort in (True, 'segment', 'word'):
         segments = sort_segments(segments)
 
-    words = get_pseudo_word_level_timings(segments, pseudo_word_level_timing, collar)
+    words = get_pseudo_word_level_timings(segments, pseudo_word_level_timing)
+
     # Check whether words are sorted by start time
     words_sorted = sort_segments(words)
     if words_sorted != words:
         if sort is not True:
-            import warnings
-            warnings.warn(f'The order of word-level timings contradicts the segment-level order')
+            logger.warning(f'The order of word-level timings contradicts the segment-level order in {name}')
             prune = False
         else:
             raise ValueError(
-                f'The order of word-level timings contradicts the segment-level order!\n'
+                f'The order of word-level timings contradicts the segment-level order in {name}!\n'
                 f'Consider setting sort to False or "segment" or "word".\n'
             )
 
     if sort == 'word':
         words = words_sorted
         prune = True  # Pruning always works when words are sorted by start time
+
     return words, prune
 
 
@@ -450,29 +452,28 @@ def time_constrained_siso_word_error_rate(
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    try:
-        reference, _ = _prepare_transcript(reference, reference_sort, reference_pseudo_word_level_timing)
-    except ValueError as e:
-        raise ValueError(f'Invalid reference') from e
-    try:
-        hypothesis, _ = _prepare_transcript(
-            hypothesis, hypothesis_sort,
-            hypothesis_pseudo_word_level_timing, collar
-        )
-    except ValueError as e:
-        raise ValueError(f'Invalid hypothesis') from e
+    reference_, _ = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
+    hypothesis_, _ = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
 
-    return _time_constrained_siso_error_rate(
-        reference.transcript, hypothesis.transcript,
-        reference.timings, hypothesis.timings,
+    hypothesis = apply_collar(hypothesis, collar)
+
+    er = _time_constrained_siso_error_rate(
+        reference_.transcript, hypothesis_.transcript,
+        reference_.timings, hypothesis_.timings,
     )
+    er = replace(
+        er,
+        reference_self_overlap=reference.get_self_overlap(),
+        hypothesis_self_overlap=hypothesis.get_self_overlap(),
+    )
+    return er
 
 
 def time_constrained_minimum_permutation_word_error_rate(
         reference: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike] | STM',
         hypothesis: 'List[TimeMarkedTranscriptLike] | Dict[str, TimeMarkedTranscriptLike] | STM',
         reference_pseudo_word_level_timing='character_based',
-        hypothesis_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
@@ -495,7 +496,7 @@ def time_constrained_minimum_permutation_word_error_rate(
     - 'segment': sort by segment start time and don't check word order
     - 'word': sort by word start time
     """
-    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_v3
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
     from meeteval.wer.wer.cp import _cp_error_rate
 
     if isinstance(reference, STM):
@@ -507,21 +508,23 @@ def time_constrained_minimum_permutation_word_error_rate(
     hypothesis = _map(TimeMarkedTranscript.create, hypothesis)
 
     # Convert segments into lists of words and word-level timings
-    allow_prune = True
+    prune = True
+    reference_self_overlap = SelfOverlap(0, 0)
     for k in _keys(reference):
-        try:
-            reference[k], p = _prepare_transcript(reference[k], reference_sort, reference_pseudo_word_level_timing)
-            allow_prune = allow_prune and p
-        except ValueError as e:
-            raise ValueError(f'Invalid reference for speaker {k}') from e
+        reference_self_overlap += reference[k].get_self_overlap()
+        reference[k], p = sort_and_validate(
+            reference[k], reference_sort, reference_pseudo_word_level_timing, f'reference {k}'
+        )
+        prune = prune and p
 
+    hypothesis_self_overlap = SelfOverlap(0, 0)
     for k in _keys(hypothesis):
-        try:
-            hypothesis[k], p = _prepare_transcript(hypothesis[k], hypothesis_sort, hypothesis_pseudo_word_level_timing,
-                                                   collar=collar)
-            allow_prune = allow_prune and p
-        except ValueError as e:
-            raise ValueError(f'Invalid hypothesis for speaker {k}') from e
+        hypothesis_self_overlap += hypothesis[k].get_self_overlap()
+        hypothesis[k], p = sort_and_validate(
+            hypothesis[k], hypothesis_sort, hypothesis_pseudo_word_level_timing, f'hypothesis {k}'
+        )
+        hypothesis[k] = apply_collar(hypothesis[k], collar)
+        prune = prune and p
 
     sym2int = {v: i for i, v in enumerate({
         word for words in itertools.chain(_values(reference), _values(hypothesis)) for word in words.transcript
@@ -530,16 +533,23 @@ def time_constrained_minimum_permutation_word_error_rate(
     reference = _map(lambda x: TimeMarkedTranscript([sym2int[s] for s in x.transcript], x.timings), reference)
     hypothesis = _map(lambda x: TimeMarkedTranscript([sym2int[s] for s in x.transcript], x.timings), hypothesis)
 
-    return _cp_error_rate(
+    er = _cp_error_rate(
         reference, hypothesis,
-        distance_fn=lambda tt, et: time_constrained_levenshtein_distance_v3(
-            tt.transcript, et.transcript, tt.timings, et.timings
+        distance_fn=lambda tt, et: time_constrained_levenshtein_distance(
+            tt.transcript, et.transcript, tt.timings, et.timings,
+            prune=prune,
         ),
         siso_error_rate=lambda tt, et: _time_constrained_siso_error_rate(
             tt.transcript, et.transcript, tt.timings, et.timings
         ),
         missing=TimeMarkedTranscript([], []),
     )
+    er = replace(
+        er,
+        reference_self_overlap=reference_self_overlap,
+        hypothesis_self_overlap=hypothesis_self_overlap,
+    )
+    return er
 
 
 tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
@@ -548,7 +558,7 @@ tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
 def tcp_word_error_rate_stm(
         reference_stm: 'STM', hypothesis_stm: 'STM',
         reference_pseudo_word_level_timing='character_based',
-        hypothesis_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
@@ -560,7 +570,7 @@ def tcp_word_error_rate_stm(
     To compute the overall WER, use `sum(tcp_word_error_rate_stm(r, h).values())`.
     """
     from meeteval.io.stm import apply_stm_multi_file
-    return apply_stm_multi_file(lambda r, h: time_constrained_minimum_permutation_word_error_rate(
+    r = apply_stm_multi_file(lambda r, h: time_constrained_minimum_permutation_word_error_rate(
         r, h,
         reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
         hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
@@ -568,6 +578,7 @@ def tcp_word_error_rate_stm(
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
     ), reference_stm, hypothesis_stm)
+    return r
 
 
 def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'):
@@ -580,7 +591,7 @@ def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'
 def align(
         reference: TimeMarkedTranscriptLike, hypothesis: TimeMarkedTranscriptLike,
         reference_pseudo_word_level_timing='character_based',
-        hypothesis_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
         style='words',
         reference_sort='segment',
@@ -622,31 +633,26 @@ def align(
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    try:
-        reference_, _ = _prepare_transcript(reference, reference_sort, reference_pseudo_word_level_timing)
-    except ValueError as e:
-        raise ValueError('Invalid reference') from e
-    try:
-        hypothesis_, _ = _prepare_transcript(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, collar)
-    except ValueError as e:
-        raise ValueError('Invalid hypothesis') from e
+    sort_and_validate = SortAndValidate()
+    reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
+    hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
 
+    hypothesis_ = apply_collar(hypothesis)
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
     alignment = time_constrained_levenshtein_distance_with_alignment(
-        reference_.transcript, hypothesis_.transcript,
-        reference_.timings, hypothesis_.timings,
+        reference.transcript, hypothesis_.transcript,
+        reference.timings, hypothesis_.timings,
     )['alignment']
 
     if style in ('kaldi', 'words'):
-        alignment = index_alignment_to_kaldi_alignment(alignment, reference_.transcript, hypothesis_.transcript)
+        alignment = index_alignment_to_kaldi_alignment(alignment, reference.transcript, hypothesis.transcript)
     elif style == 'words_and_times':
-        hypothesis_, _ = _prepare_transcript(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, collar=0)
-        reference_ = list(zip(reference_.transcript, reference_.timings))
-        hypothesis_ = list(zip(hypothesis_.transcript, hypothesis_.timings))
+        reference = list(zip(reference.transcript, reference.timings))
+        hypothesis = list(zip(hypothesis.transcript, hypothesis.timings))
 
         alignment = [
-            (('*', hypothesis_[b][1]) if a is None else reference_[a],
-             ('*', reference_[a][1]) if b is None else hypothesis_[b])
+            (('*', hypothesis[b][1]) if a is None else reference[a],
+             ('*', reference[a][1]) if b is None else hypothesis[b])
             for a, b in alignment
         ]
     elif style != 'index':
