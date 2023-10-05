@@ -1,7 +1,11 @@
+import typing
 from typing import List, Hashable, Dict
 
 from meeteval.io.keyed_text import KeyedText
 from meeteval.wer.wer.error_rate import ErrorRate
+
+if typing.TYPE_CHECKING:
+    from meeteval.io.stm import STM
 
 __all__ = ['siso_word_error_rate', 'siso_character_error_rate', 'siso_word_error_rate_keyed_text']
 
