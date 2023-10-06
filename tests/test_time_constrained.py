@@ -227,14 +227,14 @@ def test_time_constrained_sorting_options():
     assert er.error_rate == 0.25
 
     # False means the user provides the sorting, so we can pass anything
-    r1 = TimeMarkedTranscript(['e f g h', 'a b c d'], [(4, 7), (0, 3)])
-    r2 = TimeMarkedTranscript(['a b c d e f g h'], [(0, 7)])
+    r1 = TimeMarkedTranscript(['e f g h', 'a b c d'], [(4, 8), (0, 4)])
+    r2 = TimeMarkedTranscript(['a b c d e f g h'], [(0, 8)])
     er = time_constrained_minimum_permutation_word_error_rate(
         [r1], [r2], reference_sort='segment',
     )
-    assert er.error_rate == 0.5
+    assert er.error_rate == 0
 
     er = time_constrained_minimum_permutation_word_error_rate(
         [r1], [r2], reference_sort=False, hypothesis_sort=False,
     )
-    assert er.error_rate == 1.25
+    assert er.error_rate == 1
