@@ -13,7 +13,6 @@ MeetEval supports the following metrics for meeting transcription evaluation:
 - Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER)
 - [Time-Constrained minimum-Permutation Word Error Rate (tcpWER)](/doc/tcpwer.md)
 
-
 ## Installation
 
 You need to have [Cython](https://cython.org/) installed.
@@ -140,11 +139,23 @@ Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges th
 
 ## Cite
 
+The toolkit and the tcpWER were presented at the CHiME-2023 workshop (Computational Hearing in Multisource Environments) with the paper 
+["MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems"](https://arxiv.org/abs/2307.11394).
+
+```bibtex
+@InProceedings{MeetEval23,
+  title={MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems},
+  author={von Neumann, Thilo and Boeddeker, Christoph and Delcroix, Marc and Haeb-Umbach, Reinhold},
+  booktitle={CHiME-2023 Workshop, Dublin, England},
+  year={2023}
+}
+```
+
 The MIMO WER and efficient implementation of ORC WER are presented in the paper 
 ["On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems"](https://ieeexplore.ieee.org/iel7/10094559/10094560/10094784.pdf).
 
 ```bibtex
-@InProceedings{MeetEval23,
+@InProceedings{MIMO23,
   author       = {von Neumann, Thilo and Boeddeker, Christoph and Kinoshita, Keisuke and Delcroix, Marc and Haeb-Umbach, Reinhold},
   title        = {On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems},
   booktitle    = {ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
