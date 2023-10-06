@@ -249,7 +249,7 @@ TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
 
 
 def apply_collar(s: TimeMarkedTranscript, collar: float):
-    return replace(s, timings=[(max(t[0] - collar, 0), t[1] + collar) for t in s.timings])
+    return replace(s, timings=[(t[0] - collar, t[1] + collar) for t in s.timings])
 
 
 def get_pseudo_word_level_timings(
