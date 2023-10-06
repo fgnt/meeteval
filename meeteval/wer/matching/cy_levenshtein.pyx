@@ -164,10 +164,7 @@ cdef uint _time_constrained_levenshtein_distance(
     # Dispatch to the correct implementation
     if prune == 'auto':
         prune = _timings_sorted(reference_timing) and _timings_sorted(hypothesis_timing)
-        logging.debug(
-            f'prune is set to "auto". '
-            f'Using {"pruned" if prune else "unpruned"} implementation of time_constrained_levenshtein_distance'
-        )
+        logging.debug(f'prune is set to "auto". Using prune={prune!r}.')
     if prune:
         return time_constrained_levenshtein_distance_v2_(
             reference, hypothesis,
