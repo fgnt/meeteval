@@ -11,10 +11,11 @@ class SelfOverlap:
     """
     This class represents the self-overlap of a reference or a hypothesis
     """
+    overlap_rate: float = dataclasses.field(init=False)
+
     overlap_time: float
     total_time: float
 
-    overlap_rate: float = dataclasses.field(init=False)
 
     def __post_init__(self):
         if self.overlap_time < 0:
@@ -136,7 +137,7 @@ class ErrorRate:
         >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, 0, 0, 1, None, None, [(0, 1)])))
         MimoErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=[(0, 1)])
         >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1, SelfOverlap(10, 100), SelfOverlap(0, 90))))
-        ErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=SelfOverlap(overlap_time=10, total_time=100, overlap_rate=0.1), hypothesis_self_overlap=SelfOverlap(overlap_time=0, total_time=90, overlap_rate=0.0))
+        ErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=SelfOverlap(overlap_rate=0.1, overlap_time=10, total_time=100), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=90))
         """
         # For backward compatibility, set default values.
         d.setdefault('insertions', None)
