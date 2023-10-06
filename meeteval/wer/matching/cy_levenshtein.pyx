@@ -5,6 +5,7 @@ from libcpp.vector cimport vector
 from libcpp.pair cimport pair
 from libcpp cimport bool
 ctypedef unsigned int uint
+import logging
 
 
 cdef extern from "levenshtein.h":
@@ -18,17 +19,6 @@ cdef extern from "levenshtein.h":
     uint levenshtein_distance_custom_cost_(
             vector[uint] reference,
             vector[uint] hypothesis,
-            uint cost_del,
-            uint cost_ins,
-            uint cost_sub,
-            uint cost_cor,
-    )
-
-    uint time_constrained_levenshtein_distance_[T](
-            vector[uint] reference,
-            vector[uint] hypothesis,
-            vector[pair[T, T]] reference_timing,
-            vector[pair[T, T]] hypothesis_timing,
             uint cost_del,
             uint cost_ins,
             uint cost_sub,
@@ -84,22 +74,42 @@ def obj2vec(*args):
     return [[sym2int[a_] for a_ in a] for a in args]
 
 
-def _validate_costs(cost_del, cost_ins, cost_sub, cost_cor):
-    if not (isinstance(cost_del, int) and isinstance(cost_ins, int) and isinstance(cost_sub, int) and isinstance(
-            cost_cor, int)):
+cdef _validate_costs(cost_del, cost_ins, cost_sub, cost_cor):
+    if (
+            not (
+                    isinstance(cost_del, int)
+                    and isinstance(cost_ins, int)
+                    and isinstance(cost_sub, int)
+                    and isinstance(cost_cor, int)
+            ) or cost_del < 0 or cost_ins < 0 or cost_sub < 0 or cost_cor < 0
+        ):
         raise ValueError(
             f'Only unsigned integer costs are supported, but found cost_del={cost_del}, '
             f'cost_ins={cost_ins}, cost_sub={cost_sub}, cost_cor={cost_cor}'
         )
 
+
 def levenshtein_distance(
-        reference,
-        hypothesis,
+        reference,  # list[Hashable]
+        hypothesis,  # list[Hashable]
         cost_del=1,
         cost_ins=1,
         cost_sub=1,
         cost_cor=0,
 ):
+    """
+    Compute the standard Levenshtein distance.
+
+    The `reference` and `hypothesis` sequences can be any sequences of hashable objects.
+
+    Args:
+        reference: Reference sequence.
+        hypothesis: Hypothesis sequence.
+        cost_del: cost of a deletion. Must be a non-negative integer.
+        cost_ins: cost of an insertion. Must be a non-negative integer.
+        cost_sub: cost of a substitution. Must be a non-negative integer.
+        cost_cor: cost of a correct match. Must be a non-negative integer.
+    """
     reference, hypothesis = obj2vec(reference, hypothesis)
     if cost_del == 1 and cost_ins == 1 and cost_sub == 1 and cost_cor == 0:
         # This is the fast case where we can use the standard optimized algorithm
@@ -112,19 +122,33 @@ def levenshtein_distance(
     )
 
 
-cdef _timing_is_integer(timing):
+cdef bool _timing_is_integer(timing):
     return all(isinstance(t[0], int) and isinstance(t[1], int) for t in timing)
 
-def time_constrained_levenshtein_distance(
+ctypedef fused timing_type:
+    int
+    double
+
+cdef bool _timings_sorted(vector[pair[timing_type, timing_type]] timing):
+    cdef timing_type last_begin = 0
+    cdef pair[timing_type, timing_type] t
+    for t in timing:
+        if t.first < last_begin:
+            return False
+        last_begin = t.first
+    return True
+
+
+cdef uint _time_constrained_levenshtein_distance(
         reference,  # list[int]
         hypothesis,  # list[int]
-        reference_timing,  # list[tuple[int, int]]
-        hypothesis_timing,  # list[tuple[int, int]]
-        cost_del: uint = 1,
-        cost_ins: uint = 1,
-        cost_sub: uint = 1,
-        cost_cor: uint = 0,
-        prune: bool = True
+        reference_timing: vector[pair[timing_type, timing_type]],  # list[tuple[int, int]]
+        hypothesis_timing: vector[pair[timing_type, timing_type]],  # list[tuple[int, int]]
+        cost_del = 1,
+        cost_ins = 1,
+        cost_sub = 1,
+        cost_cor = 0,
+        prune = 'auto'
 ):
     _validate_costs(cost_del, cost_ins, cost_sub, cost_cor)
 
@@ -137,27 +161,74 @@ def time_constrained_levenshtein_distance(
     # Convert to vectors of integers for the C++ implementation
     reference, hypothesis = obj2vec(reference, hypothesis)
 
-    args = (reference, hypothesis,
+    # Dispatch to the correct implementation
+    if prune == 'auto':
+        prune = _timings_sorted(reference_timing) and _timings_sorted(hypothesis_timing)
+        logging.debug(
+            f'prune is set to "auto". '
+            f'Using {"pruned" if prune else "unpruned"} implementation of time_constrained_levenshtein_distance'
+        )
+    if prune:
+        return time_constrained_levenshtein_distance_v2_(
+            reference, hypothesis,
             reference_timing,
             hypothesis_timing,
             cost_del,
             cost_ins,
             cost_sub,
-            cost_cor,)
-
-    # Dispatch to the correct implementation
-    if prune:
-        if _timing_is_integer(reference_timing) and _timing_is_integer(hypothesis_timing):
-            return time_constrained_levenshtein_distance_v2_[int](*args)
-        else:
-            return time_constrained_levenshtein_distance_v2_[double](*args)
+            cost_cor,
+        )
     else:
-        if _timing_is_integer(reference_timing) and _timing_is_integer(hypothesis_timing):
-            return time_constrained_levenshtein_distance_unoptimized_[int](*args)
-        else:
-            return time_constrained_levenshtein_distance_unoptimized_[double](*args)
+        return time_constrained_levenshtein_distance_unoptimized_(
+            reference, hypothesis,
+            reference_timing,
+            hypothesis_timing,
+            cost_del,
+            cost_ins,
+            cost_sub,
+            cost_cor,
+        )
 
+def time_constrained_levenshtein_distance(
+        reference,  # list[Hashable]
+        hypothesis,  # list[Hashable]
+        reference_timing,  # list[tuple[int, int]]
+        hypothesis_timing,  # list[tuple[int, int]]
+        cost_del = 1,
+        cost_ins = 1,
+        cost_sub = 1,
+        cost_cor = 0,
+        prune = 'auto'
+) -> uint:
+    """
+    Compute the time-constrained Levenshtein distance between two sequences.
 
+    Args:
+        reference: The reference sequence.
+        hypothesis: The hypothesis sequence.
+        reference_timing: The reference sequence timings. A list of pairs of numbers, where each pair represents the
+            start and end time of a token in the reference sequence.
+        hypothesis_timing: The hypothesis sequence timings. A list of pairs of numbers, where each pair represents the
+            start and end time of a token in the hypothesis sequence.
+        cost_del: The cost of a deletion. Must be a non-negative integer.
+        cost_ins: The cost of an insertion. Must be a non-negative integer.
+        cost_sub: The cost of a substitution. Must be a non-negative integer.
+        cost_cor: The cost of a correct match. Must be a non-negative integer.
+        prune: Can be `True`, `False` or `"auto"`. If set to `"auto"`, it will be set to `True` if the timings are
+            sorted, and `False` otherwise. If set to `True`, the algorithm will be faster, but will not work if the
+            timings are not sorted.
+    """
+    # Select the correct dtype for automatic conversion
+    if _timing_is_integer(reference_timing) and _timing_is_integer(hypothesis_timing):
+        return _time_constrained_levenshtein_distance[int](
+            reference, hypothesis, reference_timing, hypothesis_timing,
+            cost_del, cost_ins, cost_sub, cost_cor, prune
+        )
+    else:
+        return _time_constrained_levenshtein_distance[double](
+            reference, hypothesis, reference_timing, hypothesis_timing,
+            cost_del, cost_ins, cost_sub, cost_cor, prune
+        )
 
 def time_constrained_levenshtein_distance_with_alignment(
         reference,  # list[int]
@@ -190,24 +261,13 @@ def time_constrained_levenshtein_distance_with_alignment(
             'substitutions': 0,
         }
 
-    map2int = False
-    if len(reference) and isinstance(reference[0], int) or len(hypothesis) and isinstance(hypothesis[0], int):
-        assert len(reference) == 0 or isinstance(reference[0], int), reference
-        assert len(hypothesis) == 0 or isinstance(hypothesis[0], int), hypothesis
-        reference_ = reference
-        hypothesis_ = hypothesis
-    else:
-        map2int = True
-        int2sym = dict(enumerate(sorted(set(reference) | set(hypothesis))))
-        sym2int = {v: k for k, v in int2sym.items()}
-        reference_ = [sym2int[a_] for a_ in reference]
-        hypothesis_ = [sym2int[b_] for b_ in hypothesis]
+    reference, hypothesis = obj2vec(reference, hypothesis)
 
-    cdef LevenshteinStatistics statistics
+    cdef dict statistics
 
     if _timing_is_integer(reference_timing) and _timing_is_integer(hypothesis_timing):
         statistics = time_constrained_levenshtein_distance_with_alignment_[int](
-            reference_, hypothesis_,
+            reference, hypothesis,
             reference_timing,
             hypothesis_timing,
             cost_del,
@@ -217,7 +277,7 @@ def time_constrained_levenshtein_distance_with_alignment(
         )
     else:
         statistics = time_constrained_levenshtein_distance_with_alignment_[double](
-            reference_, hypothesis_,
+            reference, hypothesis,
             reference_timing,
             hypothesis_timing,
             cost_del,
@@ -228,16 +288,15 @@ def time_constrained_levenshtein_distance_with_alignment(
 
     # Translate sentinel to None
     # This is hacky, but we want to support c++11, which doesn't have std::optional
-    py_statistics: dict = statistics
-    py_statistics['alignment'] = [
+    statistics['alignment'] = [
         (
             None if a == ALIGNMENT_EPS else a,
             None if b == ALIGNMENT_EPS else b,
          )
-        for (a, b) in py_statistics['alignment']
+        for (a, b) in statistics['alignment']
     ]
 
-    return py_statistics
+    return statistics
 
 import numpy as np
 

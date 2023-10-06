@@ -381,7 +381,7 @@ def sort_segments(s: TimeMarkedTranscript):
     )
 
 
-def sort_and_validate( segments, sort, pseudo_word_level_timing, name):
+def sort_and_validate(segments, sort, pseudo_word_level_timing, name):
     # Check that all timings are valid
     if len(segments.transcript) != len(segments.timings):
         raise ValueError(
@@ -393,9 +393,9 @@ def sort_and_validate( segments, sort, pseudo_word_level_timing, name):
         if t[1] < t[0]:
             raise ValueError(f'The end time of an interval must be larger than the start time. Found {t} in {name}')
 
-    prune = True
+    if sort not in (True, False, 'segment', 'word'):
+        raise ValueError(f'Invalid value for sort: {sort}')
 
-    assert sort in (True, False, 'segment', 'word')
     if sort in (True, 'segment', 'word'):
         segments = sort_segments(segments)
 
@@ -403,6 +403,7 @@ def sort_and_validate( segments, sort, pseudo_word_level_timing, name):
 
     # Check whether words are sorted by start time
     words_sorted = sort_segments(words)
+    prune = True
     if words_sorted != words:
         if sort is not True:
             logger.warning(f'The order of word-level timings contradicts the segment-level order in {name}')
@@ -462,6 +463,8 @@ def time_constrained_siso_word_error_rate(
         reference_.transcript, hypothesis_.transcript,
         reference_.timings, hypothesis_.timings,
     )
+    # pseudo_word_level_timing and collar change the time stamps,
+    # hence calculate the overlap with the original time stamps
     er = replace(
         er,
         reference_self_overlap=reference.get_self_overlap(),
