@@ -168,15 +168,49 @@ class TimeMarkedTranscript:
         return False
 
     def get_self_overlap(self):
-        last_end = 0
+        """
+        Returns the self-overlap of the transcript.
+
+        ▇
+         ▇
+          ▇
+        >>> TimeMarkedTranscript(['a', 'b', 'c'], [(0, 1), (1, 2), (2, 3)]).get_self_overlap()
+        SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=3)
+
+        ▇
+        ▇
+        >>> TimeMarkedTranscript(['a', 'b'], [(0,1), (0,1)]).get_self_overlap()
+        SelfOverlap(overlap_rate=1.0, overlap_time=1, total_time=1)
+
+        ▇
+        ▇
+        ▇
+        >>> TimeMarkedTranscript(['a', 'b', 'c'], [(0,1), (0,1), (0,1)]).get_self_overlap()
+        SelfOverlap(overlap_rate=2.0, overlap_time=2, total_time=1)
+
+        ▇▇▇▇▇▇▇▇▇▇
+         ▇
+           ▇
+        >>> TimeMarkedTranscript(['a', 'b', 'c'], [(0,10), (1,2), (3,4)]).get_self_overlap()
+        SelfOverlap(overlap_rate=0.2, overlap_time=2, total_time=10)
+
+        ▇▇▇▇
+         ▇▇
+          ▇▇▇
+        >>> TimeMarkedTranscript(['a', 'b', 'c'], [(0,4), (1,3), (2,5)]).get_self_overlap()
+        SelfOverlap(overlap_rate=0.8, overlap_time=4, total_time=5)
+
+        >>> TimeMarkedTranscript(['a', 'b', 'c'], [(0, 1), (0.5, 1.5), (1, 2)]).get_self_overlap()
+        SelfOverlap(overlap_rate=0.5, overlap_time=1.0, total_time=2.0)
+        """
+        latest_end = 0
         self_overlap = 0
         total = 0
         for t in sorted(self.timings):
-            if last_end > t[0]:
-                # TODO: Is this the best way to measure self-overlap?
-                self_overlap += 2 * (last_end - t[0])
-            last_end = t[1]
-            total += t[1] - t[0]
+            if latest_end > t[0]:
+                self_overlap += min(latest_end, t[1]) - t[0]
+            total += max(0, t[1] - latest_end)
+            latest_end = max(latest_end, t[1])
         return SelfOverlap(self_overlap, total)
 
     @classmethod
@@ -449,7 +483,7 @@ def time_constrained_siso_word_error_rate(
     - 'word': sort by word start time
 
     >>> time_constrained_siso_word_error_rate(TimeMarkedTranscript(['a b', 'c d'], [(0,2), (0,2)]), TimeMarkedTranscript(['a'], [(0,1)]))
-    ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=1.0, overlap_time=4, total_time=4), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1))
+    ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=1.0, overlap_time=2, total_time=2), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1))
     """
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
