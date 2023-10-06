@@ -4,7 +4,9 @@ __all__ = ['ErrorRate', 'combine_error_rates']
 
 from typing import Optional
 import logging
+
 logger = logging.getLogger('error_rate')
+
 
 @dataclasses.dataclass(frozen=True)
 class SelfOverlap:
@@ -15,7 +17,6 @@ class SelfOverlap:
 
     overlap_time: float
     total_time: float
-
 
     def __post_init__(self):
         if self.overlap_time < 0:
@@ -50,7 +51,8 @@ class SelfOverlap:
                 f'({self.overlap_rate * 100:.2f}%).'
             )
 
-@dataclasses.dataclass(frozen=True)
+
+@dataclasses.dataclass(frozen=True, repr=False)
 class ErrorRate:
     """
     This class represents an error rate. It bundles statistics over the errors
@@ -71,7 +73,6 @@ class ErrorRate:
 
     reference_self_overlap: Optional[SelfOverlap]
     hypothesis_self_overlap: Optional[SelfOverlap]
-
 
     @classmethod
     def zero(cls):
@@ -126,16 +127,16 @@ class ErrorRate:
     def from_dict(self, d: dict):
         """
         >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1, None, None)))
-        ErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None)
+        ErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1)
         >>> from meeteval.wer.wer.cp import CPErrorRate
         >>> ErrorRate.from_dict(dataclasses.asdict(CPErrorRate(1, 1, 0, 0, 1, None, None, 1, 1, 1)))
-        CPErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=1, falarm_speaker=1, scored_speaker=1, assignment=None)
+        CPErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, missed_speaker=1, falarm_speaker=1, scored_speaker=1)
         >>> from meeteval.wer.wer.orc import OrcErrorRate
         >>> ErrorRate.from_dict(dataclasses.asdict(OrcErrorRate(1, 1, 0, 0, 1, None, None, (0, 1))))
-        OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=(0, 1))
+        OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, assignment=(0, 1))
         >>> from meeteval.wer.wer.mimo import MimoErrorRate
         >>> ErrorRate.from_dict(dataclasses.asdict(MimoErrorRate(1, 1, 0, 0, 1, None, None, [(0, 1)])))
-        MimoErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=[(0, 1)])
+        MimoErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, assignment=[(0, 1)])
         >>> ErrorRate.from_dict(dataclasses.asdict(ErrorRate(1, 1, 0, 0, 1, SelfOverlap(10, 100), SelfOverlap(0, 90))))
         ErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=0, substitutions=1, reference_self_overlap=SelfOverlap(overlap_rate=0.1, overlap_time=10, total_time=100), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=90))
         """
@@ -212,15 +213,25 @@ class ErrorRate:
             )
         raise ValueError(d.keys(), d)
 
+    def __repr__(self):
+        return (
+                self.__class__.__qualname__ + '(' +
+                ', '.join([
+                    f"{f.name}={getattr(self, f.name)!r}"
+                    for f in dataclasses.fields(self)
+                    if getattr(self, f.name) is not None
+                ]) + ')'
+        )
+
 
 def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None), ErrorRate(0, 10, 0, 0, 0, None, None))
-    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10, reference_self_overlap=None, hypothesis_self_overlap=None)
+    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None))
-    ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10, reference_self_overlap=None, hypothesis_self_overlap=None)
+    ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10)
     >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10, None, None)]*10))
-    ErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100, reference_self_overlap=None, hypothesis_self_overlap=None)
+    ErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100)
     """
     if len(error_rates) == 1:
         return error_rates[0]

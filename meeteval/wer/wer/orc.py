@@ -10,13 +10,13 @@ from meeteval.io.stm import STM
 __all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm', 'apply_orc_assignment']
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, repr=False)
 class OrcErrorRate(ErrorRate):
     """
     >>> OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1))
-    OrcErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=(0, 1))
+    OrcErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0, assignment=(0, 1))
     >>> OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1)) + OrcErrorRate(10, 10, 0, 0, 10, None, None, (1, 0, 1))
-    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10, reference_self_overlap=None, hypothesis_self_overlap=None)
+    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
     assignment: Tuple[int, ...]
 
@@ -103,22 +103,22 @@ def orc_word_error_rate(
 
     # All correct on a single channel
     >>> orc_word_error_rate(['a b', 'c d', 'e f'], ['a b c d e f'])
-    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=(0, 0, 0))
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=(0, 0, 0))
 
     # All correct on two channels
     >>> orc_word_error_rate(['a b', 'c d', 'e f'], ['a b', 'c d e f'])
-    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=(0, 1, 1))
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=(0, 1, 1))
 
     # One utterance is split
     >>> er = orc_word_error_rate(['a', 'c d', 'e'], ['a c', 'd e'])
     >>> er
-    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=(0, 0, 1))
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=(0, 0, 1))
     >>> er.apply_assignment(['a', 'c d', 'e'], ['a c', 'd e'])
     ([['a', 'c d'], ['e']], ['a c', 'd e'])
 
     >>> er = orc_word_error_rate(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     >>> er
-    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=('A', 'A', 'B'))
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=('A', 'A', 'B'))
     >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
     """

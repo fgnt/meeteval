@@ -13,17 +13,17 @@ from meeteval.wer.utils import _items, _values, _keys, _map
 __all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_stm']
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, repr=False)
 class CPErrorRate(ErrorRate):
     """
     Error rate statistics wrapper for the cpWER. Tracks the number of missed,
     false-allarm and scored speakers in addition to word-level errors.
 
     >>> CPErrorRate(0, 10, 0, 0, 0, None, None, 1, 0, 3)
-    CPErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=None)
+    CPErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0, missed_speaker=1, falarm_speaker=0, scored_speaker=3)
     >>> from meeteval.wer.wer.error_rate import combine_error_rates
     >>> combine_error_rates(CPErrorRate(0, 10, 0, 0, 0, None, None, 1, 0, 3), CPErrorRate(5, 10, 0, 0, 5, None, None, 0, 1, 3))
-    CPErrorRate(error_rate=0.25, errors=5, length=20, insertions=0, deletions=0, substitutions=5, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=1, falarm_speaker=1, scored_speaker=6, assignment=None)
+    CPErrorRate(error_rate=0.25, errors=5, length=20, insertions=0, deletions=0, substitutions=5, missed_speaker=1, falarm_speaker=1, scored_speaker=6)
     """
     missed_speaker: int
     falarm_speaker: int
@@ -125,34 +125,34 @@ def cp_word_error_rate(
     individually makes when averaging over multiple examples.
 
     >>> cp_word_error_rate(['a b c', 'd e f'], ['a b c', 'd e f'])
-    CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
+    CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     >>> cp_word_error_rate(['a b', 'c d'], ['a b', 'c d', 'e f'])
-    CPErrorRate(error_rate=0.5, errors=2, length=4, insertions=2, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=0, falarm_speaker=1, scored_speaker=2, assignment=((0, 0), (1, 1), (None, 2)))
+    CPErrorRate(error_rate=0.5, errors=2, length=4, insertions=2, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=1, scored_speaker=2, assignment=((0, 0), (1, 1), (None, 2)))
     >>> cp_word_error_rate(['a', 'b', 'c d'], ['a', 'b'])
-    CPErrorRate(error_rate=0.5, errors=2, length=4, insertions=0, deletions=2, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=((0, 0), (1, 1), (2, None)))
+    CPErrorRate(error_rate=0.5, errors=2, length=4, insertions=0, deletions=2, substitutions=0, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=((0, 0), (1, 1), (2, None)))
 
     >>> cp_word_error_rate({'r0': 'a', 'r1': 'b', 'r2': 'c d'}, {'h0': 'a', 'h1': 'b'})
-    CPErrorRate(error_rate=0.5, errors=2, length=4, insertions=0, deletions=2, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=(('r0', 'h0'), ('r1', 'h1'), ('r2', None)))
+    CPErrorRate(error_rate=0.5, errors=2, length=4, insertions=0, deletions=2, substitutions=0, missed_speaker=1, falarm_speaker=0, scored_speaker=3, assignment=(('r0', 'h0'), ('r1', 'h1'), ('r2', None)))
     >>> er = cp_word_error_rate({'r0': 'a', 'r1': 'b', 'r2': 'c'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
     >>> er
-    CPErrorRate(error_rate=0.3333333333333333, errors=1, length=3, insertions=1, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=0, falarm_speaker=1, scored_speaker=3, assignment=(('r0', 'h3'), ('r1', 'h0'), ('r2', 'h1'), (None, 'h2')))
+    CPErrorRate(error_rate=0.3333333333333333, errors=1, length=3, insertions=1, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=1, scored_speaker=3, assignment=(('r0', 'h3'), ('r1', 'h0'), ('r2', 'h1'), (None, 'h2')))
     >>> er.apply_assignment({'r0': 'a', 'r1': 'b', 'r2': 'c'}, {'h0': 'b', 'h1': 'c', 'h2': 'd', 'h3': 'a'})
     ({'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': ''}, {'r0': 'a', 'r1': 'b', 'r2': 'c', 'a': 'd'})
 
     >>> cp_word_error_rate({'r0': 'a b'}, {'h0': 'z', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
-    CPErrorRate(error_rate=1.5, errors=3, length=2, insertions=2, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
+    CPErrorRate(error_rate=1.5, errors=3, length=2, insertions=2, deletions=0, substitutions=1, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
 
     >>> cp_word_error_rate({'r0': 'a b', 'r1': 'k'}, {'h0': ' ', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
-    CPErrorRate(error_rate=1.0, errors=3, length=3, insertions=1, deletions=1, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=(('r0', 'h1'), ('r1', 'h0')))
+    CPErrorRate(error_rate=1.0, errors=3, length=3, insertions=1, deletions=1, substitutions=1, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=(('r0', 'h1'), ('r1', 'h0')))
 
     >>> from meeteval.io import STM, STMLine
     >>> r = STM([STMLine.parse('file1 0 r0 0 1 Hello World')])
     >>> h = STM([STMLine.parse('file1 0 h0 0 1 Hello World')])
     >>> cp_word_error_rate(r, h)
-    CPErrorRate(error_rate=0.0, errors=0, length=2, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=0, falarm_speaker=0, scored_speaker=1, assignment=(('r0', 'h0'),))
+    CPErrorRate(error_rate=0.0, errors=0, length=2, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=1, assignment=(('r0', 'h0'),))
 
     >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
-    CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
+    CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     """
     import meeteval.io
 
