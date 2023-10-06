@@ -428,7 +428,7 @@ def sort_and_validate(segments, sort, pseudo_word_level_timing, name):
             raise ValueError(f'The end time of an interval must be larger than the start time. Found {t} in {name}')
 
     if sort not in (True, False, 'segment', 'word'):
-        raise ValueError(f'Invalid value for sort: {sort}')
+        raise ValueError(f'Invalid value for sort: {sort}. Choose one of True, False, "segment", "word"')
 
     if sort in (True, 'segment', 'word'):
         segments = sort_segments(segments)
@@ -439,14 +439,16 @@ def sort_and_validate(segments, sort, pseudo_word_level_timing, name):
     words_sorted = sort_segments(words)
     prune = True
     if words_sorted != words:
+        contradictions = [a != b for a, b in zip(words_sorted.transcript, words.transcript)]
+        msg = (
+            f'The order of word-level timings contradicts the segment-level order in {name}: '
+            f'{sum(contradictions)} of {len(contradictions)} times.'
+        )
         if sort is not True:
-            logger.warning(f'The order of word-level timings contradicts the segment-level order in {name}')
+            logger.warning(msg)
             prune = False
         else:
-            raise ValueError(
-                f'The order of word-level timings contradicts the segment-level order in {name}!\n'
-                f'Consider setting sort to False or "segment" or "word".\n'
-            )
+            raise ValueError(f'{msg}\nConsider setting sort to False or "segment" or "word".\n')
 
     if sort == 'word':
         words = words_sorted
