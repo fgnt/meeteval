@@ -2,6 +2,7 @@ import argparse
 import dataclasses
 import glob
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -46,7 +47,7 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
             raise NotImplementedError(f'Unknown file ext: {suffix}')
 
     if path.stem != '-':
-        print(f'Wrote: {path}', file=sys.stderr)
+        logging.info(f'Wrote: {path}')
 
 
 def _load(path: Path):
@@ -170,6 +171,7 @@ def _save_results(
         dataclasses.asdict(average),
         average_out.format(parent=f'{parent}/', stem=stem),
     )
+    return average
 
 
 def wer(
@@ -244,9 +246,8 @@ def tcpwer(
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
-        verbose=False,
-        allow_hypothesis_speaker_self_overlap=False,
-        reference_overlap_correction=False,
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer.time_constrained import tcp_word_error_rate_stm
@@ -257,10 +258,13 @@ def tcpwer(
         reference_pseudo_word_level_timing=ref_pseudo_word_timing,
         hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
         collar=collar,
-        allow_hypothesis_speaker_self_overlap=allow_hypothesis_speaker_self_overlap,
-        reference_overlap_correction=reference_overlap_correction
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
     )
-    _save_results(results, hypothesis_paths, per_reco_out, average_out)
+
+    average = _save_results(results, hypothesis_paths, per_reco_out, average_out)
+    average.hypothesis_self_overlap.warn('hypothesis')
+    average.reference_self_overlap.warn('reference')
 
 
 def _merge(
@@ -312,6 +316,14 @@ def cli():
     # Define argument parser and commands
     parser = argparse.ArgumentParser()
     parser.add_argument('--version', action='store_true', help='Show version')
+
+    # Logging and verbosity
+    logging.addLevelName(100, 'SILENT')     # Add a level that creates no output
+    parser.add_argument(
+        '--log-level', help='Log level', default='WARNING',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'SILENT']
+    )
+
     commands = parser.add_subparsers(title='Subcommands')
 
     def positive_number(x: str):
@@ -337,6 +349,7 @@ def cli():
             action='help',
             default=argparse.SUPPRESS,
         )
+
         # Get arguments from signature
         import inspect
         parameters = inspect.signature(fn).parameters
@@ -347,12 +360,14 @@ def cli():
                     '-r', '--reference',
                     help='Reference file(s) in STM or CTM format',
                     nargs='+', action='append',
+                    required=True,
                 )
             elif name == 'hypothesis':
                 command_parser.add_argument(
                     '-h', '--hypothesis',
                     help='Hypothesis file(s) in STM or CTM format',
                     nargs='+', action='append',
+                    required=True,
                 )
             elif name == 'average_out':
                 command_parser.add_argument(
@@ -415,25 +430,30 @@ def cli():
                          'none: Do not estimate word-level timings but assume that the provided timings are already '
                          'given on a word level.'
                 )
-            elif name == 'allow_hypothesis_speaker_self_overlap':
+            elif name == 'reference_sort':
                 command_parser.add_argument(
-                    '--allow-hypothesis-speaker-self-overlap', action='store_true',
-                    help='Allow speaker self-overlap in the hypothesis. '
-                         'This can change the order of words, so it is not recommended to use this option. '
-                         'You may set it when you are too lazy to fix your system or you want to get a preview '
-                         'of the WER, but a valid recognition system should in general never produce self-overlap.'
-                         'It is not guaranteed that the returned WER is correct if this option is set!'
+                    '--reference-sort', choices=[True, False, 'word', 'segment'],
+                    help='How to sort words/segments in the reference; '
+                         'True: sort by segment start time and assert that the word-level timings are sorted by start '
+                         'time; '
+                         'False: do not sort and do not check word order. Segment order is taken from input file '
+                         'and sorting is up to the user; '
+                         'segment: sort segments by start time and do not check word order'
+                         'word: sort words by start time'
                 )
-            elif name == 'reference_overlap_correction':
+            elif name == 'hypothesis_sort':
                 command_parser.add_argument(
-                    '--reference-overlap-correction', action='store_true',
-                    help='Correct small overlaps in the reference by shifting the '
-                         'start and end times of the overlapping segments to the center point of the overlap.'
+                    '--hypothesis-sort', choices=[True, False, 'word', 'segment'],
+                    help='How to sort words/segments in the reference; '
+                         'True: sort by segment start time and assert that the word-level timings are sorted by start '
+                         'time; '
+                         'False: do not sort and do not check word order. Segment order is taken from input file '
+                         'and sorting is up to the user; '
+                         'segment: sort segments by start time and do not check word order'
+                         'word: sort words by start time'
                 )
             elif name == 'files':
                 command_parser.add_argument('files', nargs='+')
-            elif name == 'verbose':
-                command_parser.add_argument('--verbose', action='store_true')
             else:
                 raise AssertionError("Error in command definition", name)
 
@@ -458,12 +478,16 @@ def cli():
     # Parse arguments and find command to execute
     args = parser.parse_args()
 
+    # Logging
+    logging.basicConfig(level=args.log_level.upper(), format='%(levelname)s - %(message)s')
+
     if hasattr(args, 'func'):
         kwargs = vars(args)
         fn = args.func
         # Pop also removes from args namespace
         kwargs.pop('func')
         kwargs.pop('version')
+        kwargs.pop('log_level')
         if 'reference' in kwargs:
             kwargs['reference'] = [
                 r for reference in kwargs['reference'] for r in reference

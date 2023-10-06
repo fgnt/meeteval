@@ -1,8 +1,11 @@
+import typing
 from typing import List, Hashable, Dict
 
 from meeteval.io.keyed_text import KeyedText
-from meeteval.io.stm import STM
 from meeteval.wer.wer.error_rate import ErrorRate
+
+if typing.TYPE_CHECKING:
+    from meeteval.io.stm import STM
 
 __all__ = ['siso_word_error_rate', 'siso_character_error_rate', 'siso_word_error_rate_keyed_text']
 
@@ -25,6 +28,8 @@ def _siso_error_rate(
         insertions=result['ins'],
         deletions=result['del'],
         substitutions=result['sub'],
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None,
     )
 
 
@@ -39,11 +44,11 @@ def siso_word_error_rate(
     word string against another word string.
 
     >>> siso_word_error_rate('a b c', 'a b c')
-    ErrorRate(errors=0, length=3, insertions=0, deletions=0, substitutions=0, error_rate=0.0)
+    ErrorRate(error_rate=0.0, errors=0, length=3, insertions=0, deletions=0, substitutions=0)
     >>> siso_word_error_rate('a b', 'c d')
-    ErrorRate(errors=2, length=2, insertions=0, deletions=0, substitutions=2, error_rate=1.0)
+    ErrorRate(error_rate=1.0, errors=2, length=2, insertions=0, deletions=0, substitutions=2)
     >>> siso_word_error_rate(reference='This is wikipedia', hypothesis='This wikipedia')  # Deletion example from https://en.wikipedia.org/wiki/Word_error_rate
-    ErrorRate(errors=1, length=3, insertions=0, deletions=1, substitutions=0, error_rate=0.3333333333333333)
+    ErrorRate(error_rate=0.3333333333333333, errors=1, length=3, insertions=0, deletions=1, substitutions=0)
     """
     if isinstance(reference, KeyedText) or isinstance(hypothesis, KeyedText):
         from meeteval.wer.wer.utils import _check_valid_input_files
@@ -81,7 +86,7 @@ def siso_character_error_rate(
 ) -> ErrorRate:
     """
     >>> siso_character_error_rate('abc', 'abc')
-    ErrorRate(errors=0, length=3, insertions=0, deletions=0, substitutions=0, error_rate=0.0)
+    ErrorRate(error_rate=0.0, errors=0, length=3, insertions=0, deletions=0, substitutions=0)
     """
     return _siso_error_rate(
         list(reference), list(hypothesis)

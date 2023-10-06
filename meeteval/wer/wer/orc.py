@@ -1,23 +1,22 @@
 import collections
 import dataclasses
-import typing
 from typing import Tuple, List, Dict, Iterable, Any
 
-from .error_rate import ErrorRate
-from .siso import _siso_error_rate
-from ..utils import _items, _keys, _values, _map
+from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.siso import _siso_error_rate
+from meeteval.wer.utils import _items, _keys, _values, _map
 from meeteval.io.stm import STM
 
 __all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm', 'apply_orc_assignment']
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, repr=False)
 class OrcErrorRate(ErrorRate):
     """
-    >>> OrcErrorRate(0, 10, 0, 0, 0, (0, 1))
-    OrcErrorRate(errors=0, length=10, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=(0, 1))
-    >>> OrcErrorRate(0, 10, 0, 0, 0, (0, 1)) + OrcErrorRate(10, 10, 0, 0, 10, (1, 0, 1))
-    ErrorRate(errors=10, length=20, insertions=0, deletions=0, substitutions=10, error_rate=0.5)
+    >>> OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1))
+    OrcErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0, assignment=(0, 1))
+    >>> OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1)) + OrcErrorRate(10, 10, 0, 0, 10, None, None, (1, 0, 1))
+    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
     assignment: Tuple[int, ...]
 
@@ -89,6 +88,8 @@ def orc_error_rate(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=assignment,
+        hypothesis_self_overlap=None,
+        reference_self_overlap=None,
     )
 
 
@@ -102,22 +103,22 @@ def orc_word_error_rate(
 
     # All correct on a single channel
     >>> orc_word_error_rate(['a b', 'c d', 'e f'], ['a b c d e f'])
-    OrcErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=(0, 0, 0))
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=(0, 0, 0))
 
     # All correct on two channels
     >>> orc_word_error_rate(['a b', 'c d', 'e f'], ['a b', 'c d e f'])
-    OrcErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=(0, 1, 1))
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=(0, 1, 1))
 
     # One utterance is split
     >>> er = orc_word_error_rate(['a', 'c d', 'e'], ['a c', 'd e'])
     >>> er
-    OrcErrorRate(errors=2, length=4, insertions=1, deletions=1, substitutions=0, error_rate=0.5, assignment=(0, 0, 1))
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=(0, 0, 1))
     >>> er.apply_assignment(['a', 'c d', 'e'], ['a c', 'd e'])
     ([['a', 'c d'], ['e']], ['a c', 'd e'])
 
     >>> er = orc_word_error_rate(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     >>> er
-    OrcErrorRate(errors=2, length=4, insertions=1, deletions=1, substitutions=0, error_rate=0.5, assignment=('A', 'A', 'B'))
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=('A', 'A', 'B'))
     >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
     """

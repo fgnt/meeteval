@@ -10,13 +10,13 @@ __all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mi
 from meeteval.io import STM
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, repr=False)
 class MimoErrorRate(ErrorRate):
     """
-    >>> MimoErrorRate(0, 10, 0, 0, 0, [(0, 0)])
-    MimoErrorRate(errors=0, length=10, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[(0, 0)])
-    >>> MimoErrorRate(0, 10, 0, 0, 0, [(0, 0)]) + MimoErrorRate(10, 10, 0, 0, 10, [(0, 0)])
-    ErrorRate(errors=10, length=20, insertions=0, deletions=0, substitutions=10, error_rate=0.5)
+    >>> MimoErrorRate(0, 10, 0, 0, 0, None, None, [(0, 0)])
+    MimoErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0, assignment=[(0, 0)])
+    >>> MimoErrorRate(0, 10, 0, 0, 0, None, None, [(0, 0)]) + MimoErrorRate(10, 10, 0, 0, 10, None, None, [(0, 0)])
+    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
     assignment: Tuple[int, ...]
 
@@ -64,6 +64,8 @@ def mimo_error_rate(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=assignment,
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None,
     )
 
 
@@ -78,19 +80,19 @@ def mimo_word_error_rate(
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
 
     >>> mimo_word_error_rate([['a b c d e f']], ['a b c d e f'])
-    MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[(0, 0)])
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[(0, 0)])
 
     # All correct, utterance order between speakers can change
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['a b', 'e f c d'])
-    MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[(1, 1), (0, 0), (0, 1)])
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[(1, 1), (0, 0), (0, 1)])
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['a b', 'c d e f'])
-    MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[(0, 0), (0, 1), (1, 1)])
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[(0, 0), (0, 1), (1, 1)])
     >>> mimo_word_error_rate([['a b', 'c d'], ['e f']], ['c d', 'a b e f'])
-    MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[(0, 1), (1, 1), (0, 0)])
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[(0, 1), (1, 1), (0, 0)])
 
     >>> mimo_word_error_rate({'A': ['a b', 'c d'], 'B': ['e f']},
     ...                      {'O1': 'c d', 'O2': 'a b e f'})
-    MimoErrorRate(errors=0, length=6, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
     """
     if isinstance(reference, STM) or isinstance(hypothesis, STM):
