@@ -15,7 +15,6 @@ from meeteval.wer.utils import _values, _map, _keys
 
 logger = logging.getLogger('time_constrained')
 
-
 if typing.TYPE_CHECKING:
     from meeteval._typing import TypedDict
 
@@ -135,12 +134,12 @@ def _check_timing_annotations(t, k):
 
 
 def _time_constrained_siso_error_rate(
-        reference, hypothesis, reference_timing, hypothesis_timing
+        reference, hypothesis, reference_timing, hypothesis_timing, prune='auto'
 ):
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
 
     result = time_constrained_levenshtein_distance_with_alignment(
-        reference, hypothesis, reference_timing, hypothesis_timing,
+        reference, hypothesis, reference_timing, hypothesis_timing, prune=prune
     )
 
     return ErrorRate(
@@ -490,14 +489,16 @@ def time_constrained_siso_word_error_rate(
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    reference_, _ = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
-    hypothesis_, _ = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
+    reference_, prune1 = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
+    hypothesis_, prune2 = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing,
+                                            'hypothesis')
 
     hypothesis = apply_collar(hypothesis, collar)
 
     er = _time_constrained_siso_error_rate(
         reference_.transcript, hypothesis_.transcript,
         reference_.timings, hypothesis_.timings,
+        prune=prune1 and prune2
     )
     # pseudo_word_level_timing and collar change the time stamps,
     # hence calculate the overlap with the original time stamps
@@ -580,7 +581,8 @@ def time_constrained_minimum_permutation_word_error_rate(
             prune=prune,
         ),
         siso_error_rate=lambda tt, et: _time_constrained_siso_error_rate(
-            tt.transcript, et.transcript, tt.timings, et.timings
+            tt.transcript, et.transcript, tt.timings, et.timings,
+            prune=prune,
         ),
         missing=TimeMarkedTranscript([], []),
     )
@@ -673,14 +675,15 @@ def align(
     reference = TimeMarkedTranscript.create(reference)
     hypothesis = TimeMarkedTranscript.create(hypothesis)
 
-    reference, _ = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
-    hypothesis, _ = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
+    reference, prune1 = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
+    hypothesis, prune2 = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
 
     hypothesis_ = apply_collar(hypothesis, collar=collar)
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
     alignment = time_constrained_levenshtein_distance_with_alignment(
         reference.transcript, hypothesis_.transcript,
         reference.timings, hypothesis_.timings,
+        prune=prune1 and prune2,
     )['alignment']
 
     if style in ('kaldi', 'words'):
