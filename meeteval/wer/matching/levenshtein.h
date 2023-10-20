@@ -259,7 +259,8 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
         const unsigned int cost_del,
         const unsigned int cost_ins,
         const unsigned int cost_sub,
-        const unsigned int cost_cor
+        const unsigned int cost_cor,
+        const bool prune
 ) {
     // Temporary memory (one row of the levenshtein matrix)
     const unsigned int max_value = std::numeric_limits<unsigned int>::max() - std::max(std::max(cost_ins, cost_del), std::max(cost_sub, cost_cor));
@@ -289,7 +290,7 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
         // Forward to overlapping region. We don't have to use hyp_end_time here because
         // hypothesis_timing[start_hyp_index - 1].second will always be the largest seen end time that overlaps with
         // ref_interval
-        for (; start_hyp_index < hypothesis.size() + 1; start_hyp_index++) {
+        if (prune) for (; start_hyp_index < hypothesis.size() + 1; start_hyp_index++) {
             if (hypothesis_timing[start_hyp_index - 1].second > ref_interval.first) break;
         }
 
@@ -306,7 +307,7 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
             // Below this loop is the update for the insertions in the following cells
             // The begin times (*.first) are increasing, so we only only have to check the begin time of our current
             // hypothesis against the largest seen reference end time
-            if (hyp_interval.first > ref_end_time) break;
+            if (prune && hyp_interval.first > ref_end_time) break;
 
             // This is the standard levenshtein update but we only allow substitutions when the segments overlap
             auto ins_or_del = std::min(
@@ -324,16 +325,18 @@ LevenshteinStatistics time_constrained_levenshtein_distance_with_alignment_(
             }
         }
 
-        // Forward insertions for entries that overlap in the next row
-        if (ref_index < reference_timing.size() - 1) {
-            for (; hyp_index < hypothesis.size() + 1; hyp_index++) {
-                row[hyp_index] = row[hyp_index - 1] + cost_ins;
-                if (hypothesis_timing[hyp_index - 1].first > reference_timing[ref_index + 1].second) break;
+        if (prune) {
+            // Forward insertions for entries that overlap in the next row
+            if (ref_index < reference_timing.size() - 1) {
+                for (; hyp_index < hypothesis.size() + 1; hyp_index++) {
+                    row[hyp_index] = row[hyp_index - 1] + cost_ins;
+                    if (hypothesis_timing[hyp_index - 1].first > reference_timing[ref_index + 1].second) break;
+                }
+            } else {
+                // We reached the end. There are no following rows which we can respect while forwarding. There can only be
+                // insertions until the end
+                for (; hyp_index < hypothesis.size() + 1; hyp_index++) row[hyp_index] = row[hyp_index - 1] + cost_ins;
             }
-        } else {
-            // We reached the end. There are no following rows which we can respect while forwarding. There can only be
-            // insertions until the end
-            for (; hyp_index < hypothesis.size() + 1; hyp_index++) row[hyp_index] = row[hyp_index - 1] + cost_ins;
         }
     }
 
