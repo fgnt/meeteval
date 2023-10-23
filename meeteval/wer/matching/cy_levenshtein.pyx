@@ -64,7 +64,7 @@ cdef extern from "levenshtein.h":
             uint cost_ins,
             uint cost_sub,
             uint cost_cor,
-            uint eps
+            bool prune
     )
 
 
@@ -227,17 +227,23 @@ def time_constrained_levenshtein_distance(
             cost_del, cost_ins, cost_sub, cost_cor, prune
         )
 
-def time_constrained_levenshtein_distance_with_alignment(
+
+cdef _time_constrained_levenshtein_distance_with_alignment(
         reference,  # list[int]
         hypothesis,  # list[int]
-        reference_timing,  # list[tuple[int, int]]
-        hypothesis_timing,  # list[tuple[int, int]]
-        cost_del=1,
-        cost_ins=1,
-        cost_sub=1,
-        cost_cor=0,
+        reference_timing: vector[pair[timing_type, timing_type]],  # list[tuple[int, int]]
+        hypothesis_timing: vector[pair[timing_type, timing_type]],  # list[tuple[int, int]]
+        cost_del = 1,
+        cost_ins = 1,
+        cost_sub = 1,
+        cost_cor = 0,
+        prune = 'auto'
 ):
     _validate_costs(cost_del, cost_ins, cost_sub, cost_cor)
+
+    if prune == 'auto':
+        prune = _timings_sorted(reference_timing) and _timings_sorted(hypothesis_timing)
+        logging.debug(f'prune is set to "auto". Using prune={prune!r}.')
 
     if len(reference) == 0:
         return {
@@ -262,26 +268,16 @@ def time_constrained_levenshtein_distance_with_alignment(
 
     cdef dict statistics
 
-    if _timing_is_integer(reference_timing) and _timing_is_integer(hypothesis_timing):
-        statistics = time_constrained_levenshtein_distance_with_alignment_[int](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
-    else:
-        statistics = time_constrained_levenshtein_distance_with_alignment_[double](
-            reference, hypothesis,
-            reference_timing,
-            hypothesis_timing,
-            cost_del,
-            cost_ins,
-            cost_sub,
-            cost_cor,
-        )
+    statistics = time_constrained_levenshtein_distance_with_alignment_(
+        reference, hypothesis,
+        reference_timing,
+        hypothesis_timing,
+        cost_del,
+        cost_ins,
+        cost_sub,
+        cost_cor,
+        prune,
+    )
 
     # Translate sentinel to None
     # This is hacky, but we want to support c++11, which doesn't have std::optional
@@ -292,8 +288,30 @@ def time_constrained_levenshtein_distance_with_alignment(
          )
         for (a, b) in statistics['alignment']
     ]
-
     return statistics
+
+def time_constrained_levenshtein_distance_with_alignment(
+        reference,  # list[int]
+        hypothesis,  # list[int]
+        reference_timing,  # list[tuple[int, int]]
+        hypothesis_timing,  # list[tuple[int, int]]
+        cost_del=1,
+        cost_ins=1,
+        cost_sub=1,
+        cost_cor=0,
+        prune='auto',
+):
+    # Select the correct dtype for automatic conversion
+    if _timing_is_integer(reference_timing) and _timing_is_integer(hypothesis_timing):
+        return _time_constrained_levenshtein_distance_with_alignment[int](
+            reference, hypothesis, reference_timing, hypothesis_timing,
+            cost_del, cost_ins, cost_sub, cost_cor, prune
+        )
+    else:
+        return _time_constrained_levenshtein_distance_with_alignment[double](
+            reference, hypothesis, reference_timing, hypothesis_timing,
+            cost_del, cost_ins, cost_sub, cost_cor, prune
+        )
 
 import numpy as np
 
