@@ -444,13 +444,22 @@ class CanvasPlot {
                 words
             );
 
-            e.append("div")
+            this.error_bars.plot.element.append("div")
                 .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
                 .style("padding", "0 3px 0 3px")
                 .style("font-style", "italic").style("user-select", "none")
-                .style("border", "1px solid black")
+                // .style("border", "1px solid gray")
                 .style("border-radius", "0 5px 5px 0")
-                .text("Minimap");
+                .style("font-size", "10px")
+                .text("Error distribution");
+            this.word_plot.plot.element.append("div")
+                .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
+                .style("padding", "0 3px 0 3px")
+                .style("font-style", "italic").style("user-select", "none")
+                // .style("border", "1px solid gray")
+                .style("border-radius", "0 5px 5px 0")
+                .style("font-size", "10px")
+                .text("Utterances");
 
             this.svg = e.append("svg")
                 // .attr("width", width).attr("height", this.error_bars.plot.height + this.word_plot.plot.height)
@@ -698,6 +707,14 @@ class CanvasPlot {
                 this._callOnScrollHandlers(begin, end);
                 event.preventDefault();
             }, false)
+
+            // this.plot.element.on("drag", e => console.log("dragging", e))
+            this.plot.element.on("mousemove", event => {
+                if (event.buttons !== 1) return;
+                const delta = this.plot.y.invert(event.movementY) - this.plot.y.invert(0);
+                let [begin, end] = this.plot.y.domain();
+                this._callOnScrollHandlers(begin - delta, end - delta);
+            })
 
             this.onscrollhandlers = [];
 
