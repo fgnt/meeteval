@@ -252,7 +252,6 @@ class CanvasPlot {
         } else {
             this.y.range([this.position.y + this.height - this.x_axis_padding, this.position.y])
         }
-        console.log("size changed", this.x.range());
         this.sizeChangedListeners.forEach(c => c());
     }
 
@@ -445,6 +444,14 @@ class CanvasPlot {
                 words
             );
 
+            e.append("div")
+                .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
+                .style("padding", "0 3px 0 3px")
+                .style("font-style", "italic").style("user-select", "none")
+                .style("border", "1px solid black")
+                .style("border-radius", "0 5px 5px 0")
+                .text("Minimap");
+
             this.svg = e.append("svg")
                 // .attr("width", width).attr("height", this.error_bars.plot.height + this.word_plot.plot.height)
                 .style("position", "absolute").style("top", 0).style("left", 0).style("width", "100%").style("height", "100%");
@@ -455,7 +462,7 @@ class CanvasPlot {
                         Math.max(this.error_bars.plot.y_axis_padding, this.word_plot.plot.y_axis_padding),
                         0
                     ],
-                    [width, 175 - this.word_plot.plot.x_axis_padding]])
+                    [this.word_plot.plot.width, this.word_plot.plot.height + this.error_bars.plot.height]])
                 .on("brush", this._onselect.bind(this))
                 .on("end", this._onselect.bind(this));
 
@@ -468,10 +475,15 @@ class CanvasPlot {
             this.max_range = this.word_plot.plot.x.range();
             this.selection = this.word_plot.plot.x.range();
 
-            // No idea how to redraw the brush...
-            // this.word_plot.plot.onSizeChanged(() => {
-            //     this.brush_group.call(this.brush.move, this.brush.extent())
-            // });
+            // Redraw brush when size changes. This is required because the brush range / extent will otherwise keep the old value (in screen size)
+            this.word_plot.plot.onSizeChanged(() => {
+                this.brush.extent([
+                    [Math.max(this.error_bars.plot.y_axis_padding, this.word_plot.plot.y_axis_padding), 0],
+                    [this.word_plot.plot.width, this.word_plot.plot.height + this.error_bars.plot.height]]);
+                this.brush_group.call(this.brush);
+                // No idea how to keep the selection when the size changes, so we just keep the screen position
+            });
+            
         }
 
         draw() {
