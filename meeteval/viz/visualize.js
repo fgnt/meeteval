@@ -278,13 +278,18 @@ class CanvasPlot {
 
     function drawLegend(legend_container) {
         const legend = legend_container
-            .style("margin-left", "10px")
-            .style("margin-top", "10px")
+            .style("margin-left", "3px")
+            .style("margin-top", "3px")
+            .style("display", "flex")
+            .style("align-items", "flex-end")
             .append("div")
             .style("border", "1px solid black")
-            .style("padding", "5px");
+            .style("padding", "1px 10px 1px 1px")
+            .style("display", "flex")
+            .style("align-items", "flex-end");
         for (const k of Object.keys(settings.colors)) {
             const l = legend.append("div")
+                .style("margin-left", "10px")
             l.append("span")
                 .style("display", "inline-block")
                 .style("width", "10px")
@@ -960,9 +965,9 @@ class CanvasPlot {
         width = 1500 - margin.left - margin.right,
         height = 300 - margin.top - margin.bottom;
     d3.select('#c').style("display", "flex")
+    if (settings.show_legend) drawLegend(d3.select(element_id).append("div"));
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
-    if (settings.show_legend) drawLegend(d3.select(element_id).append("div"));
 
     const minimaps = []
     for (let i = 0; i < settings.minimaps.number; i++) {
