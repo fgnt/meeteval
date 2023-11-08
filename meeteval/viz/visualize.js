@@ -177,7 +177,7 @@ function drawAxisCompact(
 
     context.beginPath();
     // Line
-      const p = (ticks[0].textMetrics.fontBoundingBoxAscent + ticks[0].textMetrics.fontBoundingBoxDescent) / 2;
+    const p = (ticks[0].textMetrics.fontBoundingBoxAscent + ticks[0].textMetrics.fontBoundingBoxDescent) / 2;
     context.lineTo(...coord(start, p));
     context.lineTo(...coord(end, p));
     context.stroke();
@@ -214,7 +214,7 @@ class CanvasPlot {
      * @param y_scale
      * @returns {{canvas, drawAxes: drawAxes, context: *, width, x: *, clear: clear, y: *, position: {x: number, y: number}, x_axis_padding: *, y_axis_padding: *, height}}
      */
-    constructor(element, width, height, x_scale, y_scale, invert_y=false, draw_x_axis=true, draw_y_axis=true) {
+    constructor(element, width, height, x_scale, y_scale, invert_y=false, draw_x_axis=true, draw_y_axis=true, x_axis_label='',) {
         this.element = element.append("div").style("position", "relative").style("height", height + "px");
         this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%");
         this.context = this.canvas.node().getContext("2d")
@@ -226,6 +226,7 @@ class CanvasPlot {
         this.invert_y = invert_y
         this.draw_x_axis = draw_x_axis;
         this.draw_y_axis = draw_y_axis;
+        this.x_axis_label = x_axis_label;
 
         // Create plot elements
         this.x = x_scale;
@@ -256,7 +257,17 @@ class CanvasPlot {
     }
 
     drawAxes() {
-        if (this.draw_x_axis) drawAxisCompact(this.context, this.x, this.y.range()[this.invert_y ? 1 : 0], this.x_axis_padding, true);
+        if (this.draw_x_axis) {
+            const y =  this.y.range()[this.invert_y ? 1 : 0];
+            drawAxisCompact(this.context, this.x, y, this.x_axis_padding, true);
+            if (this.x_axis_label) {
+                this.context.textAlign = "right";
+                const textMetrics = this.context.measureText(this.x_axis_label);
+                const x = this.x.range()[1];
+                this.context.clearRect(x - textMetrics.width - 3, y - textMetrics.fontBoundingBoxAscent, textMetrics.width + 3, textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent);
+                this.context.fillText(this.x_axis_label, x, y);
+            }
+        }
         if (this.draw_y_axis) drawAxis(this.context, this.y, this.x.range()[0], this.y_axis_padding, false);
     }
 
@@ -440,7 +451,7 @@ class CanvasPlot {
             ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
             this.word_plot = new WordPlot(
                 new CanvasPlot(e, width, 100, x_scale, y_scale,
-                    false, true, true,),
+                    false, true, true, "time"),
                 words
             );
 
@@ -536,7 +547,6 @@ class CanvasPlot {
             this.begin = begin;
             this.end = end;
             this.h = new Howl({src: src})
-            console.log(this.h)
             this.position = 0;
             this.animationFrameID = null;
             this.h.once('end', () => this.remove.bind(this))
@@ -955,7 +965,6 @@ class CanvasPlot {
     if (settings.show_legend) drawLegend(d3.select(element_id).append("div"));
 
     const minimaps = []
-    console.log(settings)
     for (let i = 0; i < settings.minimaps.number; i++) {
         const minimap = new Minimap(
             plot_div, width, settings.minimaps.height,
