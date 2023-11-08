@@ -1,4 +1,4 @@
-let colormaps = {
+var colormaps = {
     default: {
         'correct': 'lightgray',
         'substitution': '#F5B14D',  // yellow / orange
@@ -31,7 +31,9 @@ function alignment_visualization(
         minimaps: {
             number: 2,
             height: 200,
-        }
+        },
+        show_details: true,
+        show_legend: true,
     }
 ) {
 
@@ -213,8 +215,8 @@ class CanvasPlot {
      * @returns {{canvas, drawAxes: drawAxes, context: *, width, x: *, clear: clear, y: *, position: {x: number, y: number}, x_axis_padding: *, y_axis_padding: *, height}}
      */
     constructor(element, width, height, x_scale, y_scale, invert_y=false, draw_x_axis=true, draw_y_axis=true) {
-        this.element = element.append("div").style("position", "relative").style("height", height + "px").style("width", width + "px");
-        this.canvas = this.element.append("canvas").attr("width", width).attr("height", height);
+        this.element = element.append("div").style("position", "relative").style("height", height + "px");
+        this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%");
         this.context = this.canvas.node().getContext("2d")
         this.position = {x: 0, y: 0}
         this.width = width
@@ -226,16 +228,35 @@ class CanvasPlot {
         this.draw_y_axis = draw_y_axis;
 
         // Create plot elements
-        this.x = x_scale.range([this.position.x + this.y_axis_padding, this.position.x + width])
-        if (invert_y) {
-            this.y = y_scale.range([this.position.y, this.position.y + height - this.x_axis_padding])
+        this.x = x_scale;
+        this.y = y_scale;
+        this.sizeChangedListeners = [];
+        this.canvasSizeChanged();
+
+        // Track size changes of our canvas
+        new ResizeObserver(this.canvasSizeChanged.bind(this)).observe(this.canvas.node());
+    }
+
+    onSizeChanged(callback) {
+        this.sizeChangedListeners.push(callback);
+    }
+
+    canvasSizeChanged() {
+        this.width = this.canvas.node().offsetWidth;
+        this.height = this.canvas.node().offsetHeight;
+        this.canvas.attr("width", this.width);
+        this.canvas.attr("height", this.height);
+        this.x.range([this.position.x + this.y_axis_padding, this.position.x + this.width])
+        if (this.invert_y) {
+            this.y.range([this.position.y, this.position.y + this.height - this.x_axis_padding])
         } else {
-            this.y = y_scale.range([this.position.y + height - this.x_axis_padding, this.position.y])
+            this.y.range([this.position.y + this.height - this.x_axis_padding, this.position.y])
         }
+        console.log("size changed", this.x.range());
+        this.sizeChangedListeners.forEach(c => c());
     }
 
     drawAxes() {
-        console.log('draw axes', this.draw_x_axis, this.draw_y_axis)
         if (this.draw_x_axis) drawAxisCompact(this.context, this.x, this.y.range()[this.invert_y ? 1 : 0], this.x_axis_padding, true);
         if (this.draw_y_axis) drawAxis(this.context, this.y, this.x.range()[0], this.y_axis_padding, false);
     }
@@ -272,7 +293,7 @@ class CanvasPlot {
             this.binned_words = [];
             this.style = style;
             this.scaleExcludeCorrect = scaleExcludeCorrect;
-
+            this.plot.onSizeChanged(this.draw.bind(this));
             this.updateBins();
         }
 
@@ -364,6 +385,7 @@ class CanvasPlot {
         constructor(plot, words) {
             this.plot = plot;
             this.words = words;
+            this.plot.onSizeChanged(this.draw.bind(this));
         }
 
         drawWords() {
@@ -407,7 +429,6 @@ class CanvasPlot {
     class Minimap {
         constructor(element, width, height, x_scale, y_scale, words) {
             const e = element.append('div')
-                .style("width", width + "px")
                 .style("position", "relative")
                 .style("background", "#eAeAeA")
                 .style("margin-bottom", "5px");
@@ -425,8 +446,8 @@ class CanvasPlot {
             );
 
             this.svg = e.append("svg")
-                .attr("width", width).attr("height", this.error_bars.plot.height + this.word_plot.plot.height)
-                .style("position", "absolute").style("top", 0).style("left", 0);
+                // .attr("width", width).attr("height", this.error_bars.plot.height + this.word_plot.plot.height)
+                .style("position", "absolute").style("top", 0).style("left", 0).style("width", "100%").style("height", "100%");
 
             this.brush = d3.brushX()
                 .extent([
@@ -446,6 +467,11 @@ class CanvasPlot {
 
             this.max_range = this.word_plot.plot.x.range();
             this.selection = this.word_plot.plot.x.range();
+
+            // No idea how to redraw the brush...
+            // this.word_plot.plot.onSizeChanged(() => {
+            //     this.brush_group.call(this.brush.move, this.brush.extent())
+            // });
         }
 
         draw() {
@@ -584,8 +610,9 @@ class CanvasPlot {
 
 
     class DetailsPlot {
-        constructor(plot, words, utterances, alignment) {
+        constructor(plot, words, utterances, alignment, ref_hyp_gap=10) {
             this.plot = plot;
+            this.plot.x_axis_padding = 50;
             this.words = words;
             this.filtered_words = words;
             this.utterances = utterances;
@@ -593,32 +620,54 @@ class CanvasPlot {
             this.alignment = alignment;
             this.speaker_ids = utterances.map(d => d.speaker_id);
             this.max_length = plot.y.domain()[1];
+            this.ref_hyp_gap = ref_hyp_gap;
 
             this.playhead = null
 
+            const self = this;
             // Create elements for click handlers
-            const container = this.plot.element.append("div")
-                .style("position", "absolute")
-                .style("top", 0)
-                .style("left", 0)
-                .style("width", "100%")
-                .style("height", "100%");
-            container.selectAll("div").data(this.plot.x.domain())
-                .enter()
-                .append("div")
-                // .style("background-color", "red")
-                .style("position", "absolute")
-                .style("top", 0)
-                .style("left", d => this.plot.x(d) + "px")
-                .style("height", "100%")
-                .style("width", this.plot.x.bandwidth() + "px")
-                .on("click", this.click.bind(this))
-                .append("canvas")
-                .attr("id", d => "canvas-" + d)
-                .attr("height", this.plot.height)
-                .attr("width", this.plot.x.bandwidth())
-                .style("width", "100%")
-                .style("height", "100%")
+            this.plot.element.on("click", (event) => {
+                const screenX = event.layerX;
+                const screenY = event.layerY;
+                const y = self.plot.y.invert(screenY);
+
+                // invert x band scale
+                const eachBand = self.plot.x.step();
+                const index = Math.floor((screenX - self.plot.y_axis_padding) / eachBand);
+                const speaker_id = self.plot.x.domain()[index];
+
+                const utterance_candidates = this.filtered_utterances.filter(
+                    u => u.begin_time < y && u.end_time > y && u.speaker_id === speaker_id && u.source === "hypothesis"
+                )
+                if (utterance_candidates.length > 0) {
+                    const utterance = utterance_candidates[0];
+                    // TODO: handle utterance click
+                    // console.log("click", screenX, index, speaker_id, y, self.plot.x.domain());
+                }
+            })
+
+            // const container = this.plot.element.append("div")
+            //     .style("position", "absolute")
+            //     .style("top", 0)
+            //     .style("left", 0)
+            //     .style("width", "100%")
+            //     .style("height", "100%");
+            // container.selectAll("div").data(this.plot.x.domain())
+            //     .enter()
+            //     .append("div")
+            //     // .style("background-color", "red")
+            //     .style("position", "absolute")
+            //     .style("top", 0)
+            //     .style("left", d => this.plot.x(d) + "px")
+            //     .style("height", "100%")
+            //     .style("width", this.plot.x.bandwidth() + "px")
+            //     .on("click", this.click.bind(this))
+            //     .append("canvas")
+            //     .attr("id", d => "canvas-" + d)
+            //     .attr("height", this.plot.height)
+            //     .attr("width", this.plot.x.bandwidth())
+            //     .style("width", "100%")
+            //     .style("height", "100%")
 
             // TODO: allow scrolling and dragging and ctrl+scroll for zoom
             this.plot.element.on("wheel", (event) => {
@@ -639,6 +688,8 @@ class CanvasPlot {
             }, false)
 
             this.onscrollhandlers = [];
+
+            this.plot.onSizeChanged(this.draw.bind(this));
         }
 
         click(event, speaker_id) {
@@ -650,17 +701,17 @@ class CanvasPlot {
             )
             if (utterance_candidates.length === 0) return;
             const utterance = utterance_candidates[0];
-            const canvas = d3.select('#canvas-' + speaker_id).node()
-            this.playhead = new PlayHead(
-                canvas, canvas.getContext("2d"),
-                this.plot.context,
-                this.plot.x(speaker_id) + this.plot.x.bandwidth(),
-                this.plot.x, this.plot.y, utterance.begin_time, utterance.end_time,
-                // TODO: remove fallback
-                utterance.audio || 'example.wav'
-            )
-            this.playhead.play();
-            this.draw();
+            // const canvas = d3.select('#canvas-' + speaker_id).node()
+            // this.playhead = new PlayHead(
+            //     canvas, canvas.getContext("2d"),
+            //     this.plot.context,
+            //     this.plot.x(speaker_id) + this.plot.x.bandwidth(),
+            //     this.plot.x, this.plot.y, utterance.begin_time, utterance.end_time,
+            //     // TODO: remove fallback
+            //     utterance.audio || 'example.wav'
+            // )
+            // this.playhead.play();
+            // this.draw();
         }
 
         onScroll(callback) {
@@ -680,7 +731,6 @@ class CanvasPlot {
             })
             const position = this.plot.y.range()[1];
             const tickSize = 6;
-            const gap = 10;
             const offset = (this.plot.x.bandwidth()) / 4;
             const tickPadding = 3;
             this.plot.context.textAlign = "center";
@@ -694,10 +744,10 @@ class CanvasPlot {
                 this.plot.context.fill();
                 this.plot.context.stroke();
                 this.plot.context.beginPath();
-                this.plot.context.moveTo(d.pos - 2 * gap, Y);
-                this.plot.context.lineTo(d.pos - 2 * gap, Y + tickSize);
-                this.plot.context.moveTo(d.pos + 2 * gap, Y);
-                this.plot.context.lineTo(d.pos + 2 * gap, Y + tickSize);
+                this.plot.context.moveTo(d.pos - this.ref_hyp_gap, Y);
+                this.plot.context.lineTo(d.pos - this.ref_hyp_gap, Y + tickSize);
+                this.plot.context.moveTo(d.pos + this.ref_hyp_gap, Y);
+                this.plot.context.lineTo(d.pos + this.ref_hyp_gap, Y + tickSize);
                 this.plot.context.moveTo(d.pos + this.plot.x.bandwidth() / 2, Y);
                 this.plot.context.lineTo(d.pos + this.plot.x.bandwidth() / 2, Y + tickSize);
                 this.plot.context.moveTo(d.pos - this.plot.x.bandwidth() / 2, Y);
@@ -718,12 +768,10 @@ class CanvasPlot {
             const filtered_utterances = this.filtered_utterances;
             const context = this.plot.context;
 
-            const gap = 10;
-
             const draw_text = filtered_words.length < 400;
             const draw_boxes = filtered_words.length < 1000;
             const draw_utterance_markers = filtered_words.length < 2000;
-            const band_width = Math.floor(this.plot.x.bandwidth() / 2 - 2 * gap);
+            const band_width = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
 
             // Draw words
             context.font = "12px Arial";
@@ -733,17 +781,17 @@ class CanvasPlot {
             filtered_words.forEach(d => {
                 let x_;
                 if (d.source === "hypothesis") {
-                    x_ = this.plot.x(d.speaker_id) + this.plot.x.bandwidth() / 2 + 2 * gap;
+                    x_ = this.plot.x(d.speaker_id) + this.plot.x.bandwidth() / 2 + this.ref_hyp_gap;
                 } else {
                     x_ = this.plot.x(d.speaker_id);
                 }
 
                 context.beginPath();
                 context.rect(
-                    Math.floor(x_),
-                    Math.floor(this.plot.y(d.begin_time)),
+                    x_,
+                    this.plot.y(d.begin_time),
                     band_width,
-                    Math.floor(this.plot.y(d.end_time) - this.plot.y(d.begin_time)));
+                    this.plot.y(d.end_time) - this.plot.y(d.begin_time));
                 context.strokeStyle = 'gray';
                 context.fillStyle = settings.colors[d.match_type];
                 context.fill();
@@ -751,8 +799,8 @@ class CanvasPlot {
 
                 // Text
                 if (draw_text) {
-                    x_ += Math.floor(band_width / 2);
-                    let y_ = Math.floor(this.plot.y((d.begin_time + d.end_time) / 2));
+                    x_ += band_width / 2;
+                    let y_ = this.plot.y((d.begin_time + d.end_time) / 2);
 
                     context.fillStyle = '#000';
                     context.fillText(d.transcript, x_, y_);
@@ -765,6 +813,7 @@ class CanvasPlot {
                 const end_time = d.ref_center_time === undefined || d.ref_center_time < d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
                 return begin_time < end && end_time > begin;
             });
+            const lineStartOffset = this.ref_hyp_gap / 8;
             context.lineWidth = 3;
             filtered_alignment.forEach(d => {
                 const x_ref = this.plot.x(d.ref_speaker_id) + this.plot.x.bandwidth() / 2;
@@ -773,45 +822,69 @@ class CanvasPlot {
                 context.strokeStyle = settings.colors[d.match_type];
                 if (d.hyp_center_time === undefined) {
                     const y = this.plot.y(d.ref_center_time);
-                    context.moveTo(x_ref - 2 * gap, y);
+                    context.moveTo(x_ref - this.ref_hyp_gap, y);
                     context.lineTo(x_hyp, y);
                 } else if (d.ref_center_time === undefined) {
                     const y = this.plot.y(d.ref_center_time);
                     context.moveTo(x_ref, y);
-                    context.lineTo(x_hyp + 2 * gap, y);
+                    context.lineTo(x_hyp + this.ref_hyp_gap, y);
                 } else {
-                    const xl = x_ref - 2 * gap;
+                    const xl = x_ref - this.ref_hyp_gap;
                     const yl = this.plot.y(d.ref_center_time)
-                    const xr = x_hyp + 2 * gap;
+                    const xr = x_hyp + this.ref_hyp_gap;
                     const yr = this.plot.y(d.hyp_center_time)
-                    context.moveTo(xl - gap / 4, yl);
-                    context.lineTo(xl + gap / 4, yl);
-                    context.lineTo(xr - gap / 4, yr);
-                    context.lineTo(xr + gap / 4, yr);
+                    context.moveTo(xl - lineStartOffset, yl);
+                    context.lineTo(xl + lineStartOffset, yl);
+                    context.lineTo(xr - lineStartOffset, yr);
+                    context.lineTo(xr + lineStartOffset, yr);
                 }
                 context.stroke();
             });
 
             // Draw utterance begin and end markers
+            const markerLength = 6;
+            const markerOverhang = 3;
             if (draw_utterance_markers) {
-                context.strokeStyle = "orange";
-                context.lineWidth = 2;
                 filtered_utterances.forEach(d => {
+                    context.strokeStyle = "orange";
+                    context.lineWidth = 2;
                     context.beginPath();
+
+                    // x is the left side of the marker
                     var x = this.plot.x(d.speaker_id);
+                    const bandwidth = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
                     if (d.source == "hypothesis") {
-                        x += this.plot.x.bandwidth() / 2 + 2 * gap;
+                        x += bandwidth + 2*this.ref_hyp_gap;
                     }
 
-                    var y = this.plot.y(d.begin_time);
-                    context.moveTo(x - gap, y);
-                    context.lineTo(x + this.plot.x.bandwidth() / 2 - gap, y);
-                    context.stroke();
+                    var y = this.plot.y(d.begin_time) - 1;
 
-                    y = this.plot.y(d.end_time);
-                    context.moveTo(x - gap, y);
-                    context.lineTo(x + this.plot.x.bandwidth() / 2 - gap, y);
+                    context.moveTo(x - markerOverhang, y + markerLength);
+                    context.lineTo(x - markerOverhang, y);
+                    context.lineTo(x + bandwidth + markerOverhang, y);
+                    context.lineTo(x + bandwidth + markerOverhang, y + markerLength);
+
+                    y = this.plot.y(d.end_time) + 1;
+                    context.moveTo(x - markerOverhang, y - markerLength);
+                    context.lineTo(x - markerOverhang, y);
+                    context.lineTo(x + bandwidth + markerOverhang, y);
+                    context.lineTo(x + bandwidth + markerOverhang, y - markerLength);
                     context.stroke();
+                    
+                    // Draw marker that text is empty
+                    if (d.transcript === "") {
+                        context.beginPath();
+                        context.strokeStyle = "lightgray";
+                        context.linewidth = 1;
+                        x = x + bandwidth / 2;
+                        // context.moveTo(x, this.plot.y(d.begin_time));
+                        // context.lineTo(x, this.plot.y(d.end_time) );
+                        // context.stroke();
+                        context.font = "italic 12px Arial";
+                        context.fillStyle = "#ffd580";
+                        context.fillText('empty segment', x, this.plot.y((d.begin_time + d.end_time) / 2));
+                    }
+                    
                 });
             }
         }
@@ -850,7 +923,7 @@ class CanvasPlot {
     d3.select('#c').style("display", "flex")
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
-    drawLegend(d3.select(element_id).append("div"));
+    if (settings.show_legend) drawLegend(d3.select(element_id).append("div"));
 
     const minimaps = []
     console.log(settings)
@@ -867,27 +940,30 @@ class CanvasPlot {
         minimaps.push(minimap);
     }
 
-    const details_plot = new DetailsPlot(
-        new CanvasPlot(plot_div, width, 700,
-            d3.scaleBand().domain(speaker_ids).padding(0.1),
-            d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
-            true
-        ), words, utterances, alignment
-    )
+    if (settings.show_details) {
+        const details_plot = new DetailsPlot(
+            new CanvasPlot(plot_div, width, 700,
+                d3.scaleBand().domain(speaker_ids).padding(0.1),
+                d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
+                true
+            ), words, utterances, alignment
+        )
 
-    if (minimaps.length > 0) {
-        const last_minimap = minimaps[minimaps.length - 1];
-        last_minimap.onSelect(details_plot.zoomTo.bind(details_plot));
-        details_plot.onScroll((x0, x1) => {
-            last_minimap.brush_group.call(last_minimap.brush.move, [
-                last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
-            ])
-        });
-    } else {
-        // This is necessary to prevent update loops. We can't call details_plot.zoomTo in details_plot...
-        details_plot.onScroll(details_plot.zoomTo.bind(details_plot));
+
+        if (minimaps.length > 0) {
+            const last_minimap = minimaps[minimaps.length - 1];
+            last_minimap.onSelect(details_plot.zoomTo.bind(details_plot));
+            details_plot.onScroll((x0, x1) => {
+                last_minimap.brush_group.call(last_minimap.brush.move, [
+                    last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
+                ])
+            });
+        } else {
+            // This is necessary to prevent update loops. We can't call details_plot.zoomTo in details_plot...
+            details_plot.onScroll(details_plot.zoomTo.bind(details_plot));
+        }
+        details_plot.draw();
     }
 
     for (const minimap of minimaps) minimap.draw();
-    details_plot.draw();
 }

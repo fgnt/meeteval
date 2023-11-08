@@ -1,19 +1,121 @@
+import collections
 import contextlib
 import dataclasses
 import functools
-import logging
+import itertools
+import operator
 import shutil
-import socket
 import uuid
-from dataclasses import replace
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Mapping
 
 from cached_property import cached_property
 
-import paderbox as pb
 from meeteval.io.stm import STM, STMLine
 from meeteval.wer.wer.time_constrained import TimeMarkedTranscript
+
+
+def groupby(
+        iterable,
+        key = None,
+):
+    """
+    A non-lazy variant of `itertools.groupby` with advanced features.
+
+    Args:
+        iterable: Iterable to group
+        key: Determines by what to group. Can be:
+            - `None`: Use the iterables elements as keys directly
+            - `callable`: Gets called with every element and returns the group
+                key
+            - `str`, or `int`: Use `__getitem__` on elements in `iterable`
+                to obtain the key
+            - `Iterable`: Provides the keys. Has to have the same length as
+                `iterable`.
+
+    Examples:
+        >>> groupby('ab'*3)
+        {'a': ['a', 'a', 'a'], 'b': ['b', 'b', 'b']}
+        >>> groupby(range(10), lambda x: x%2)
+        {0: [0, 2, 4, 6, 8], 1: [1, 3, 5, 7, 9]}
+        >>> groupby(({'a': x%2, 'b': x} for x in range(3)), 'a')
+        {0: [{'a': 0, 'b': 0}, {'a': 0, 'b': 2}], 1: [{'a': 1, 'b': 1}]}
+        >>> groupby(['abc', 'bd', 'abd', 'cdef', 'c'], 0)
+        {'a': ['abc', 'abd'], 'b': ['bd'], 'c': ['cdef', 'c']}
+        >>> groupby(range(10), list(range(5))*2)
+        {0: [0, 5], 1: [1, 6], 2: [2, 7], 3: [3, 8], 4: [4, 9]}
+        >>> groupby('abc', ['a'])
+        Traceback (most recent call last):
+            ...
+        ValueError: zip() argument 2 is shorter than argument 1
+        >>> groupby('abc', {})
+        Traceback (most recent call last):
+            ...
+        TypeError: Invalid type for key: <class 'dict'>
+    """
+    if callable(key) or key is None:
+        key_fn = key
+    elif isinstance(key, (str, int)):
+        key_fn = operator.itemgetter(key)
+    elif not isinstance(key, Mapping):
+        value_getter = operator.itemgetter(0)
+        groups = collections.defaultdict(list)
+        for key, group in itertools.groupby(zip(iterable, key, strict=True), operator.itemgetter(1)):
+            groups[key].extend(map(value_getter, group))
+        return dict(groups)
+    else:
+        raise TypeError(f'Invalid type for key: {type(key)}')
+
+    groups = collections.defaultdict(list)
+    for key, group in itertools.groupby(iterable, key_fn):
+        groups[key].extend(group)
+    return dict(groups)
+
+def dumps_json(
+        obj, *, indent=2, sort_keys=True, **kwargs):
+    import io
+    fd = io.StringIO()
+    dump_json(
+        obj,
+        path=fd,
+        indent=indent,
+        create_path=False,
+        sort_keys=sort_keys,
+        **kwargs,
+    )
+    return fd.getvalue()
+
+
+def dump_json(
+        obj, path, *, indent=2, create_path=True, sort_keys=True, **kwargs):
+    """
+    Numpy types will be converted to the equivalent Python type for dumping the
+    object.
+
+    :param obj: Arbitrary object that is JSON serializable,
+        where Numpy is allowed.
+    :param path: String or ``pathlib.Path`` object.
+    :param indent: See ``json.dump()``.
+    :param kwargs: See ``json.dump()``.
+
+    """
+    import io
+    import json
+
+    if isinstance(path, io.IOBase):
+        json.dump(obj, path, indent=indent,
+                  sort_keys=sort_keys, **kwargs)
+    elif isinstance(path, (str, Path)):
+        path = Path(path).expanduser()
+
+        if create_path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+        with path.open('w') as f:
+            json.dump(obj, f, indent=indent,
+                      sort_keys=sort_keys, **kwargs)
+    else:
+        raise TypeError(path)
 
 html_template = """
 <!DOCTYPE html>
@@ -40,15 +142,15 @@ def solve_assignment(ref: STM, hyp: STM, assignment_type, collar=5):
     if assignment_type == 'cp':
         from meeteval.wer.wer.cp import cp_word_error_rate
         wer = cp_word_error_rate(
-            {k: [s['words'] for s in v] for k, v in pb.utils.iterable.groupby(sorted(ref, key=lambda x: x['start_time']), 'speaker').items()},
-            {k: [s['words'] for s in v] for k, v in pb.utils.iterable.groupby(sorted(hyp, key=lambda x: x['start_time']), 'speaker').items()},
+            {k: [s['words'] for s in v] for k, v in groupby(sorted(ref, key=lambda x: x['start_time']), 'speaker').items()},
+            {k: [s['words'] for s in v] for k, v in groupby(sorted(hyp, key=lambda x: x['start_time']), 'speaker').items()},
         )
     elif assignment_type in ('tcp', 'ditcp'):
         from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
         # The visualization looks wrong if we don't sort segments
         wer = time_constrained_minimum_permutation_word_error_rate(
-            pb.utils.iterable.groupby(ref, 'speaker'),
-            pb.utils.iterable.groupby(hyp, 'speaker'),
+            groupby(ref, 'speaker'),
+            groupby(hyp, 'speaker'),
             collar=collar,
             reference_sort='segment',
             hypothesis_sort='segment',
@@ -59,8 +161,8 @@ def solve_assignment(ref: STM, hyp: STM, assignment_type, collar=5):
         raise ValueError(assignment_type)
 
     _, hyp = wer.apply_assignment(
-        pb.utils.iterable.groupby(ref, 'speaker'),
-        pb.utils.iterable.groupby(hyp, 'speaker'),
+        groupby(ref, 'speaker'),
+        groupby(hyp, 'speaker'),
     )
     hyp = [
         {**l, 'speaker': k}
@@ -81,8 +183,8 @@ def get_diarization_invariant_alignment(ref: List[Dict], hyp: List[Dict], collar
     words, _ = get_words_and_alignment(ref, hyp, 'tcp', collar=collar)
 
     wer = greedy_di_tcp_error_rate(
-        list(pb.utils.iterable.groupby(ref, 'speaker').values()),
-        [[[vv] for vv in v]for v in pb.utils.iterable.groupby(ref, 'speaker').values()],
+        list(groupby(ref, 'speaker').values()),
+        [[[vv] for vv in v]for v in groupby(ref, 'speaker').values()],
         collar=collar
     )
 
@@ -133,8 +235,8 @@ def get_words_and_alignment(ref: List[Dict], hyp: List[Dict], alignment_type, co
     words = []
     alignment = []
 
-    ref = pb.utils.iterable.groupby(sorted(ref, key=lambda x: x['start_time']), 'speaker')
-    hyp = pb.utils.iterable.groupby(sorted(hyp, key=lambda x: x['start_time']), 'speaker')
+    ref = groupby(sorted(ref, key=lambda x: x['start_time']), 'speaker')
+    hyp = groupby(sorted(hyp, key=lambda x: x['start_time']), 'speaker')
 
     for k in ref.keys():
         ref_ = ref[k]
@@ -288,6 +390,8 @@ class AlignmentVisualization:
             barplot_style='absolute',
             barplot_scale_exclude_total=False,
             num_minimaps=2,
+            show_details=True,
+            show_legend=True,
     ):
         self.ref = ref
         self.hyp = hyp
@@ -296,6 +400,8 @@ class AlignmentVisualization:
         self.barplot_style = barplot_style
         self.barplot_scale_exclude_total = barplot_scale_exclude_total
         self.num_minimaps = num_minimaps
+        self.show_details = show_details
+        self.show_legend = show_legend
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -311,7 +417,7 @@ class AlignmentVisualization:
                 raise ValueError(
                     f'Colormap defined the wrong keys: Need {colormap_keys} but found {list(self.colormap.keys())}'
                 )
-            return pb.io.dumps_json(self.colormap, indent=None)
+            return dumps_json(self.colormap, indent=None)
 
     @cached_property
     def data(self):
@@ -333,16 +439,15 @@ class AlignmentVisualization:
         # Generate HTML and JS for data
         visualize_js = (Path(__file__).parent / 'visualize.js').read_text()
         html = f'''
-            <script src="https://d3js.org/d3.v7.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
-            <div style="margin: auto">
+            <div style="margin: auto" class="meeteval-viz">
                 <div id='{element_id}'></div>
             <div>
-            <script type="module">
+            <script>
                 {visualize_js}
                 alignment_visualization(
-                    {pb.io.dumps_json(self.data, indent=None)}, 
+                    {dumps_json(self.data, indent=None)}, 
                     "#{element_id}",
                     {{
                         colors: {self._get_colormap()},
@@ -352,7 +457,9 @@ class AlignmentVisualization:
                         }},
                         minimaps: {{
                             number: {self.num_minimaps}
-                        }}
+                        }},
+                        show_details: {'true' if self.show_details else 'false'},
+                        show_legend: {'true' if self.show_legend else 'false'}
                     }}
                 )
             </script>
@@ -391,7 +498,7 @@ def cli():
     )
 
     output_dir = Path(args.output_dir)
-    pb.io.dump_json(data, output_dir / 'data.json')
+    dump_json(data, output_dir / 'data.json')
     Path(output_dir / 'index.html').write_text(
         html_template.format(title=args.html_title.format(filename=args.filename), settings=str(args)))
     shutil.copy(Path(__file__).parent / 'plot.js', output_dir / 'plot.js')
