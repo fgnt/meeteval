@@ -950,8 +950,8 @@ class CanvasPlot {
                 const end_time = d.ref_center_time === undefined || d.ref_center_time < d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
                 return begin_time < end && end_time > begin;
             });
-            const lineStartOffset = this.ref_hyp_gap / 8;
-            context.lineWidth = 3;
+            const lineStartOffset = this.ref_hyp_gap / 2;
+            context.lineWidth = 2;
             filtered_alignment.forEach(d => {
                 const x_ref = this.plot.x(d.ref_speaker_id) + this.plot.x.bandwidth() / 2;
                 const x_hyp = this.plot.x(d.hyp_speaker_id) + this.plot.x.bandwidth() / 2;
@@ -959,12 +959,13 @@ class CanvasPlot {
                 context.strokeStyle = settings.colors[d.match_type];
                 if (d.hyp_center_time === undefined) {
                     const y = this.plot.y(d.ref_center_time);
-                    context.moveTo(x_ref - this.ref_hyp_gap, y);
-                    context.lineTo(x_hyp, y);
+                    context.moveTo(x_ref - this.ref_hyp_gap - lineStartOffset, y);
+                    context.lineTo(x_hyp - this.ref_hyp_gap + lineStartOffset, y);
                 } else if (d.ref_center_time === undefined) {
-                    const y = this.plot.y(d.ref_center_time);
-                    context.moveTo(x_ref, y);
-                    context.lineTo(x_hyp + this.ref_hyp_gap, y);
+                    console.log("draw hyp line")
+                    const y = this.plot.y(d.hyp_center_time);
+                    context.moveTo(x_ref + this.ref_hyp_gap + lineStartOffset, y);
+                    context.lineTo(x_hyp + this.ref_hyp_gap - lineStartOffset, y);
                 } else {
                     const xl = x_ref - this.ref_hyp_gap;
                     const yl = this.plot.y(d.ref_center_time)
@@ -984,7 +985,7 @@ class CanvasPlot {
             if (draw_utterance_markers) {
                 filtered_utterances.forEach(d => {
                     context.strokeStyle = "black";
-                    context.lineWidth = 2;
+                    context.lineWidth = 1.5;
                     context.beginPath();
 
                     // x is the left side of the marker
