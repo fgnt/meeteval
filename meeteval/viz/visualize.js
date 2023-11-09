@@ -34,6 +34,7 @@ function alignment_visualization(
         },
         show_details: true,
         show_legend: true,
+        font_size: 12,
     }
 ) {
 
@@ -83,6 +84,7 @@ function drawAxis(
 
     // Set up context
     context.lineWidth = 1;
+    context.font = "12px Arial";
     context.strokeStyle = "black";  // Line color
     context.fillStyle = "black";    // Font color
 
@@ -169,6 +171,7 @@ function drawAxisCompact(
 
     // Set up context
     context.lineWidth = 1;
+    context.font = "12px Arial";
     context.strokeStyle = "black";  // Line color
     context.fillStyle = "black";    // Font color
 
@@ -278,13 +281,37 @@ class CanvasPlot {
 
     function drawLegend(container) {
         const legend = container
-            .append("div").classed("legend-container", true)
+            .append("div").classed("pill", true)
         for (const k of Object.keys(settings.colors)) {
             const l = legend.append("div").classed("legend-element", true)
-            l.append("span").classed("legend-color", true)
+            l.append("div").classed("legend-color", true)
                 .style("background-color", settings.colors[k]);
-            l.append("span").classed("legend-label", true).text(k)
+            l.append("div").classed("legend-label", true).text(k)
         }
+    }
+
+
+    function drawMenu(container) {
+        const font_size = container.append("div").classed("pill", true)
+        font_size.append("div").classed("info-label", true).text("Font size");
+        font_size.append("input").attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
+            settings.font_size = this.value;
+            redraw();
+        }).node().value = settings.font_size;
+
+        const num_minimaps = container.append("div").classed("pill", true);
+        num_minimaps.append("div").classed("info-label", true).text("# Minimaps");
+        const num_minimaps_select = num_minimaps.append("select").on("change", function () {
+            settings.minimaps.number = this.value;
+            rebuild();
+            redraw();
+        });
+        console.log("set minimaps value", settings.minimaps.number)
+        num_minimaps_select.append("option").attr("value", 0).text("0");
+        num_minimaps_select.append("option").attr("value", 1).text("1");
+        num_minimaps_select.append("option").attr("value", 2).text("2");
+        num_minimaps_select.append("option").attr("value", 3).text("3");
+        num_minimaps_select.node().value = settings.minimaps.number;
     }
 
     // function drawMenuBar(menu_bar_container) {
@@ -297,18 +324,28 @@ class CanvasPlot {
             
     // }
 
+    function drawHelpButton(container) {
+        const pill = container.append("a").attr("href", "https://github.com/fgnt/meeteval").classed("pill", true)
+        pill.append("i").classed("fas fa-question-circle", true);
+        pill.append("div").text("Help");
+    }
+
     function drawExampleInfo(container, info) {
-        const root = container.append("div").classed("info-container", true);
+        const root = container; //container.append("div").classed("info-container", true);
 
         label = (label, value) => {
-            var l = root.append("div").classed("info-tag", true);
+            var l = root.append("div").classed("pill", true);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
+            return l;
         }
 
         label("ID:", info.filename);
+        label("Length:", info.length + "s");
         label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%");
         label("Alignment:", info.alignment_type)
+        if (info.wer.reference_self_overlap?.overlap_rate) label("Reference self-overlap:", (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%").classed("warn", true);
+        if (info.wer.hypothesis_self_overlap?.overlap_rate) label("Hypothesis self-overlap:", (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%").classed("warn", true);
     }
 
     class ErrorBarPlot {
@@ -461,7 +498,7 @@ class CanvasPlot {
                 .style("margin-bottom", "5px");
 
             this.error_bars = new ErrorBarPlot(
-                new CanvasPlot(e, width, 60,
+                new CanvasPlot(e, width, 40,
                 x_scale,
                 d3.scaleLinear().domain([1, 0]),
                     false, false, true,
@@ -830,7 +867,7 @@ class CanvasPlot {
             const band_width = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
 
             // Draw words
-            context.font = "12px Arial";
+            context.font = `${settings.font_size}px Arial`;
             context.textAlign = "center";
             context.textBaseline = "middle";
             context.lineWidth = 1;
@@ -936,7 +973,7 @@ class CanvasPlot {
                         // context.moveTo(x, this.plot.y(d.begin_time));
                         // context.lineTo(x, this.plot.y(d.end_time) );
                         // context.stroke();
-                        context.font = "italic 12px Arial";
+                        context.font = `italic ${settings.font_size}px Arial`;
                         context.fillStyle = "gray";
                         context.fillText('(empty segment)', x, this.plot.y((d.begin_time + d.end_time) / 2));
                     }
@@ -976,52 +1013,65 @@ class CanvasPlot {
     var margin = {top: 30, right: 30, bottom: 70, left: 60},
         width = 1500 - margin.left - margin.right,
         height = 300 - margin.top - margin.bottom;
-    d3.select('#c').style("display", "flex")
-    const top_row_container = d3.select(element_id).append("div").style("display", "flex")
+    const top_row_container = d3.select(element_id).append("div").classed("top-row", true)
+    drawHelpButton(top_row_container);
     drawExampleInfo(top_row_container, data.info)
     // drawMenuBar(top_row_container);
     if (settings.show_legend) drawLegend(top_row_container);
+    drawMenu(top_row_container);
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
 
-    const minimaps = []
-    for (let i = 0; i < settings.minimaps.number; i++) {
-        const minimap = new Minimap(
-            plot_div, width, settings.minimaps.height,
-            d3.scaleLinear().domain(time_domain),
-            d3.scaleBand().domain(speaker_ids).padding(0.1),
-            words,
-        )
-        if (minimaps[i-1] !== undefined) {
-            minimaps[i-1].onSelect(minimap.zoomTo.bind(minimap));
-        }
-        minimaps.push(minimap);
-    }
+    var minimaps = []
+    var details_plot = null;
+    function rebuild() {
+        plot_div.selectAll("*").remove();
+        minimaps = [];
+        details_plot = null;
 
-    if (settings.show_details) {
-        const details_plot = new DetailsPlot(
-            new CanvasPlot(plot_div, width, 700,
+        for (let i = 0; i < settings.minimaps.number; i++) {
+            const minimap = new Minimap(
+                plot_div, width, settings.minimaps.height,
+                d3.scaleLinear().domain(time_domain),
                 d3.scaleBand().domain(speaker_ids).padding(0.1),
-                d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
-                true
-            ), words, utterances, alignment
-        )
-
-
-        if (minimaps.length > 0) {
-            const last_minimap = minimaps[minimaps.length - 1];
-            last_minimap.onSelect(details_plot.zoomTo.bind(details_plot));
-            details_plot.onScroll((x0, x1) => {
-                last_minimap.brush_group.call(last_minimap.brush.move, [
-                    last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
-                ])
-            });
-        } else {
-            // This is necessary to prevent update loops. We can't call details_plot.zoomTo in details_plot...
-            details_plot.onScroll(details_plot.zoomTo.bind(details_plot));
+                words,
+            )
+            if (minimaps[i-1] !== undefined) {
+                minimaps[i-1].onSelect(minimap.zoomTo.bind(minimap));
+            }
+            minimaps.push(minimap);
         }
-        details_plot.draw();
+
+        if (settings.show_details) {
+            details_plot = new DetailsPlot(
+                new CanvasPlot(plot_div, width, 700,
+                    d3.scaleBand().domain(speaker_ids).padding(0.1),
+                    d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
+                    true
+                ), words, utterances, alignment
+            )
+
+
+            if (minimaps.length > 0) {
+                const last_minimap = minimaps[minimaps.length - 1];
+                last_minimap.onSelect(details_plot.zoomTo.bind(details_plot));
+                details_plot.onScroll((x0, x1) => {
+                    last_minimap.brush_group.call(last_minimap.brush.move, [
+                        last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
+                    ])
+                });
+            } else {
+                // This is necessary to prevent update loops. We can't call details_plot.zoomTo in details_plot...
+                details_plot.onScroll(details_plot.zoomTo.bind(details_plot));
+            }
+        }
     }
 
-    for (const minimap of minimaps) minimap.draw();
+    function redraw() {
+        if (settings.show_details) details_plot.draw();
+        for (const minimap of minimaps) minimap.draw();
+    }
+
+    rebuild();
+    redraw();
 }

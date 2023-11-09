@@ -336,9 +336,14 @@ def get_visualization_data(ref: List[Dict], hyp: List[Dict], assignment='tcp'):
         ref = ref.segments()
     if isinstance(hyp, STM):
         hyp = hyp.segments()
-    data = {}
-    filename = ref[0]['session_id']
-    speakers = list(set(map(lambda x: x['speaker_id'], ref)))
+    data = {
+        'info': {
+            'filename': ref[0]['session_id'],
+            'speakers': list(set(map(lambda x: x['speaker'], ref))),
+            'alignment_type': assignment,
+            'length': max([e['end_time'] for e in ref + hyp]) - min([e['start_time'] for e in ref + hyp])
+        }
+    }
 
     ref, hyp, wer = solve_assignment(ref, hyp, assignment)
 
@@ -377,14 +382,7 @@ def get_visualization_data(ref: List[Dict], hyp: List[Dict], assignment='tcp'):
     # Word level
     data['words'], data['alignment'] = get_words_and_alignment(ref, hyp, assignment)
 
-    print(ref[0])
-    data['info'] = {
-        'filename': filename,
-        'alignment_type': assignment,
-        'wer': dataclasses.asdict(wer),
-        'speakers': speakers,
-    }
-
+    data['info']['wer'] = dataclasses.asdict(wer)
     return data
 
 class AlignmentVisualization:
@@ -451,13 +449,14 @@ class AlignmentVisualization:
         html = f'''
             <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+            <script src="https://kit.fontawesome.com/yourcode.js" crossorigin="anonymous"></script>
             <style>
                 {css}
             </style>
             <div style="margin: auto" class="meeteval-viz">
                 <div id='{element_id}'></div>
             <div>
-            <script>
+            <script defer>
                 {visualize_js}
                 alignment_visualization(
                     {dumps_json(self.data, indent=None)}, 
