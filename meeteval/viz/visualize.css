@@ -50,6 +50,11 @@
     margin-right: 5px;
 }
 
+.label {
+    margin-right: 3px;
+    margin-left: 5px;
+}
+
 .info-value {
     display: inline-block;
     font-weight: normal;
@@ -81,4 +86,10 @@ i {
     display: inline-block;
     font-size: 1.2em;
     margin-right: 5px;
+}
+
+.minimap {
+    position: relative;
+    background-color: #f0f0f0;
+    margin-bottom: 5px;
 }

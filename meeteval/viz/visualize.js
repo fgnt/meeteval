@@ -306,6 +306,7 @@ class CanvasPlot {
 
 
     function drawMenu(container) {
+        // Font
         const font_size = container.append("div").classed("pill", true)
         font_size.append("div").classed("info-label", true).text("Font size");
         font_size.append("input").attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
@@ -313,19 +314,43 @@ class CanvasPlot {
             redraw();
         }).node().value = settings.font_size;
 
-        const num_minimaps = container.append("div").classed("pill", true);
-        num_minimaps.append("div").classed("info-label", true).text("# Minimaps");
-        const num_minimaps_select = num_minimaps.append("select").on("change", function () {
+        // Minimaps
+        const minimaps = container.append("div").classed("pill", true);
+        minimaps.append("div").classed("info-label", true).text("Minimaps");
+        minimaps.append("div").text("#").classed("label", true);
+        const num_minimaps_select = minimaps.append("select").on("change", function () {
             settings.minimaps.number = this.value;
             rebuild();
             redraw();
         });
-        console.log("set minimaps value", settings.minimaps.number)
         num_minimaps_select.append("option").attr("value", 0).text("0");
         num_minimaps_select.append("option").attr("value", 1).text("1");
         num_minimaps_select.append("option").attr("value", 2).text("2");
         num_minimaps_select.append("option").attr("value", 3).text("3");
         num_minimaps_select.node().value = settings.minimaps.number;
+
+        minimaps.append("div").text("Error distribution").classed("label", true);
+        // const errorbar_style = container.append("div").classed("pill", true);
+        // errorbar_style.append("div").classed("info-label", true).text("Error distribution");
+        const errorbar_style_select = minimaps.append("select").on("change", function () {
+            settings.barplot.style = this.value;
+            rebuild();
+            redraw();
+        });
+        errorbar_style_select.append("option").attr("value", "absolute").text("Absolute");
+        errorbar_style_select.append("option").attr("value", "relative").text("Relative");
+        errorbar_style_select.append("option").attr("value", "hidden").text("Hidden");
+        errorbar_style_select.node().value = settings.barplot.style;
+
+        
+        // const errorbar_mode = container.append("div").classed("pill", true);
+        minimaps.append("div").text("Scale exclude correct").classed("label", true);
+        // errorbar_mode.append("div").classed("info-label", true).text("Scale exclude correct");
+        const errorbar_mode_check = minimaps.append("input").attr("type", "checkbox").on("change", function () {
+            settings.barplot.scaleExcludeCorrect = this.checked;
+            redraw();
+        });
+        errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
     }
 
     // function drawMenuBar(menu_bar_container) {
@@ -426,12 +451,14 @@ class CanvasPlot {
                 const bottom = this.plot.y(0);
                 y = (y) => this.plot.y(y) - bottom;
 
-                this.plot.context.strokeStyle = "gray";
-                this.plot.context.fillStyle = settings.colors["correct"];
-                this.plot.context.beginPath();
-                this.plot.context.rect(x, bottom, width, y(b.total));
-                this.plot.context.stroke();
-                this.plot.context.fill();
+                if (self.style === 'absolute') {
+                    this.plot.context.strokeStyle = "gray";
+                    this.plot.context.fillStyle = settings.colors["correct"];
+                    this.plot.context.beginPath();
+                    this.plot.context.rect(x, bottom, width, y(b.total));
+                    this.plot.context.stroke();
+                    this.plot.context.fill();
+                }
 
                 // Substitutions
                 var height = y(b.substitutions);
@@ -506,31 +533,34 @@ class CanvasPlot {
 
     class Minimap {
         constructor(element, width, height, x_scale, y_scale, words) {
-            const e = element.append('div')
-                .style("position", "relative")
-                .style("background", "#eAeAeA")
-                .style("margin-bottom", "5px");
+            const e = element.append('div').classed("minimap", true)
 
-            this.error_bars = new ErrorBarPlot(
-                new CanvasPlot(e, width, 40,
-                x_scale,
-                d3.scaleLinear().domain([1, 0]),
-                    false, false, true,
-            ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
+            if (settings.barplot.style !== "hidden") {
+                this.error_bars = new ErrorBarPlot(
+                    new CanvasPlot(e, width, 40,
+                    x_scale,
+                    d3.scaleLinear().domain([1, 0]),
+                        false, false, true,
+                ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
+            }
             this.word_plot = new WordPlot(
                 new CanvasPlot(e, width, 100, x_scale, y_scale,
                     false, true, true, "time"),
                 words
             );
 
-            this.error_bars.plot.element.append("div")
-                .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
-                .style("padding", "0 3px 0 3px")
-                .style("font-style", "italic").style("user-select", "none")
-                // .style("border", "1px solid gray")
-                .style("border-radius", "0 5px 5px 0")
-                .style("font-size", "10px")
-                .text("Error distribution");
+            if (settings.barplot.style !== "hidden") {
+                this.error_bars.plot.element.append("div")
+                    .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
+                    .style("padding", "0 3px 0 3px")
+                    .style("font-style", "italic").style("user-select", "none")
+                    // .style("border", "1px solid gray")
+                    .style("border-radius", "0 5px 5px 0")
+                    .style("font-size", "10px")
+                    .text("Error distribution");
+            }
+
+            
             this.word_plot.plot.element.append("div")
                 .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
                 .style("padding", "0 3px 0 3px")
@@ -547,10 +577,10 @@ class CanvasPlot {
             this.brush = d3.brushX()
                 .extent([
                     [
-                        Math.max(this.error_bars.plot.y_axis_padding, this.word_plot.plot.y_axis_padding),
+                        Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding),
                         0
                     ],
-                    [this.word_plot.plot.width, this.word_plot.plot.height + this.error_bars.plot.height]])
+                    [this.word_plot.plot.width, this.word_plot.plot.height + (this.error_bars?.plot.height || 0)]])
                 .on("brush", this._onselect.bind(this))
                 .on("end", this._onselect.bind(this));
 
@@ -566,8 +596,8 @@ class CanvasPlot {
             // Redraw brush when size changes. This is required because the brush range / extent will otherwise keep the old value (in screen size)
             this.word_plot.plot.onSizeChanged(() => {
                 this.brush.extent([
-                    [Math.max(this.error_bars.plot.y_axis_padding, this.word_plot.plot.y_axis_padding), 0],
-                    [this.word_plot.plot.width, this.word_plot.plot.height + this.error_bars.plot.height]]);
+                    [Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding), 0],
+                    [this.word_plot.plot.width, this.word_plot.plot.height + (this.error_bars?.plot.height || 0)]]);
                 this.brush_group.call(this.brush);
                 // No idea how to keep the selection when the size changes, so we just keep the screen position
             });
@@ -575,12 +605,12 @@ class CanvasPlot {
         }
 
         draw() {
-            this.error_bars.draw();
+            if (this.error_bars) this.error_bars.draw();
             this.word_plot.draw();
         }
 
         zoomTo(x0, x1) {
-            this.error_bars.zoomTo(x0, x1);
+            if (this.error_bars) this.error_bars.zoomTo(x0, x1);
             this.word_plot.zoomTo(x0, x1);
             this._callOnSelectCallbacks();
         }
