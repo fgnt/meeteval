@@ -170,7 +170,7 @@ def solve_assignment(ref: STM, hyp: STM, assignment_type, collar=5):
         for l in v
     ]
 
-    return ref, hyp
+    return ref, hyp, wer
 
 
 @dataclasses.dataclass(frozen=True)
@@ -337,10 +337,11 @@ def get_visualization_data(ref: List[Dict], hyp: List[Dict], assignment='tcp'):
     if isinstance(hyp, STM):
         hyp = hyp.segments()
     data = {}
+    filename = ref[0]['session_id']
+    speakers = list(set(map(lambda x: x['speaker_id'], ref)))
 
-    ref, hyp = solve_assignment(ref, hyp, assignment)
+    ref, hyp, wer = solve_assignment(ref, hyp, assignment)
 
-    # TODO: compute and store statistics for each utterance (#words, #insertions, #deletions, #substitutions)
     hyp_utterances = [
         {
             'transcript': l['words'],
@@ -375,6 +376,14 @@ def get_visualization_data(ref: List[Dict], hyp: List[Dict], assignment='tcp'):
 
     # Word level
     data['words'], data['alignment'] = get_words_and_alignment(ref, hyp, assignment)
+
+    print(ref[0])
+    data['info'] = {
+        'filename': filename,
+        'alignment_type': assignment,
+        'wer': dataclasses.asdict(wer),
+        'speakers': speakers,
+    }
 
     return data
 
@@ -438,9 +447,13 @@ class AlignmentVisualization:
 
         # Generate HTML and JS for data
         visualize_js = (Path(__file__).parent / 'visualize.js').read_text()
+        css = (Path(__file__).parent / 'visualize.css').read_text()
         html = f'''
             <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+            <style>
+                {css}
+            </style>
             <div style="margin: auto" class="meeteval-viz">
                 <div id='{element_id}'></div>
             <div>

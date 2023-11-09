@@ -276,27 +276,39 @@ class CanvasPlot {
     }
 }
 
-    function drawLegend(legend_container) {
-        const legend = legend_container
-            .style("margin-left", "3px")
-            .style("margin-top", "3px")
-            .style("display", "flex")
-            .style("align-items", "flex-end")
-            .append("div")
-            .style("border", "1px solid black")
-            .style("padding", "1px 10px 1px 1px")
-            .style("display", "flex")
-            .style("align-items", "flex-end");
+    function drawLegend(container) {
+        const legend = container
+            .append("div").classed("legend-container", true)
         for (const k of Object.keys(settings.colors)) {
-            const l = legend.append("div")
-                .style("margin-left", "10px")
-            l.append("span")
-                .style("display", "inline-block")
-                .style("width", "10px")
-                .style("height", "10px")
+            const l = legend.append("div").classed("legend-element", true)
+            l.append("span").classed("legend-color", true)
                 .style("background-color", settings.colors[k]);
-            l.append("span").text(k).style("padding-left", "5px");
+            l.append("span").classed("legend-label", true).text(k)
         }
+    }
+
+    // function drawMenuBar(menu_bar_container) {
+    //     // View
+    //     const view = menu_bar_container.append("button").text("View")
+    //     const view_menu = menu_bar_container.append("div").attr("class", "dropdown-content");
+    //     view_menu.append("a").text("item1");
+    //     view_menu.append("a").text("item2");
+    //     view.on("click", () => view_menu.classed("show", true));
+            
+    // }
+
+    function drawExampleInfo(container, info) {
+        const root = container.append("div").classed("info-container", true);
+
+        label = (label, value) => {
+            var l = root.append("div").classed("info-tag", true);
+            l.append("div").classed("info-label", true).text(label);
+            l.append("div").classed("info-value", true).text(value);
+        }
+
+        label("ID:", info.filename);
+        label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%");
+        label("Alignment:", info.alignment_type)
     }
 
     class ErrorBarPlot {
@@ -890,7 +902,7 @@ class CanvasPlot {
             const markerOverhang = 3;
             if (draw_utterance_markers) {
                 filtered_utterances.forEach(d => {
-                    context.strokeStyle = "orange";
+                    context.strokeStyle = "black";
                     context.lineWidth = 2;
                     context.beginPath();
 
@@ -925,8 +937,8 @@ class CanvasPlot {
                         // context.lineTo(x, this.plot.y(d.end_time) );
                         // context.stroke();
                         context.font = "italic 12px Arial";
-                        context.fillStyle = "#ffd580";
-                        context.fillText('empty segment', x, this.plot.y((d.begin_time + d.end_time) / 2));
+                        context.fillStyle = "gray";
+                        context.fillText('(empty segment)', x, this.plot.y((d.begin_time + d.end_time) / 2));
                     }
                     
                 });
@@ -965,7 +977,10 @@ class CanvasPlot {
         width = 1500 - margin.left - margin.right,
         height = 300 - margin.top - margin.bottom;
     d3.select('#c').style("display", "flex")
-    if (settings.show_legend) drawLegend(d3.select(element_id).append("div"));
+    const top_row_container = d3.select(element_id).append("div").style("display", "flex")
+    drawExampleInfo(top_row_container, data.info)
+    // drawMenuBar(top_row_container);
+    if (settings.show_legend) drawLegend(top_row_container);
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
 
