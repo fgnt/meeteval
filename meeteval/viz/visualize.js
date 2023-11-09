@@ -43,6 +43,20 @@ function alignment_visualization(
         if (settings.colors[label] === undefined) throw `Missing key in "colors" setting: ${label}`;
     }
 
+    function call_throttled(fn, delay=5) {
+        if (!fn.timerId) {
+            // Call immediately
+            fn()
+
+            // Set timer to prevent further calls
+            fn.timerId = setTimeout(() => {
+                fn.timerId = undefined;
+                fn.call_pending = false;
+                if (fn.call_pending) fn();
+            }, delay);
+        } else {fn.call_pending = true;}
+    }
+
     /**
  * Draw a single axis, as defined by a d3 scale, on a canvas using its 2d context
  *
@@ -994,7 +1008,8 @@ class CanvasPlot {
             this.plot.y.domain([x0, x1]);
             this.filtered_words = this.words.filter(w => w.begin_time < x1 && w.end_time > x0);
             this.filtered_utterances = this.utterances.filter(w => w.begin_time < x1 && w.end_time > x0);
-            this.draw();
+
+            call_throttled(this.draw.bind(this));
         }
     }
 
