@@ -212,7 +212,13 @@ class DetailsAxis{
         const offset = (scale.bandwidth()) / 4;
 
         // Clear the axis part of the plot
-        context.clearRect(start, 0, end - start, this.padding);
+        context.clearRect(start, position, end - start, this.padding);
+
+        // Set up context
+        context.lineWidth = 1;
+        context.font = "12px Arial";
+        context.strokeStyle = "black";  // Line color
+        context.fillStyle = "black";    // Font color
 
         // Line
         context.moveTo(start, position);
@@ -906,7 +912,14 @@ class CanvasPlot {
             const [begin, end] = this.plot.y.domain();
 
             const filtered_words = this.filtered_words;
-            if (filtered_words.length > 3000) return;
+            if (filtered_words.length > 3000) {
+                this.plot.context.font = "30px Arial";
+                this.plot.context.textAlign = "center";
+                this.plot.context.textBaseline = "middle";
+                this.plot.context.fillStyle = "gray";
+                this.plot.context.fillText("Zoom in or select a smaller region in the minimap above", this.plot.width / 2, this.plot.height / 2);
+                return;
+            }
             const filtered_utterances = this.filtered_utterances;
             const context = this.plot.context;
 
