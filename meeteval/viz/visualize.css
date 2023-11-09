@@ -93,3 +93,34 @@ i {
     background-color: #f0f0f0;
     margin-bottom: 5px;
 }
+
+.tooltip {
+    position: relative;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 400px;
+    white-space: pre-wrap;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    top: 100%;
+    left: 0%;
+    margin-left: -60px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    transition-delay: 2s;
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.1s;
+    transition-delay: 0.2s;
+  }

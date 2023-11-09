@@ -57,156 +57,193 @@ function alignment_visualization(
         } else {fn.call_pending = true;}
     }
 
-    /**
- * Draw a single axis, as defined by a d3 scale, on a canvas using its 2d context
- *
- * @param context The canvas' 2d context
- * @param scale The d3 scale that defines the axis / space
- * @param position The position of the axis from the bottom (horizontal) or left (vertical) of the canvas
- * @param padding The starting point of the axis line (padding of the other axis) from the left (horizontal) or bottom (vertical) of the canvas
- * @param horizontal Whether the axis is horizontal or vertical
- * @param tickPadding The padding between the tick marks and the tick labels
- * @param tickSize The size/length of the tick marks
- */
-function drawAxis(
-    context,
-    scale,
-    position,
-    padding,
-    horizontal,
-    tickPadding = 3,
-    tickSize = 6,
-) {
-    const [start, end] = scale.range(),
-        tickFormat = scale.tickFormat ? scale.tickFormat() : d => d,
-        ticks = (scale.ticks ? scale.ticks() : scale.domain()).map(d => {
-            return {
-                pos: scale(d) + (scale.bandwidth ? scale.bandwidth() / 2 : 0),
-                label: tickFormat(d)
-            }
+class Axis {
+    constructor(padding, numTicks=null, tickPadding=3, tickSize=6) {
+        this.padding = padding;
+        this.horizontal = true;
+        this.tickPadding = tickPadding;
+        this.tickSize = tickSize;
+        this.numTicks = numTicks;
+    }
+    draw(
+        context,
+        scale,
+        position,
+    ) {
+        const [start, end] = scale.range(),
+            tickFormat = scale.tickFormat ? scale.tickFormat() : d => d,
+            ticks = (scale.ticks ? scale.ticks(this.numTicks) : scale.domain()).map(d => {
+                return {
+                    pos: scale(d) + (scale.bandwidth ? scale.bandwidth() / 2 : 0),
+                    label: tickFormat(d)
+                }
+            });
+
+        // Flip coords if vertical
+        let coord, c;
+        if (this.horizontal) {
+            coord = (x, y) => [x, position + y]
+            c = (x, y) => [x, y]
+        } else {
+            coord = (x, y) => [position - y, x]
+            c = (x, y) => [-y, x]
+        }
+
+        // Set up context
+        context.lineWidth = 1;
+        context.font = "12px Arial";
+        context.strokeStyle = "black";  // Line color
+        context.fillStyle = "black";    // Font color
+
+        // Clear the axis part of the plot
+        context.clearRect(...coord(start, 0), ...c(end - start, this.padding));
+
+        // Tick marks
+        context.beginPath();
+        ticks.forEach(d => {
+            context.moveTo(...coord(d.pos, 0));
+            context.lineTo(...coord(d.pos, this.tickSize));
         });
+        // Line
+        context.moveTo(...coord(start, this.tickSize));
+        context.lineTo(...coord(start, 0));
+        context.lineTo(...coord(end, 0));
+        context.lineTo(...coord(end, this.tickSize));
+        context.stroke();
 
-    // Flip coords if vertical
-    let coord, c;
-    if (horizontal) {
-        coord = (x, y) => [x, position + y]
-        c = (x, y) => [x, y]
-    } else {
-        coord = (x, y) => [position - y, x]
-        c = (x, y) => [-y, x]
+        // Tick labels
+        if (this.horizontal) {
+            context.textAlign = "center";
+            context.textBaseline = "top";
+        } else {
+            context.textAlign = "right";
+            context.textBaseline = "middle";
+        }
+
+        ticks.forEach(d => {
+            context.fillText(d.label, ...coord(d.pos, this.tickSize + this.tickPadding));
+        });
     }
-
-    // Set up context
-    context.lineWidth = 1;
-    context.font = "12px Arial";
-    context.strokeStyle = "black";  // Line color
-    context.fillStyle = "black";    // Font color
-
-    // Clear the axis part of the plot
-    context.clearRect(...coord(start, 0), ...c(end - start, padding));
-
-    // Tick marks
-    context.beginPath();
-    ticks.forEach(d => {
-        context.moveTo(...coord(d.pos, 0));
-        context.lineTo(...coord(d.pos, tickSize));
-    });
-    // Line
-    context.moveTo(...coord(start, tickSize));
-    context.lineTo(...coord(start, 0));
-    context.lineTo(...coord(end, 0));
-    context.lineTo(...coord(end, tickSize));
-    context.stroke();
-
-    // Tick labels
-    if (horizontal) {
-        context.textAlign = "center";
-        context.textBaseline = "top";
-    } else {
-        context.textAlign = "right";
-        context.textBaseline = "middle";
-    }
-
-    ticks.forEach(d => {
-        context.fillText(d.label, ...coord(d.pos, tickSize + tickPadding));
-    });
 }
 
-  /**
- * Draw a single axis, as defined by a d3 scale, on a canvas using its 2d context
- *
- * @param context The canvas' 2d context
- * @param scale The d3 scale that defines the axis / space
- * @param position The position of the axis from the bottom (horizontal) or left (vertical) of the canvas
- * @param padding The starting point of the axis line (padding of the other axis) from the left (horizontal) or bottom (vertical) of the canvas
- * @param horizontal Whether the axis is horizontal or vertical
- * @param tickPadding The padding between the tick marks and the tick labels
- * @param tickSize The size/length of the tick marks
- */
-function drawAxisCompact(
-    context,
-    scale,
-    position,
-    padding,
-    horizontal,
-    tickPadding = 3,
-    tickSize = 6,
-) {
+class CompactAxis {
+    constructor(padding, label=null) {
+        this.padding = padding;
+        this.label = label;
+    }
 
-    // Tick labels
-    if (horizontal) {
+    draw(
+        context,
+        scale,
+        position,
+    ) {
+
+        // Tick labels
         context.textAlign = "center";
         context.textBaseline = "top";
-    } else {
-        context.textAlign = "right";
-        context.textBaseline = "middle";
-    }
 
-    const [start, end] = scale.range(),
-        tickFormat = scale.tickFormat ? scale.tickFormat() : d => d,
-        ticks = (scale.ticks ? scale.ticks() : scale.domain()).map(d => {
-            const label = tickFormat(d);
-            return {
-                pos: scale(d) + (scale.bandwidth ? scale.bandwidth() / 2 : 0),
-                label: label,
-                textMetrics: context.measureText(label)
-            }
-        });
+        const [start, end] = scale.range(),
+            tickFormat = scale.tickFormat ? scale.tickFormat() : d => d,
+            ticks = (scale.ticks ? scale.ticks() : scale.domain()).map(d => {
+                const label = tickFormat(d);
+                return {
+                    pos: scale(d) + (scale.bandwidth ? scale.bandwidth() / 2 : 0),
+                    label: label,
+                    textMetrics: context.measureText(label)
+                }
+            });
 
-    // Flip coords if vertical
-    let coord, c;
-    if (horizontal) {
+        // Flip coords if vertical
+        let coord, c;
         coord = (x, y) => [x, position + y]
         c = (x, y) => [x, y]
-    } else {
-        coord = (x, y) => [position - y, x]
-        c = (x, y) => [-y, x]
+
+        // Set up context
+        context.lineWidth = 1;
+        context.font = "12px Arial";
+        context.strokeStyle = "black";  // Line color
+        context.fillStyle = "black";    // Font color
+
+        // Clear the axis part of the plot
+        context.clearRect(...coord(start, 0), ...c(end - start, this.padding));
+
+        context.beginPath();
+        // Line
+        const p = (ticks[0].textMetrics.fontBoundingBoxAscent + ticks[0].textMetrics.fontBoundingBoxDescent) / 2;
+        context.moveTo(...coord(start, p));
+        context.lineTo(...coord(end, p));
+        context.stroke();
+
+        ticks.forEach(d => {
+            context.clearRect(
+                ...coord(d.pos - d.textMetrics.width / 2 - 2, -d.textMetrics.fontBoundingBoxAscent),
+                d.textMetrics.width + 4,
+                d.textMetrics.fontBoundingBoxDescent + d.textMetrics.fontBoundingBoxAscent
+            );
+            context.fillText(d.label, ...coord(d.pos, 0));
+        });
+
+        if (this.label) {
+            context.textAlign = "right";
+            const textMetrics = context.measureText(this.label);
+            const x = scale.range()[1];
+            context.clearRect(x - textMetrics.width - 3, position - textMetrics.fontBoundingBoxAscent, textMetrics.width + 3, textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent);
+            context.fillText(this.label, x, position);
+        }
+    }
+}
+
+class DetailsAxis{
+    constructor(padding, tickPadding=3, tickSize=6, ref_hyp_gap=10) {
+        this.padding = padding;
+        this.tickPadding = tickPadding;
+        this.tickSize = tickSize;
+        this.ref_hyp_gap = ref_hyp_gap;
     }
 
-    // Set up context
-    context.lineWidth = 1;
-    context.font = "12px Arial";
-    context.strokeStyle = "black";  // Line color
-    context.fillStyle = "black";    // Font color
+    draw(context, scale, position) {
+        const [start, end] = scale.range()
+        const ticks = scale.domain().map(d => {
+            return {
+                pos: scale(d) + (scale.bandwidth ? scale.bandwidth() / 2 : 0),
+                label: d
+            }
+        })
+        const offset = (scale.bandwidth()) / 4;
 
-    // Clear the axis part of the plot
-    context.clearRect(...coord(start, 0), ...c(end - start, padding));
+        // Clear the axis part of the plot
+        context.clearRect(start, 0, end - start, this.padding);
 
-    context.beginPath();
-    // Line
-    const p = (ticks[0].textMetrics.fontBoundingBoxAscent + ticks[0].textMetrics.fontBoundingBoxDescent) / 2;
-    context.lineTo(...coord(start, p));
-    context.lineTo(...coord(end, p));
-    context.stroke();
+        // Line
+        context.moveTo(start, position);
+        context.lineTo(end, position);
+        context.stroke();
 
-    ticks.forEach(d => {
-        context.clearRect(
-            ...coord(d.pos - d.textMetrics.width / 2 - 2, -d.textMetrics.fontBoundingBoxAscent),
-            d.textMetrics.width + 4,
-            d.textMetrics.fontBoundingBoxDescent + d.textMetrics.fontBoundingBoxAscent
-        );
-        context.fillText(d.label, ...coord(d.pos, 0));
-    });
+        context.textAlign = "center";
+        context.textBaseline = "top";
+        ticks.forEach(d => {
+            context.beginPath();
+            context.rect(d.pos - scale.bandwidth() / 2, position, scale.bandwidth(), this.padding);
+            context.fillStyle = "white";
+            context.strokeStyle = "black";
+            context.fill();
+            context.stroke();
+            context.beginPath();
+            context.moveTo(d.pos - this.ref_hyp_gap, position);
+            context.lineTo(d.pos - this.ref_hyp_gap, position + this.tickSize);
+            context.moveTo(d.pos + this.ref_hyp_gap, position);
+            context.lineTo(d.pos + this.ref_hyp_gap, position + this.tickSize);
+            context.moveTo(d.pos + scale.bandwidth() / 2, position);
+            context.lineTo(d.pos + scale.bandwidth() / 2, position + this.tickSize);
+            context.moveTo(d.pos - scale.bandwidth() / 2, position);
+            context.lineTo(d.pos - scale.bandwidth() / 2, position + this.tickSize);
+            context.stroke();
+            context.fillStyle = "black";
+            context.fillText(d.label, d.pos, position + this.tickSize + this.tickPadding)
+            context.fillText("REF", d.pos - offset, position + this.tickPadding);
+            context.fillText("HYP", d.pos + offset, position + this.tickPadding);
+        });
+    }
 }
 
 class CanvasPlot {
@@ -231,19 +268,21 @@ class CanvasPlot {
      * @param y_scale
      * @returns {{canvas, drawAxes: drawAxes, context: *, width, x: *, clear: clear, y: *, position: {x: number, y: number}, x_axis_padding: *, y_axis_padding: *, height}}
      */
-    constructor(element, width, height, x_scale, y_scale, invert_y=false, draw_x_axis=true, draw_y_axis=true, x_axis_label='',) {
+    constructor(element, width, height, x_scale, y_scale, xAxis, yAxis, invert_y=false, x_axis_label='',) {
         this.element = element.append("div").style("position", "relative").style("height", height + "px");
         this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%");
         this.context = this.canvas.node().getContext("2d")
-        this.position = {x: 0, y: 0}
         this.width = width
         this.height = height
-        this.x_axis_padding = draw_x_axis ? 10 : 0;
-        this.y_axis_padding = draw_y_axis ? 50 : 0;
+        this.xAxis = xAxis;
+        this.yAxis = yAxis;
+        this.x_axis_padding = xAxis?.padding || 0;
+        this.y_axis_padding = yAxis?.padding || 0;
         this.invert_y = invert_y
-        this.draw_x_axis = draw_x_axis;
-        this.draw_y_axis = draw_y_axis;
         this.x_axis_label = x_axis_label;
+
+        if (this.xAxis) this.xAxis.horizontal = true;
+        if (this.yAxis) this.yAxis.horizontal = false;
 
         // Create plot elements
         this.x = x_scale;
@@ -264,32 +303,22 @@ class CanvasPlot {
         this.height = this.canvas.node().offsetHeight;
         this.canvas.attr("width", this.width);
         this.canvas.attr("height", this.height);
-        this.x.range([this.position.x + this.y_axis_padding, this.position.x + this.width])
+        this.x.range([this.y_axis_padding, this.width])
         if (this.invert_y) {
-            this.y.range([this.position.y, this.position.y + this.height - this.x_axis_padding])
+            this.y.range([0, this.height - this.x_axis_padding])
         } else {
-            this.y.range([this.position.y + this.height - this.x_axis_padding, this.position.y])
+            this.y.range([this.height - this.x_axis_padding, 0])
         }
         this.sizeChangedListeners.forEach(c => c());
     }
 
     drawAxes() {
-        if (this.draw_x_axis) {
-            const y =  this.y.range()[this.invert_y ? 1 : 0];
-            drawAxisCompact(this.context, this.x, y, this.x_axis_padding, true);
-            if (this.x_axis_label) {
-                this.context.textAlign = "right";
-                const textMetrics = this.context.measureText(this.x_axis_label);
-                const x = this.x.range()[1];
-                this.context.clearRect(x - textMetrics.width - 3, y - textMetrics.fontBoundingBoxAscent, textMetrics.width + 3, textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent);
-                this.context.fillText(this.x_axis_label, x, y);
-            }
-        }
-        if (this.draw_y_axis) drawAxis(this.context, this.y, this.x.range()[0], this.y_axis_padding, false);
+        if (this.xAxis) this.xAxis.draw(this.context, this.x, this.y.range()[this.invert_y ? 1 : 0]);
+        if (this.yAxis) this.yAxis.draw(this.context, this.y, this.x.range()[0]);
     }
 
     clear() {
-        this.context.clearRect(this.position.x, this.position.y - 1, this.width, this.height);
+        this.context.clearRect(0, 0, this.width, this.height);
     }
 }
 
@@ -372,10 +401,13 @@ class CanvasPlot {
     function drawExampleInfo(container, info) {
         const root = container; //container.append("div").classed("info-container", true);
 
-        label = (label, value) => {
-            var l = root.append("div").classed("pill", true);
+        label = (label, value, icon=null, tooltip=null) => {
+            var l = root.append("div").classed("pill", true)
+            if (tooltip) l.classed("tooltip", true);
+            if (icon) l.append("i").classed("fas " + icon, true);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
+            if (tooltip) l.append("div").classed("tooltiptext", true).text(tooltip);
             return l;
         }
 
@@ -383,8 +415,21 @@ class CanvasPlot {
         label("Length:", info.length + "s");
         label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%");
         label("Alignment:", info.alignment_type)
-        if (info.wer.reference_self_overlap?.overlap_rate) label("Reference self-overlap:", (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%").classed("warn", true);
-        if (info.wer.hypothesis_self_overlap?.overlap_rate) label("Hypothesis self-overlap:", (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%").classed("warn", true);
+        if (info.wer.reference_self_overlap?.overlap_rate) label(
+            "Reference self-overlap:", 
+            (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%", 
+            "fa-triangle-exclamation",
+            "Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            "On the reference, this is usually an indication for annotation errors.\n" +
+            "Extreme self-overlap can lead to unexpected WERs!"
+        ).classed("warn", true);
+        if (info.wer.hypothesis_self_overlap?.overlap_rate) label(
+            "Hypothesis self-overlap:", 
+            (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%",
+            "fa-triangle-exclamation",
+            "Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            "Extreme self-overlap can lead to unexpected WERs!"
+        ).classed("warn", true);
     }
 
     class ErrorBarPlot {
@@ -537,15 +582,14 @@ class CanvasPlot {
 
             if (settings.barplot.style !== "hidden") {
                 this.error_bars = new ErrorBarPlot(
-                    new CanvasPlot(e, width, 40,
-                    x_scale,
+                    new CanvasPlot(e, width, 40, x_scale,
                     d3.scaleLinear().domain([1, 0]),
-                        false, false, true,
+                        null, new Axis(50, 3),
                 ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
             }
             this.word_plot = new WordPlot(
                 new CanvasPlot(e, width, 100, x_scale, y_scale,
-                    false, true, true, "time"),
+                    new CompactAxis(10, "time"), new Axis(50), true),
                 words
             );
 
@@ -741,7 +785,6 @@ class CanvasPlot {
     class DetailsPlot {
         constructor(plot, words, utterances, alignment, ref_hyp_gap=10) {
             this.plot = plot;
-            this.plot.x_axis_padding = 50;
             this.words = words;
             this.filtered_words = words;
             this.utterances = utterances;
@@ -859,44 +902,6 @@ class CanvasPlot {
             this.onscrollhandlers.forEach(c => c(x0, x1));
         }
 
-        drawYAxisLabels() {
-            const ticks = this.plot.x.domain().map(d => {
-                return {
-                    pos: this.plot.x(d) + (this.plot.x.bandwidth ? this.plot.x.bandwidth() / 2 : 0),
-                    label: d
-                }
-            })
-            const position = this.plot.y.range()[1];
-            const tickSize = 6;
-            const offset = (this.plot.x.bandwidth()) / 4;
-            const tickPadding = 3;
-            this.plot.context.textAlign = "center";
-            this.plot.context.textBaseline = "top";
-            const Y = position;
-            ticks.forEach(d => {
-                this.plot.context.beginPath();
-                this.plot.context.rect(d.pos - this.plot.x.bandwidth() / 2, Y, this.plot.x.bandwidth(), this.plot.x_axis_padding);
-                this.plot.context.fillStyle = "white";
-                this.plot.context.strokeStyle = "black";
-                this.plot.context.fill();
-                this.plot.context.stroke();
-                this.plot.context.beginPath();
-                this.plot.context.moveTo(d.pos - this.ref_hyp_gap, Y);
-                this.plot.context.lineTo(d.pos - this.ref_hyp_gap, Y + tickSize);
-                this.plot.context.moveTo(d.pos + this.ref_hyp_gap, Y);
-                this.plot.context.lineTo(d.pos + this.ref_hyp_gap, Y + tickSize);
-                this.plot.context.moveTo(d.pos + this.plot.x.bandwidth() / 2, Y);
-                this.plot.context.lineTo(d.pos + this.plot.x.bandwidth() / 2, Y + tickSize);
-                this.plot.context.moveTo(d.pos - this.plot.x.bandwidth() / 2, Y);
-                this.plot.context.lineTo(d.pos - this.plot.x.bandwidth() / 2, Y + tickSize);
-                this.plot.context.stroke();
-                this.plot.context.fillStyle = "black";
-                this.plot.context.fillText(d.label, d.pos, position + tickSize + tickPadding)
-                this.plot.context.fillText("REF", d.pos - offset, Y + tickPadding);
-                this.plot.context.fillText("HYP", d.pos + offset, Y + tickPadding);
-            });
-        }
-
         drawDetails() {
             const [begin, end] = this.plot.y.domain();
 
@@ -962,7 +967,6 @@ class CanvasPlot {
                     context.moveTo(x_ref - this.ref_hyp_gap - lineStartOffset, y);
                     context.lineTo(x_hyp - this.ref_hyp_gap + lineStartOffset, y);
                 } else if (d.ref_center_time === undefined) {
-                    console.log("draw hyp line")
                     const y = this.plot.y(d.hyp_center_time);
                     context.moveTo(x_ref + this.ref_hyp_gap + lineStartOffset, y);
                     context.lineTo(x_hyp + this.ref_hyp_gap - lineStartOffset, y);
@@ -1032,7 +1036,7 @@ class CanvasPlot {
             this.drawDetails();
             if (this.playhead !== null) this.playhead.drawAudio();
             this.plot.drawAxes();
-            this.drawYAxisLabels();
+            // this.drawYAxisLabels();
         }
 
         zoomTo(x0, x1) {
@@ -1093,7 +1097,7 @@ class CanvasPlot {
                 new CanvasPlot(plot_div, width, 700,
                     d3.scaleBand().domain(speaker_ids).padding(0.1),
                     d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
-                    true
+                    new DetailsAxis(30), new Axis(50), true
                 ), words, utterances, alignment
             )
 
