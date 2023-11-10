@@ -600,25 +600,11 @@ class CanvasPlot {
             );
 
             if (settings.barplot.style !== "hidden") {
-                this.error_bars.plot.element.append("div")
-                    .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
-                    .style("padding", "0 3px 0 3px")
-                    .style("font-style", "italic").style("user-select", "none")
-                    // .style("border", "1px solid gray")
-                    .style("border-radius", "0 5px 5px 0")
-                    .style("font-size", "10px")
-                    .text("Error distribution");
+                this.error_bars.plot.element.append("div").classed("plot-label", true).style("margin-left", this.error_bars.plot.y_axis_padding + "px").text("Error distribution");
             }
 
             
-            this.word_plot.plot.element.append("div")
-                .style("top", 0).style("left", 0).style("position", "absolute").style("margin-left", this.word_plot.plot.y_axis_padding + "px")
-                .style("padding", "0 3px 0 3px")
-                .style("font-style", "italic").style("user-select", "none")
-                // .style("border", "1px solid gray")
-                .style("border-radius", "0 5px 5px 0")
-                .style("font-size", "10px")
-                .text("Utterances");
+            this.word_plot.plot.element.append("div").classed("plot-label", true).style("margin-left", this.word_plot.plot.y_axis_padding + "px").text("Segments");
 
             this.svg = e.append("svg")
                 // .attr("width", width).attr("height", this.error_bars.plot.height + this.word_plot.plot.height)
@@ -805,6 +791,9 @@ class CanvasPlot {
             this.utteranceSelectListeners = [];
 
             this.onUtteranceSelect(this.draw.bind(this));
+
+            // Plot label
+            this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
 
             const self = this;
             // Create elements for click handlers

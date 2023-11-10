@@ -142,3 +142,16 @@ i {
     margin-left: 5px;
     font-style: italic;
 }
+
+.plot-label {
+    top: 0px;
+    left: 0px;
+    position: absolute;
+    padding: 0 3px 0 3px;
+    font-style: italic;
+    user-select: none;
+    border-radius: 0 5px 5px 0;
+    font-size: 10px;
+    background-color: #fff;
+    opacity: 0.5;
+}
