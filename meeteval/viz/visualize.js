@@ -848,14 +848,17 @@ class CanvasPlot {
             //     .style("width", "100%")
             //     .style("height", "100%")
 
-            // TODO: allow scrolling and dragging and ctrl+scroll for zoom
             this.plot.element.on("wheel", (event) => {
                 let [begin, end] = this.plot.y.domain();
                 let delta = (this.plot.y.invert(event.deltaY) - this.plot.y.invert(0)) * 0.3
                 if (event.ctrlKey) {
-                    begin = Math.max(0, begin - delta);
-                    end = Math.min(end + delta, this.max_length);
+                    // Zoom when ctrl is pressed. Zoom centered on mouse position
+                    const mouse_y = this.plot.y.invert(event.layerY);
+                    const ratio = (mouse_y - begin) / (end - begin);
+                    begin = Math.max(0, begin + delta * ratio);
+                    end = Math.min(end - delta * (1-ratio), this.max_length);
                 } else {
+                    // Move when ctrl is not pressed
                     if (end + delta > this.max_length) delta = this.max_length - end;
                     if (begin + delta < 0) delta = -begin;
                     begin = begin + delta;
@@ -1039,6 +1042,8 @@ class CanvasPlot {
                     // Draw marker that text is empty
                     if (d.transcript === "" && draw_text) {
                         context.beginPath();
+                        context.textAlign = "center";
+                        context.textBaseline = "middle";
                         context.strokeStyle = "lightgray";
                         context.linewidth = 1;
                         const x_ = x + bandwidth / 2;
