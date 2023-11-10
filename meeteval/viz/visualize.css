@@ -1,3 +1,7 @@
+.meeteval-viz * {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
 .dropdown {
     position: relative;
     display: inline-block;
