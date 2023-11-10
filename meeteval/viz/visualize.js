@@ -2,8 +2,8 @@ var colormaps = {
     default: {
         'correct': 'lightgray',
         'substitution': '#F5B14D',  // yellow / orange
-        'insertion': '#3F6193', // blue
-        'deletion': '#B3381A',  // red
+        'insertion': '#33c2f5', // blue
+        'deletion': '#f2beb1',  // red
     },
     diff: {
         'correct': 'lightgray',
