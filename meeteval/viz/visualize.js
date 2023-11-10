@@ -804,6 +804,8 @@ class CanvasPlot {
             this.playhead = null;
             this.utteranceSelectListeners = [];
 
+            this.onUtteranceSelect(this.draw.bind(this));
+
             const self = this;
             // Create elements for click handlers
             this.plot.element.on("click", (event) => {
@@ -1039,15 +1041,34 @@ class CanvasPlot {
                         context.beginPath();
                         context.strokeStyle = "lightgray";
                         context.linewidth = 1;
-                        x = x + bandwidth / 2;
+                        const x_ = x + bandwidth / 2;
                         // context.moveTo(x, this.plot.y(d.begin_time));
                         // context.lineTo(x, this.plot.y(d.end_time) );
                         // context.stroke();
                         context.font = `italic ${settings.font_size}px Arial`;
                         context.fillStyle = "gray";
-                        context.fillText('(empty segment)', x, this.plot.y((d.begin_time + d.end_time) / 2));
+                        context.fillText('(empty segment)', x_, this.plot.y((d.begin_time + d.end_time) / 2));
                     }
                     
+                    if (d == this.selected_utterance) {
+                        context.beginPath();
+                        context.strokeStyle = "red";
+                        context.lineWidth = 3;
+                        context.rect(x, this.plot.y(d.begin_time), bandwidth, this.plot.y(d.end_time) - this.plot.y(d.begin_time));
+                        context.stroke();
+
+                        // Write begin time above begin marker
+                        context.font = `italic ${settings.font_size}px Arial`;
+                        context.fillStyle = "gray";
+                        context.textAlign = "center";
+                        context.textBaseline = "bottom";
+                        context.fillText(`begin time: ${d.begin_time.toFixed(2)}`, x + bandwidth / 2, this.plot.y(d.begin_time) - 3);
+
+                        // Write end time below end marker
+                        context.textBaseline = "top";
+                        context.fillText(`end time: ${d.end_time.toFixed(2)}`, x + bandwidth / 2, this.plot.y(d.end_time) + 3);
+
+                    }
                 });
             }
         }
