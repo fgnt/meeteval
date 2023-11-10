@@ -777,6 +777,7 @@ class CanvasPlot {
     class DetailsPlot {
         constructor(plot, words, utterances, alignment, ref_hyp_gap=10) {
             this.plot = plot;
+            this.plot.element.classed("minimap", true)
             this.words = words;
             this.filtered_words = words;
             this.utterances = utterances;

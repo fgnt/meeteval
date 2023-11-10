@@ -101,8 +101,11 @@ i {
 
 .minimap {
     position: relative;
-    background-color: #f0f0f0;
-    margin-bottom: 5px;
+    background-color: white;
+    margin-bottom: 1px;
+    padding: 2px;
+    border: 1px solid black;
+    border-radius: 5px;
 }
 
 .tooltip {
