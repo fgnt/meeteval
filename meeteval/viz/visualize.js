@@ -1037,17 +1037,14 @@ class CanvasPlot {
                     context.stroke();
                     
                     // Draw marker that text is empty
-                    if (d.transcript === "") {
+                    if (d.transcript === "" && draw_text) {
                         context.beginPath();
                         context.strokeStyle = "lightgray";
                         context.linewidth = 1;
                         const x_ = x + bandwidth / 2;
-                        // context.moveTo(x, this.plot.y(d.begin_time));
-                        // context.lineTo(x, this.plot.y(d.end_time) );
-                        // context.stroke();
                         context.font = `italic ${settings.font_size}px Arial`;
                         context.fillStyle = "gray";
-                        context.fillText('(empty segment)', x_, this.plot.y((d.begin_time + d.end_time) / 2));
+                        context.fillText('(empty segment)', x_, (this.plot.y(d.begin_time) + this.plot.y(d.end_time)) / 2);
                     }
                     
                     if (d == this.selected_utterance) {
