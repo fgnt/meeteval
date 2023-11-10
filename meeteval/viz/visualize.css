@@ -24,6 +24,7 @@
 .top-row {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .info-container {
@@ -40,6 +41,16 @@
     border-radius: 7px;
     border: 1px solid #000;
     padding: 0 5px 0 5px;
+    white-space: nowrap;
+    align-items: center;
+}
+
+.pill-no-border {
+    display: flex;
+    margin: 2px 3px 0 3px;
+    background-color: #fff;
+    border-radius: 7px;
+    padding: 1px 5px 1px 5px;
     white-space: nowrap;
     align-items: center;
 }
@@ -124,3 +135,10 @@ i {
     transition: opacity 0.1s;
     transition-delay: 0.2s;
   }
+
+.utterance-details-help {
+    color: gray;
+    font-size: 0.8em;
+    margin-left: 5px;
+    font-style: italic;
+}

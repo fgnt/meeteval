@@ -800,7 +800,9 @@ class CanvasPlot {
             this.max_length = plot.y.domain()[1];
             this.ref_hyp_gap = ref_hyp_gap;
 
-            this.playhead = null
+            this.selected_utterance = null;
+            this.playhead = null;
+            this.utteranceSelectListeners = [];
 
             const self = this;
             // Create elements for click handlers
@@ -817,11 +819,8 @@ class CanvasPlot {
                 const utterance_candidates = this.filtered_utterances.filter(
                     u => u.begin_time < y && u.end_time > y && u.speaker_id === speaker_id && u.source === "hypothesis"
                 )
-                if (utterance_candidates.length > 0) {
-                    const utterance = utterance_candidates[0];
-                    // TODO: handle utterance click
-                    // console.log("click", screenX, index, speaker_id, y, self.plot.x.domain());
-                }
+                if (utterance_candidates.length > 0) this.selectUtterance(utterance_candidates[0]);
+                else this.selectUtterance(null);
             })
 
             // const container = this.plot.element.append("div")
@@ -876,6 +875,15 @@ class CanvasPlot {
             this.onscrollhandlers = [];
 
             this.plot.onSizeChanged(this.draw.bind(this));
+        }
+
+        onUtteranceSelect(callback) {
+            this.utteranceSelectListeners.push(callback);
+        }
+
+        selectUtterance(utterance) {
+            this.selected_utterance = utterance;
+            this.utteranceSelectListeners.forEach(c => c(utterance));
         }
 
         click(event, speaker_id) {
@@ -1061,6 +1069,33 @@ class CanvasPlot {
         }
     }
 
+    class SelectedDetailsView {
+        constructor(container) {
+            container.append("div").text("Selected segment:").classed("pill-no-border", true);
+            this.container = container //.append("div").classed("selected-utterance", true);
+            this.update(null);
+        }
+
+        clear() {
+            this.container.selectAll(".utterance-details").remove();
+        }
+
+        update(utterance) {
+            this.clear();
+            if (utterance) {
+                const blacklist = ["source"]
+                const rename = { total: "# words" }
+                this.container.selectAll(".utterance-details")
+                    .data(utterance ? Object.entries(utterance).filter(d => !blacklist.includes(d[0])).map(e => [rename[e[0]] || e[0], e[1]]) : []).join(enter => {
+                    let e = enter.append("div").classed("utterance-details", true).classed("pill", true);
+                    e.append("div").classed("info-label", true).text(d => d[0] + ":");
+                    e.append("div").classed("info-value", true).text(d => d[1]);
+                })
+            } else {
+                this.container.append("div").classed("utterance-details", true).classed("utterance-details-help pill-no-border", true).text("Select a segment to display details");
+            }
+        }
+    }
 
     // Data preprocessing
     const utterances = data.utterances;
@@ -1082,6 +1117,8 @@ class CanvasPlot {
     // drawMenuBar(top_row_container);
     if (settings.show_legend) drawLegend(top_row_container);
     drawMenu(top_row_container);
+    const selectedUtteranceDetails = new SelectedDetailsView(d3.select(element_id).append("div").classed("top-row", true));
+
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
 
@@ -1114,6 +1151,7 @@ class CanvasPlot {
                 ), words, utterances, alignment
             )
 
+            details_plot.onUtteranceSelect(selectedUtteranceDetails.update.bind(selectedUtteranceDetails));
 
             if (minimaps.length > 0) {
                 const last_minimap = minimaps[minimaps.length - 1];
