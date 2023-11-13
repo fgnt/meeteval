@@ -867,6 +867,61 @@ class CanvasPlot {
                 this._callOnScrollHandlers(begin - delta, end - delta);
             })
 
+            var lastTouchY = [];
+            this.plot.element.on("touchstart", event => {
+                // TouchList doesn't implement iterator
+                alert("touchstart")
+                lastTouchY = [];
+                for (let i = 0; i < event.touches.length; i++) {
+                    lastTouchY.push(event.touches[i].screenY);
+                }
+            });
+            this.plot.element.on("touchend", event => {
+                // TouchList doesn't implement iterator
+                alert("touchend")
+                lastTouchY = [];
+                for (let i = 0; i < event.touches.length; i++) {
+                    lastTouchY.push(event.touches[i].screenY);
+                }
+            });
+            
+            this.plot.element.on("touchmove", event => {
+                // TODO: fling?
+                // TouchList doesn't implement iterator
+                var touchY = [];
+                for (let i = 0; i < event.touches.length; i++) {
+                    touchY.push(event.touches[i].screenY);
+                }
+                if (lastTouchY) {
+                    // Use the delta between the touches that are furthest apart
+                    const minY = Math.min(...touchY);
+                    const maxY = Math.max(...touchY);
+                    const lastMinY = Math.min(...lastTouchY);
+                    const lastMaxY = Math.max(...lastTouchY);
+
+                    // Move center to the center of the touch points
+                    const center = this.plot.y.invert((maxY + minY) / 2);
+                    const lastCenter = this.plot.y.invert((lastMaxY + lastMinY) / 2);
+                    const delta = lastCenter - center;
+                    let [begin, end] = this.plot.y.domain();
+                    begin += delta;
+                    end += delta;
+                    
+                    // Zoom so that the center point doesn't move 
+                    // TODO: this computation is _slightly_ off, but I don't know why
+                    if (lastMaxY - lastMinY > 0 && maxY - minY > 0) { 
+                        const ratio = (maxY - minY) / (lastMaxY - lastMinY);
+                        const zoomDelta = (end - begin) * (ratio - 1);
+                        const positionRatio = (center - begin) / (end - begin);
+                        begin = Math.max(0, begin + zoomDelta * positionRatio);
+                        end = Math.min(end - zoomDelta * (1-positionRatio), this.max_length);
+                    }
+                    this._callOnScrollHandlers(begin, end);
+                    event.preventDefault()
+                }
+                lastTouchY = touchY;
+            })
+
             this.onscrollhandlers = [];
 
             this.plot.onSizeChanged(this.draw.bind(this));
@@ -1131,6 +1186,7 @@ class CanvasPlot {
     if (settings.show_legend) drawLegend(top_row_container);
     drawMenu(top_row_container);
     const selectedUtteranceDetails = new SelectedDetailsView(d3.select(element_id).append("div").classed("top-row", true));
+    const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
 
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
