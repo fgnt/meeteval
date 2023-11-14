@@ -25,7 +25,7 @@ function alignment_visualization(
     settings= {
         colors: colormaps.default,
         barplot: {
-            style: 'absolute', // hidden, absolute, relative
+            style: 'relative', // hidden, absolute, relative
             scaleExcludeCorrect: false
         },
         minimaps: {
@@ -680,26 +680,38 @@ class CanvasPlot {
             this.y = y_scale;
             this.begin = begin;
             this.end = end;
-            this.h = new Howl({src: src})
+            
             this.position = 0;
             this.animationFrameID = null;
-            this.h.once('end', () => this.remove.bind(this))
             this.audio_data = null
             this.global_context = global_context
             this.global_x_position = global_x_position
 
             const self = this;
+            if (src.includes('::')) {
+                // TODO: support full spec
+                
+                const parts = src.split('::');
+                const [begin, end] = parts[1].split(':');
+                src = parts[0]
+            } else {
+                const [begin, end] = [0, null];
+            }
+            console.log("Fetching", src)
             fetch(src)
                 .then(
-                    r => r.arrayBuffer().then(
-                        b => new AudioContext().decodeAudioData(b).then(
+                    r => {console.log(r); r.arrayBuffer().then(
+                        b => {console.log(b); new AudioContext().decodeAudioData(b).then(
                             a => {
                                 self.audio_data = a.getChannelData(0);
                                 self.drawAudio();
                             }
-                        )
-                    )
+                        )}
+                    )}
                 )
+            this.h = new Howl({src: src})
+            this.h.once('end', () => this.remove.bind(this))
+            this.play();
 
         }
 
@@ -791,7 +803,11 @@ class CanvasPlot {
             this.playhead = null;
             this.utteranceSelectListeners = [];
 
+            // Playhead canvas on top of the plot canvas
+            this.playhead_canvas = this.plot.element.append("canvas").style("position", "absolute").style("top", 0).style("left", 0).style("width", "100%").style("height", "100%");
+
             this.onUtteranceSelect(this.draw.bind(this));
+            // this.onUtteranceSelect(this.play.bind(this));
 
             // Plot label
             this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
@@ -814,29 +830,6 @@ class CanvasPlot {
                 if (utterance_candidates.length > 0) this.selectUtterance(utterance_candidates[0]);
                 else this.selectUtterance(null);
             })
-
-            // const container = this.plot.element.append("div")
-            //     .style("position", "absolute")
-            //     .style("top", 0)
-            //     .style("left", 0)
-            //     .style("width", "100%")
-            //     .style("height", "100%");
-            // container.selectAll("div").data(this.plot.x.domain())
-            //     .enter()
-            //     .append("div")
-            //     // .style("background-color", "red")
-            //     .style("position", "absolute")
-            //     .style("top", 0)
-            //     .style("left", d => this.plot.x(d) + "px")
-            //     .style("height", "100%")
-            //     .style("width", this.plot.x.bandwidth() + "px")
-            //     .on("click", this.click.bind(this))
-            //     .append("canvas")
-            //     .attr("id", d => "canvas-" + d)
-            //     .attr("height", this.plot.height)
-            //     .attr("width", this.plot.x.bandwidth())
-            //     .style("width", "100%")
-            //     .style("height", "100%")
 
             this.plot.element.on("wheel", (event) => {
                 let [begin, end] = this.plot.y.domain();
@@ -936,26 +929,12 @@ class CanvasPlot {
             this.utteranceSelectListeners.forEach(c => c(utterance));
         }
 
-        click(event, speaker_id) {
-            if (this.playhead !== null) this.playhead.stop();
-            const screenY = event.layerY;
-            const y = this.plot.y.invert(screenY);
-            const utterance_candidates = this.filtered_utterances.filter(
-                u => u.begin_time < y && u.end_time > y && u.speaker_id === speaker_id && u.source === "hypothesis"
+        play(utterance) {
+            this.playhead = new PlayHead(
+                this.playhead_canvas, this.playhead_canvas.node().getContext("2d"),
+                this.plot.context, 0, this.plot.x, this.plot.y, 
+                utterance.begin_time,  utterance.end_time, utterance.audio
             )
-            if (utterance_candidates.length === 0) return;
-            const utterance = utterance_candidates[0];
-            // const canvas = d3.select('#canvas-' + speaker_id).node()
-            // this.playhead = new PlayHead(
-            //     canvas, canvas.getContext("2d"),
-            //     this.plot.context,
-            //     this.plot.x(speaker_id) + this.plot.x.bandwidth(),
-            //     this.plot.x, this.plot.y, utterance.begin_time, utterance.end_time,
-            //     // TODO: remove fallback
-            //     utterance.audio || 'example.wav'
-            // )
-            // this.playhead.play();
-            // this.draw();
         }
 
         onScroll(callback) {
@@ -985,6 +964,47 @@ class CanvasPlot {
             const draw_boxes = filtered_words.length < 1000;
             const draw_utterance_markers = filtered_words.length < 2000;
             const band_width = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
+
+            // Draw background
+            for (let i = 0; i < this.plot.x.domain().length; i++) {
+                const speaker_id = this.plot.x.domain()[i];
+                const y = this.plot.y.range()[0];
+                const x = this.plot.x(speaker_id);
+                const width = this.plot.x.bandwidth();
+                const height = this.plot.y.range()[1] - this.plot.y.range()[0];
+                context.fillStyle = "#eee";
+                context.fillRect(x, y, width, height);
+            }
+
+            // Draw lines for utterance begin and end times behind the words
+            // Draw utterance begin and end markers
+            if (draw_utterance_markers) {
+                context.strokeStyle = "black";
+                context.lineWidth = .1;
+                context.beginPath();
+                filtered_utterances.forEach(d => {
+                    var y = this.plot.y(d.begin_time) - 1;
+                    context.moveTo(this.plot.x.range()[0], y);
+                    context.lineTo(this.plot.x.range()[1], y);
+                    y = this.plot.y(d.end_time) + 1;
+                    context.moveTo(this.plot.x.range()[0], y);
+                    context.lineTo(this.plot.x.range()[1], y);
+                });
+                context.stroke();
+
+                if (this.selected_utterance) {
+                    context.lineWidth = .5;
+                    context.strokeStyle = 'red';
+                    var y = this.plot.y(this.selected_utterance.begin_time) - 1;
+                    context.beginPath();
+                    context.moveTo(this.plot.x.range()[0], y);
+                    context.lineTo(this.plot.x.range()[1], y);
+                    y = this.plot.y(this.selected_utterance.end_time) + 1;
+                    context.moveTo(this.plot.x.range()[0], y);
+                    context.lineTo(this.plot.x.range()[1], y);
+                    context.stroke();
+                }
+            }
 
             // Draw words
             context.font = `${settings.font_size}px Arial`;
@@ -1186,7 +1206,7 @@ class CanvasPlot {
     if (settings.show_legend) drawLegend(top_row_container);
     drawMenu(top_row_container);
     const selectedUtteranceDetails = new SelectedDetailsView(d3.select(element_id).append("div").classed("top-row", true));
-    const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
+    // const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
 
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
