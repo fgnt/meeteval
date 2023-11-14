@@ -1,3 +1,5 @@
+import logging
+logging.basicConfig(level=logging.ERROR)
 import collections
 import contextlib
 import dataclasses
@@ -238,9 +240,9 @@ def get_words_and_alignment(ref: List[Dict], hyp: List[Dict], alignment_type, co
     ref = groupby(sorted(ref, key=lambda x: x['start_time']), 'speaker')
     hyp = groupby(sorted(hyp, key=lambda x: x['start_time']), 'speaker')
 
-    for k in ref.keys():
-        ref_ = ref[k]
-        hyp_ = hyp[k]
+    for k in set(ref.keys()) | set(hyp.keys()):
+        ref_ = ref.get(k, [])
+        hyp_ = hyp.get(k, [])
 
         # Ignore timings here, we just need this for the speaker ID
         hyp_words = [
@@ -456,24 +458,32 @@ class AlignmentVisualization:
             <div style="margin: auto" class="meeteval-viz">
                 <div id='{element_id}'></div>
             <div>
-            <script defer>
+            <script>
                 {visualize_js}
-                alignment_visualization(
-                    {dumps_json(self.data, indent=None)}, 
-                    "#{element_id}",
-                    {{
-                        colors: {self._get_colormap()},
-                        barplot: {{
-                            style: "{self.barplot_style}",
-                            scaleExcludeCorrect: {'true' if self.barplot_scale_exclude_total else 'false'}
-                        }},
-                        minimaps: {{
-                            number: {self.num_minimaps}
-                        }},
-                        show_details: {'true' if self.show_details else 'false'},
-                        show_legend: {'true' if self.show_legend else 'false'}
-                    }}
-                )
+
+                function exec() {{
+                    console.log("Waiting for d3 to load");
+                    // Wait for d3 to load
+                    if (typeof d3 !== 'undefined') alignment_visualization(
+                        {dumps_json(self.data, indent=None)}, 
+                        "#{element_id}",
+                        {{
+                            colors: {self._get_colormap()},
+                            barplot: {{
+                                style: "{self.barplot_style}",
+                                scaleExcludeCorrect: {'true' if self.barplot_scale_exclude_total else 'false'}
+                            }},
+                            minimaps: {{
+                                number: {self.num_minimaps}
+                            }},
+                            show_details: {'true' if self.show_details else 'false'},
+                            show_legend: {'true' if self.show_legend else 'false'}
+                        }}
+                    );
+                    else setTimeout(exec, 100);
+                }}
+                exec();
+                
             </script>
         '''
         return html
