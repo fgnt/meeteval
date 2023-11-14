@@ -1159,8 +1159,8 @@ class CanvasPlot {
 
     class SelectedDetailsView {
         constructor(container) {
-            container.append("div").text("Selected segment:").classed("pill-no-border", true);
-            this.container = container //.append("div").classed("selected-utterance", true);
+            this.container = container.append("div").classed("selected-segment-details", true);
+            this.container.append("div").text("Selected segment:").classed("pill-no-border", true).classed("info-label", true);
             this.update(null);
         }
 
@@ -1175,7 +1175,7 @@ class CanvasPlot {
                 const rename = { total: "# words" }
                 this.container.selectAll(".utterance-details")
                     .data(utterance ? Object.entries(utterance).filter(d => !blacklist.includes(d[0])).map(e => [rename[e[0]] || e[0], e[1]]) : []).join(enter => {
-                    let e = enter.append("div").classed("utterance-details", true).classed("pill", true);
+                    let e = enter.append("div").classed("utterance-details", true).classed("pill-no-border", true);
                     e.append("div").classed("info-label", true).text(d => d[0] + ":");
                     e.append("div").classed("info-value", true).text(d => d[1]);
                 })
