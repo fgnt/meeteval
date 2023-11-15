@@ -595,7 +595,7 @@ class CanvasPlot {
             }
             this.word_plot = new WordPlot(
                 new CanvasPlot(e, width, 100, x_scale, y_scale,
-                    new CompactAxis(10, "time"), new Axis(50), true),
+                    new CompactAxis(10, "time (s)"), new Axis(50), true),
                 words
             );
 
@@ -863,7 +863,6 @@ class CanvasPlot {
             var lastTouchY = [];
             this.plot.element.on("touchstart", event => {
                 // TouchList doesn't implement iterator
-                alert("touchstart")
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
                     lastTouchY.push(event.touches[i].screenY);
@@ -871,7 +870,6 @@ class CanvasPlot {
             });
             this.plot.element.on("touchend", event => {
                 // TouchList doesn't implement iterator
-                alert("touchend")
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
                     lastTouchY.push(event.touches[i].screenY);
