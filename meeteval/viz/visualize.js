@@ -1249,6 +1249,32 @@ class CanvasPlot {
         }
     }
 
+    class RangeSelector {
+        constructor(container) {
+            this.container = container.append("div").classed("range-selector", true).classed("pill", true);
+            this.container.append("div").classed("info-label", true).text("Selection:");
+            this.lower_input = this.container.append("input").attr("type", "number").classed("range-selector-input", true).attr("min", 0).attr("max", 1).attr("step", 0.01).attr("value", 0).on("change", this._onSelect.bind(this))
+            this.container.append("span").text("-")
+            this.upper_input = this.container.append("input").attr("type", "number").classed("range-selector-input", true).attr("min", 0).attr("max", 1).attr("step", 0.01).attr("value", 0).on("change", this._onSelect.bind(this))
+            this.on_select_callbacks = [];
+            this.onSelect((a, b) => console.log("onselect", a, b))
+        }
+
+        _onSelect() {
+            let [a, b] = [this.lower_input.node().value, this.upper_input.node().value];
+            if (a < b) this.on_select_callbacks.forEach(c => c(a, b));
+        }
+
+        onSelect(callback) {
+            this.on_select_callbacks.push(callback);
+        }
+
+        zoomTo(x0, x1) {
+            this.lower_input.node().value = x0.toFixed(1);
+            this.upper_input.node().value = x1.toFixed(1);
+        }
+    }
+
     // Data preprocessing
     const utterances = data.utterances;
     const words = data.words;
@@ -1269,6 +1295,7 @@ class CanvasPlot {
     // drawMenuBar(top_row_container);
     if (settings.show_legend) drawLegend(top_row_container);
     drawMenu(top_row_container);
+    const rangeSelector = new RangeSelector(top_row_container);
     const selectedUtteranceDetails = new SelectedDetailsView(d3.select(element_id).append("div").classed("top-row", true));
     // const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
 
@@ -1309,7 +1336,13 @@ class CanvasPlot {
             if (minimaps.length > 0) {
                 const last_minimap = minimaps[minimaps.length - 1];
                 last_minimap.onSelect(details_plot.zoomTo.bind(details_plot));
+                last_minimap.onSelect(rangeSelector.zoomTo.bind(rangeSelector));
                 details_plot.onScroll((x0, x1) => {
+                    last_minimap.brush_group.call(last_minimap.brush.move, [
+                        last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
+                    ])
+                });
+                rangeSelector.onSelect((x0, x1) => {
                     last_minimap.brush_group.call(last_minimap.brush.move, [
                         last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
                     ])
@@ -1317,6 +1350,8 @@ class CanvasPlot {
             } else {
                 // This is necessary to prevent update loops. We can't call details_plot.zoomTo in details_plot...
                 details_plot.onScroll(details_plot.zoomTo.bind(details_plot));
+                details_plot.onScroll(rangeSelector.zoomTo.bind(rangeSelector));
+                rangeSelector.onSelect(details_plot.zoomTo.bind(details_plot));
             }
         }
     }

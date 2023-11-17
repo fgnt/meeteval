@@ -205,3 +205,22 @@ i {
 .wer-table tbody tr td:nth-child(4) {
     font-family: monospace;
 }
+
+.range-selector input {
+    /* background: red; */
+    border-radius: 3px;
+    border: 1px solid gray;
+    width: 3em;
+}
+
+/* Chrome, Safari, Edge, Opera */
+.range-selector input::-webkit-outer-spin-button,
+.range-selector input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+.range-selector input[type=number] {
+  -moz-appearance: textfield;
+}
