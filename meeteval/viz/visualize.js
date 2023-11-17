@@ -4,7 +4,7 @@ var colormaps = {
         'substitution': '#F5B14D',  // yellow / orange
         'insertion': '#33c2f5', // blue
         'deletion': '#f2beb1',  // red
-        // 'ignored': '#e4a0f7',   // purple
+        // 'ignored': 'transparent',   // purple
         'highlight': 'green'
     },
     diff: {
@@ -504,8 +504,12 @@ class CanvasPlot {
 
         search(regex) {
             // Test all words against the regex. Use ^ and $ to get full match
-            const re = new RegExp("^" + regex + "$", "i");
-            for (const w of this.words) w.highlight = re.test(w.words);
+            if (regex === "")  {
+                this.words.forEach(w => w.highlight = false);
+            } else {
+                const re = new RegExp("^" + regex + "$", "i");
+                for (const w of this.words) w.highlight = re.test(w.words);
+            }
             this.on_search_callbacks.forEach(c => c());
         }
 
@@ -540,7 +544,7 @@ class CanvasPlot {
                 d.substitutions = d.map(w => w.match_type === 'substitution').reduce((a, b) => a + b, 0);
                 d.insertions = d.map(w => w.match_type === 'insertion').reduce((a, b) => a + b, 0);
                 d.deletions = d.map(w => w.match_type === 'deletion').reduce((a, b) => a + b, 0);
-                d.total = d.length;
+                d.total = d.map(w => w.match_type !== 'ignored').reduce((a, b) => a + b, 0);
                 d.highlight = d.map(w => w.highlight).reduce((a, b) => a || b, false);
 
                 // Compute relative numbers if requested
@@ -650,7 +654,7 @@ class CanvasPlot {
                     this.plot.x(u.end_time) - this.plot.x(u.start_time),
                     bandwidth,
                 );
-                if (u.match_type !== undefined) {
+                if (u.match_type !== undefined && u.match_type != 'ignored') {
                     if (u.highlight) this.plot.context.fillStyle = settings.colors.highlight;
                     else this.plot.context.fillStyle = settings.colors[u.match_type];
                     this.plot.context.fill();
@@ -1110,16 +1114,18 @@ class CanvasPlot {
                 let rectleft = bandleft;
                 if (d.source === "hypothesis") rectleft += bandwidth + this.ref_hyp_gap;
 
-                context.beginPath();
-                context.rect(
-                    rectleft,
-                    this.plot.y(d.start_time),
-                    rectwidth,
-                    this.plot.y(d.end_time) - this.plot.y(d.start_time));
-                context.strokeStyle = 'gray';
-                if (d.highlight) context.fillStyle = settings.colors.highlight;
-                else context.fillStyle = settings.colors[d.match_type];
-                
+                if (d.match_type !== 'ignored' || d.highlight) {
+                    context.beginPath();
+                    context.rect(
+                        rectleft,
+                        this.plot.y(d.start_time),
+                        rectwidth,
+                        this.plot.y(d.end_time) - this.plot.y(d.start_time));
+                    context.strokeStyle = 'gray';
+                    if (d.highlight) context.fillStyle = settings.colors.highlight;
+                    else context.fillStyle = settings.colors[d.match_type];
+                }
+
                 context.fill();
                 if (draw_boxes) context.stroke();
 
@@ -1136,11 +1142,13 @@ class CanvasPlot {
                         const y = this.plot.y(d.center_time);
                         context.moveTo(rectleft + rectwidth, y);
                         context.lineTo(rectleft + rectwidth + this.ref_hyp_gap / 2, y);
+                    }else if (d.match_type === 'ignored') {
+
                     } else {
                         // Substitution or correct
                         const match_index = d.match_index
                         const other = this.words[match_index];
-                        if (d.start_time < other.start_time || other.start_time < this.plot.y.domain()[0]) {
+                        if (d.start_time < other.start_time || d.start_time == other.start_time && match_index < d.word_index || other.start_time < this.plot.y.domain()[0]) {
                             let left, right;
                             if (d.source == "hypothesis") {
                                 left = other;
@@ -1154,7 +1162,7 @@ class CanvasPlot {
                             context.lineTo(bandleft + rectwidth + 3 * this.ref_hyp_gap / 2, this.plot.y(right.center_time));
                             context.lineTo(bandleft + rectwidth + 2 * this.ref_hyp_gap, this.plot.y(right.center_time));
                         }
-                    }
+                    } 
                     context.stroke();
                 }
 
@@ -1162,44 +1170,11 @@ class CanvasPlot {
                 if (draw_text) {
                     rectleft += rectwidth / 2;
                     let y_ = this.plot.y((d.start_time + d.end_time) / 2);
-                    context.fillStyle = '#000';
+                    if (d.match_type == 'ignored') context.fillStyle = "gray";
+                    else context.fillStyle = '#000';
                     context.fillText(d.words, rectleft, y_);
                 }
             })
-
-            // // Draw stitches
-            // const filtered_alignment = this.alignment.filter(d => {
-            //     const start_time = d.ref_center_time === undefined || d.ref_center_time > d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
-            //     const end_time = d.ref_center_time === undefined || d.ref_center_time < d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
-            //     return start_time < end && end_time > begin;
-            // });
-            // const lineStartOffset = this.ref_hyp_gap / 2;
-            // context.lineWidth = 2;
-            // filtered_alignment.forEach(d => {
-            //     const x_ref = this.plot.x(d.ref_speaker) + this.plot.x.bandwidth() / 2;
-            //     const x_hyp = this.plot.x(d.hyp_speaker) + this.plot.x.bandwidth() / 2;
-            //     context.beginPath();
-            //     context.strokeStyle = settings.colors[d.match_type];
-            //     if (d.hyp_center_time === undefined) {
-            //         const y = this.plot.y(d.ref_center_time);
-            //         context.moveTo(x_ref - this.ref_hyp_gap - lineStartOffset, y);
-            //         context.lineTo(x_hyp - this.ref_hyp_gap + lineStartOffset, y);
-            //     } else if (d.ref_center_time === undefined) {
-            //         const y = this.plot.y(d.hyp_center_time);
-            //         context.moveTo(x_ref + this.ref_hyp_gap + lineStartOffset, y);
-            //         context.lineTo(x_hyp + this.ref_hyp_gap - lineStartOffset, y);
-            //     } else {
-            //         const xl = x_ref - this.ref_hyp_gap;
-            //         const yl = this.plot.y(d.ref_center_time)
-            //         const xr = x_hyp + this.ref_hyp_gap;
-            //         const yr = this.plot.y(d.hyp_center_time)
-            //         context.moveTo(xl - lineStartOffset, yl);
-            //         context.lineTo(xl + lineStartOffset, yl);
-            //         context.lineTo(xr - lineStartOffset, yr);
-            //         context.lineTo(xr + lineStartOffset, yr);
-            //     }
-            //     context.stroke();
-            // });
 
             // Draw utterance begin and end markers
             const markerLength = 6;

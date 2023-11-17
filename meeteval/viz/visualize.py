@@ -1,4 +1,5 @@
 import logging
+
 logging.basicConfig(level=logging.ERROR)
 import collections
 import contextlib
@@ -14,8 +15,7 @@ from typing import Dict, List, Mapping
 from cached_property import cached_property
 
 from meeteval.io.stm import STM, STMLine
-from meeteval.wer.wer.time_constrained import TimeMarkedTranscript
-
+from meeteval.wer.wer.time_constrained import TimeMarkedTranscript, get_pseudo_word_level_timings
 
 from meeteval.io.tidy import convert_to_tidy, keys, groupby, Tidy, tidy_args
 
@@ -66,6 +66,7 @@ def dump_json(
     else:
         raise TypeError(path)
 
+
 html_template = """
 <!DOCTYPE html>
 <html lang="en">
@@ -87,7 +88,7 @@ html_template = """
 """
 
 
-def solve_assignment(ref: Tidy, hyp: Tidy, assignment_type, collar=5):
+def get_wer(ref: Tidy, hyp: Tidy, assignment_type, collar=5):
     if assignment_type == 'cp':
         from meeteval.wer.wer.cp import cp_word_error_rate
         wer = cp_word_error_rate(ref, hyp)
@@ -104,24 +105,22 @@ def solve_assignment(ref: Tidy, hyp: Tidy, assignment_type, collar=5):
         )
     else:
         raise ValueError(assignment_type)
+    return wer
 
-    # TODO: replace with function that directly handles tidy data
-    _, hyp = wer.apply_assignment(
-        groupby(ref, keys.SPEAKER),
-        groupby(hyp, keys.SPEAKER),
+
+def apply_assignment(assignment, d: Tidy):
+    # Both ref and hyp key can be missing or None
+    # This can happen when the filter function excludes a speaker completely
+    # TODO: Find a good way to name these and adjust apply_cp_assignment accordingly
+    assignment = dict(
+        ((b, a if a is not None else f'[{b}]')
+        for a, b in assignment)
     )
-    hyp = [
-        {**l, keys.SPEAKER: k}
-        for k, v in hyp.items()
-        for l in v
+    d = [
+        {**w, keys.SPEAKER: assignment.get(w[keys.SPEAKER], f'[{w[keys.SPEAKER]}]')}
+        for w in d
     ]
-
-    return ref, hyp, wer
-
-
-@dataclasses.dataclass(frozen=True)
-class STMLine2Spk(STMLine):
-    speaker2_id: str
+    return d
 
 
 def get_diarization_invariant_alignment(ref: Tidy, hyp: Tidy, collar=5):
@@ -130,7 +129,7 @@ def get_diarization_invariant_alignment(ref: Tidy, hyp: Tidy, collar=5):
 
     wer = greedy_di_tcp_error_rate(
         list(groupby(ref, 'speaker').values()),
-        [[[vv] for vv in v]for v in groupby(ref, 'speaker').values()],
+        [[[vv] for vv in v] for v in groupby(ref, 'speaker').values()],
         collar=collar
     )
 
@@ -184,12 +183,12 @@ def get_words_and_alignment(ref: Tidy, hyp: Tidy, alignment_type, collar=5, igno
     hyp = groupby(sorted(hyp, key=lambda x: x[keys.START_TIME]), keys.SPEAKER)
 
     for k in set(ref.keys()) | set(hyp.keys()):
-        ref_ = ref.get(k, [])
-        hyp_ = hyp.get(k, [])
+        ref_word = ref.get(k, [])
+        hyp_word = hyp.get(k, [])
 
         # Estimate words from segments
-        ref_word = get_pseudo_word_level_timings(ref_, 'character_based')
-        hyp_word = get_pseudo_word_level_timings(hyp_, 'character_based')
+        # ref_word = get_pseudo_word_level_timings(ref_, 'character_based')
+        # hyp_word = get_pseudo_word_level_timings(hyp_, 'character_based')
 
         # Filter out empty words. Their boundaries will be drawn based on the utterance/segment boundaries
         ref_word = [w for w in ref_word if w[keys.WORDS] != '']
@@ -201,7 +200,8 @@ def get_words_and_alignment(ref: Tidy, hyp: Tidy, alignment_type, collar=5, igno
         # ref_word = [w for w in ref_word if w[keys.WORDS] != ignore]
         # hyp_word = [w for w in hyp_word if w[keys.WORDS] != ignore]
 
-        a = align(ref_word, hyp_word, reference_pseudo_word_level_timing='none', hypothesis_pseudo_word_level_timing='none', style='tidy', collar=collar)
+        a = align(ref_word, hyp_word, reference_pseudo_word_level_timing='none',
+                  hypothesis_pseudo_word_level_timing='none', style='tidy', collar=collar)
 
         for r, h in a:
             assert r is not None or h is not None
@@ -234,7 +234,10 @@ def get_words_and_alignment(ref: Tidy, hyp: Tidy, alignment_type, collar=5, igno
 
 
 @tidy_args(2)
-def get_visualization_data(ref: Tidy, hyp: Tidy, assignment='tcp'):
+def get_visualization_data(ref: Tidy, hyp: Tidy, assignment='tcp', alignment_transform=None):
+    if alignment_transform is None:
+        alignment_transform = lambda x: x
+
     data = {
         'info': {
             'filename': ref[0]['session_id'],
@@ -244,21 +247,64 @@ def get_visualization_data(ref: Tidy, hyp: Tidy, assignment='tcp'):
         }
     }
 
+    # Add information about ref/hyp to each utterance
     ref = [{**s, 'source': 'reference'} for s in ref]
     hyp = [{**s, 'source': 'hypothesis'} for s in hyp]
 
+    # Sort by begin time. Otherwise, the alignment will be unintuitive and likely not what the user wanted
     ref = sorted(ref, key=lambda x: x[keys.START_TIME])
     hyp = sorted(hyp, key=lambda x: x[keys.START_TIME])
 
-    ref, hyp, wer = solve_assignment(ref, hyp, assignment)
+    # Convert to words so that the transformation can be applied
+    ref_word = get_pseudo_word_level_timings(ref, 'character_based')
+    hyp_word = get_pseudo_word_level_timings(hyp, 'character_based')
+    ref_word = [{**w, keys.WORDS: call_with_args(alignment_transform, w), 'original_words': w[keys.WORDS]} for w in
+                ref_word]
+    hyp_word = [{**w, keys.WORDS: call_with_args(alignment_transform, w), 'original_words': w[keys.WORDS]} for w in
+                hyp_word]
 
+    # Remove any words that are now empty
+    ref_ignored_words = [w for w in ref_word if w[keys.WORDS] == '' or w[keys.WORDS] is None]
+    hyp_ignored_words = [w for w in hyp_word if w[keys.WORDS] == '' or w[keys.WORDS] is None]
+    ref_word = [w for w in ref_word if w[keys.WORDS] is not None and w[keys.WORDS] != '']
+    hyp_word = [w for w in hyp_word if w[keys.WORDS] is not None and w[keys.WORDS] != '']
+
+    # Get assignment using the word-level timestamps and filtered data
+    wer = get_wer(ref_word, hyp_word, assignment, collar=5)
+    hyp = apply_assignment(wer.assignment, hyp)
+    hyp_word = apply_assignment(wer.assignment, hyp_word)
+    hyp_ignored_words = apply_assignment(wer.assignment, hyp_ignored_words)
+
+    # Get the alignment using the filtered data. Add ignored words for visualization
+    words = get_words_and_alignment(ref_word, hyp_word, assignment)
+    ignored_words = [{**w, 'match_type': 'ignored'} for w in hyp_ignored_words + ref_ignored_words]
+    words = words + ignored_words
+
+    # Map back to original_words TODO: remove "original_words" key
+    words = [{**w, keys.WORDS: w['original_words'], 'transformed_words': w[keys.WORDS]} for w in words]
+    data['words'] = words
+
+    # Add utterances to data. Add total number of words to each utterance
     data['utterances'] = [{**l, 'total': len(l[keys.WORDS].split())} for l in ref + hyp]
-
-    # Word level
-    data['words'] = get_words_and_alignment(ref, hyp, assignment)
 
     data['info']['wer'] = dataclasses.asdict(wer)
     return data
+
+
+def call_with_args(fn, d):
+    import inspect
+    sig = inspect.signature(fn)
+    parameters = sig.parameters
+    if any([p.kind == inspect.Parameter.VAR_KEYWORD for p in parameters.values()]):
+        kwargs = d
+    else:
+        kwargs = {
+            name: d[name]
+            for name, p in list(parameters.items())[1:]
+            if p.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY]
+        }
+    return fn(d[keys.WORDS], **kwargs)
+
 
 class AlignmentVisualization:
     available_colormaps = ['default', 'diff', 'seaborn_muted']
@@ -275,6 +321,7 @@ class AlignmentVisualization:
             show_details=True,
             show_legend=True,
             highlight_regex=None,
+            alignment_transform=None,
     ):
         self.ref = ref
         self.hyp = hyp
@@ -286,6 +333,7 @@ class AlignmentVisualization:
         self.show_details = show_details
         self.show_legend = show_legend
         self.highlight_regex = highlight_regex
+        self.alignment_transform = alignment_transform
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -305,7 +353,7 @@ class AlignmentVisualization:
 
     @cached_property
     def data(self):
-        return get_visualization_data(self.ref, self.hyp, self.alignment)
+        return get_visualization_data(self.ref, self.hyp, self.alignment, alignment_transform=self.alignment_transform)
 
     def _repr_html_(self):
         return self.html()
@@ -368,8 +416,6 @@ class AlignmentVisualization:
 
     def dump(self, filename):
         Path(filename).write_text(self.html())
-
-
 
 
 def cli():
