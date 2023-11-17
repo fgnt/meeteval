@@ -725,18 +725,15 @@ class CanvasPlot {
             } else {
                 const [begin, end] = [0, null];
             }
-            console.log("Fetching", src)
             fetch(src)
-                .then(
-                    r => {console.log(r); r.arrayBuffer().then(
-                        b => {console.log(b); new AudioContext().decodeAudioData(b).then(
-                            a => {
-                                self.audio_data = a.getChannelData(0);
-                                self.drawAudio();
-                            }
-                        )}
-                    )}
-                )
+                .then(r => r.arrayBuffer())
+                .then(b => new AudioContext().decodeAudioData(b))
+                .then(a => {
+                    self.audio_data = a.getChannelData(0);
+                    self.drawAudio();
+                });
+                
+                
             this.h = new Howl({src: src})
             this.h.once('end', () => this.remove.bind(this))
             this.play();
