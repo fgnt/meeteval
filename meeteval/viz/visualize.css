@@ -140,7 +140,6 @@ i {
     z-index: 1;
     top: 100%;
     left: 0%;
-    margin-left: -150px;
     opacity: 0;
     transition: opacity 0.3s;
     transition-delay: 2s;
@@ -245,4 +244,25 @@ i {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+}
+
+.details-table {
+    width: 100%;
+}
+
+.details-table tr:nth-child(odd) {
+    background: #fff;
+}
+
+.details-table tr:nth-child(even) {
+    background: #eee;
+}
+
+.details-table tr td:nth-child(2) {
+    text-align: left;
+    width: auto;
+}
+
+.details-table tr td:nth-child(1) {
+    width: 6em;
 }
