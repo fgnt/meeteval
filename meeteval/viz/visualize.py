@@ -36,7 +36,7 @@ def dumps_json(
 
 
 def dump_json(
-        obj, path, *, indent=2, create_path=True, sort_keys=True, **kwargs):
+        obj, path, *, indent=2, create_path=True, sort_keys=False, **kwargs):
     """
     Numpy types will be converted to the equivalent Python type for dumping the
     object.
@@ -145,7 +145,7 @@ def get_diarization_invariant_alignment(ref: Tidy, hyp: Tidy, collar=5):
     return words, alignment
 
 
-def get_words_and_alignment(ref: Tidy, hyp: Tidy, alignment_type, collar=5):
+def get_words_and_alignment(ref: Tidy, hyp: Tidy, alignment_type, collar=5, ignore='<CC>'):
     if alignment_type == 'cp':
         from meeteval.wer.wer.time_constrained import align
         # Set the collar large enough that all words overlap with all other words
@@ -187,13 +187,19 @@ def get_words_and_alignment(ref: Tidy, hyp: Tidy, alignment_type, collar=5):
         ref_ = ref.get(k, [])
         hyp_ = hyp.get(k, [])
 
-        # Ignore timings here, we just need this for the speaker ID
+        # Estimate words from segments
         ref_word = get_pseudo_word_level_timings(ref_, 'character_based')
         hyp_word = get_pseudo_word_level_timings(hyp_, 'character_based')
 
         # Filter out empty words. Their boundaries will be drawn based on the utterance/segment boundaries
         ref_word = [w for w in ref_word if w[keys.WORDS] != '']
         hyp_word = [w for w in hyp_word if w[keys.WORDS] != '']
+
+        # Ignore `ignore` tokens while aligning
+        # ignored_words = [w for w in ref_word + hyp_word if w[keys.WORDS] == ignore]
+        # words.extend([{**w, 'match_type': 'ignored'} for w in ignored_words])
+        # ref_word = [w for w in ref_word if w[keys.WORDS] != ignore]
+        # hyp_word = [w for w in hyp_word if w[keys.WORDS] != ignore]
 
         a = align(ref_word, hyp_word, reference_pseudo_word_level_timing='none', hypothesis_pseudo_word_level_timing='none', style='tidy', collar=collar)
 
@@ -268,6 +274,7 @@ class AlignmentVisualization:
             num_minimaps=2,
             show_details=True,
             show_legend=True,
+            highlight_regex=None,
     ):
         self.ref = ref
         self.hyp = hyp
@@ -278,6 +285,7 @@ class AlignmentVisualization:
         self.num_minimaps = num_minimaps
         self.show_details = show_details
         self.show_legend = show_legend
+        self.highlight_regex = highlight_regex
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -315,6 +323,7 @@ class AlignmentVisualization:
         # Generate HTML and JS for data
         visualize_js = (Path(__file__).parent / 'visualize.js').read_text()
         css = (Path(__file__).parent / 'visualize.css').read_text()
+        highlight_regex = f'"{self.highlight_regex}"' if self.highlight_regex else 'null'
         html = f'''
             <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
@@ -331,7 +340,7 @@ class AlignmentVisualization:
                 function exec() {{
                     // Wait for d3 to load
                     if (typeof d3 !== 'undefined') alignment_visualization(
-                        {dumps_json(self.data, indent=None)}, 
+                        {dumps_json(self.data, indent=None, sort_keys=False)}, 
                         "#{element_id}",
                         {{
                             colors: {self._get_colormap()},
@@ -343,7 +352,10 @@ class AlignmentVisualization:
                                 number: {self.num_minimaps}
                             }},
                             show_details: {'true' if self.show_details else 'false'},
-                            show_legend: {'true' if self.show_legend else 'false'}
+                            show_legend: {'true' if self.show_legend else 'false'},
+                            search_bar: {{
+                                initial_query: {highlight_regex}
+                            }}
                         }}
                     );
                     else setTimeout(exec, 100);

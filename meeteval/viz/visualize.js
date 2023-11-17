@@ -4,18 +4,22 @@ var colormaps = {
         'substitution': '#F5B14D',  // yellow / orange
         'insertion': '#33c2f5', // blue
         'deletion': '#f2beb1',  // red
+        // 'ignored': '#e4a0f7',   // purple
+        'highlight': 'green'
     },
     diff: {
         'correct': 'lightgray',
         'substitution': 'yellow',
         'insertion': 'green',
         'deletion': 'red',
+        // 'ignored': 'lightgray',
     },
     seaborn_muted: {
         'correct': 'lightgray',
         'substitution': '#dd8452',  // yellow
         'insertion': '#4c72b0', // blue
         'deletion': '#c44e52',  // red
+        // 'ignored': 'lightgray',
     }
 }
 
@@ -35,8 +39,12 @@ function alignment_visualization(
         show_details: true,
         show_legend: true,
         font_size: 12,
+        search_bar: {
+            initial_query: null
+        }
     }
 ) {
+    console.log(settings);
 
     // Validate settings
     for (const label of ['correct', 'substitution', 'insertion', 'deletion']) {
@@ -422,16 +430,21 @@ class CanvasPlot {
         label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%", null, c => {
             const table = c.append("table").classed("wer-table", true);
             const head = table.append("thead").append("tr")
-            head.append("th").text("Error type");
+            head.append("th").text("");
             head.append("th");
-            head.append("th").text("Total Number");
+            head.append("th").text("Count");
             head.append("th").text("Relative");
             const body = table.append("tbody");
+            const words = body.append("tr");
+            words.append("td").text("Ref. Words");
+            words.append("td");
+            words.append("td").text(info.wer.length);
+            words.append("td").text("100.0%");
             const correct = body.append("tr");
             correct.append("td").text("Correct");
             correct.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["correct"]);
-            correct.append("td").text(info.wer.length - info.wer.substitutions - info.wer.insertions - info.wer.deletions);
-            correct.append("td").text("100.0%");
+            correct.append("td").text(info.wer.length - info.wer.substitutions - info.wer.deletions);
+            correct.append("td").text(((info.wer.length - info.wer.substitutions - info.wer.deletions)/info.wer.length * 100).toFixed(1) + "%");
             const substitution = body.append("tr");
             substitution.append("td").text("Substitution");
             substitution.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["substitution"]);
@@ -447,6 +460,7 @@ class CanvasPlot {
             deletion.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["deletion"]);
             deletion.append("td").text(info.wer.deletions);
             deletion.append("td").text((info.wer.deletions / info.wer.length * 100).toFixed(1) + "%");
+            c.append("div").classed("tooltip-info", true).text("Note: Values don't add up to 100% (except when Insertion=0)\nRef. Words = Correct + Substitution + Deletion\nHyp. Words = Correct + Substitution + Insertion");
         });
         label("Alignment:", info.alignment_type)
         if (info.wer.reference_self_overlap?.overlap_rate) label(
@@ -464,6 +478,40 @@ class CanvasPlot {
             c => c.text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "Extreme self-overlap can lead to unexpected WERs!")
         ).classed("warn", true);
+    }
+
+    /**
+     * Search bar component. Modifies "words" in-place.
+     */
+    class SearchBar {
+        constructor(container, words, initial_query) {
+            this.words = words;
+            this.container = container.append("div").classed("pill", true).classed("search-bar", true);
+            this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Search...");
+            if (initial_query) this.text_input.node().value = initial_query;
+            this.on_search_callbacks = [];
+
+            // Start search when clicking on the button
+            this.search_button = this.container.append("button").text("Search").on("click", () => this.search(this.text_input.node().value));
+
+            // Start search on Ctrl + Enter
+            this.text_input.on("keydown", (event) => {
+                if (event.key === "Enter") {
+                    this.search(this.text_input.node().value);
+                }
+            });
+        }
+
+        search(regex) {
+            // Test all words against the regex. Use ^ and $ to get full match
+            const re = new RegExp("^" + regex + "$", "i");
+            for (const w of this.words) w.highlight = re.test(w.words);
+            this.on_search_callbacks.forEach(c => c());
+        }
+
+        onSearch(callback) {
+            this.on_search_callbacks.push(callback);
+        }
     }
 
     class ErrorBarPlot {
@@ -493,6 +541,7 @@ class CanvasPlot {
                 d.insertions = d.map(w => w.match_type === 'insertion').reduce((a, b) => a + b, 0);
                 d.deletions = d.map(w => w.match_type === 'deletion').reduce((a, b) => a + b, 0);
                 d.total = d.length;
+                d.highlight = d.map(w => w.highlight).reduce((a, b) => a || b, false);
 
                 // Compute relative numbers if requested
                 if (self.style === 'relative') {
@@ -530,6 +579,15 @@ class CanvasPlot {
                 const bottom = this.plot.y(0);
                 y = (y) => this.plot.y(y) - bottom;
 
+                if (b.highlight) {
+                    height = 3;
+                    this.plot.context.beginPath();
+                    this.plot.context.fillStyle=settings.colors.highlight;
+                    this.plot.context.rect(x, bottom, width, this.plot.y(this.plot.y.domain()[1]) - bottom);
+                    this.plot.context.stroke();
+                    this.plot.context.fill();
+                }
+
                 if (self.style === 'absolute') {
                     this.plot.context.strokeStyle = "gray";
                     this.plot.context.fillStyle = settings.colors["correct"];
@@ -538,6 +596,9 @@ class CanvasPlot {
                     this.plot.context.stroke();
                     this.plot.context.fill();
                 }
+
+
+                
 
                 // Substitutions
                 var height = y(b.substitutions);
@@ -550,11 +611,14 @@ class CanvasPlot {
                 this.plot.context.fillStyle = settings.colors["insertion"];
                 this.plot.context.fillRect(x, bottom_, width, height)
                 bottom_ = bottom_ + height;
-
+                
                 // Deletions
                 height = y(b.deletions);
                 this.plot.context.fillStyle = settings.colors["deletion"];
                 this.plot.context.fillRect(x, bottom_, width, height)
+                bottom_ = bottom_ + height;
+
+               
             });
         }
 
@@ -587,7 +651,8 @@ class CanvasPlot {
                     bandwidth,
                 );
                 if (u.match_type !== undefined) {
-                    this.plot.context.fillStyle = settings.colors[u.match_type];
+                    if (u.highlight) this.plot.context.fillStyle = settings.colors.highlight;
+                    else this.plot.context.fillStyle = settings.colors[u.match_type];
                     this.plot.context.fill();
                 } else {
                     this.plot.context.stroke();
@@ -1052,7 +1117,9 @@ class CanvasPlot {
                     rectwidth,
                     this.plot.y(d.end_time) - this.plot.y(d.start_time));
                 context.strokeStyle = 'gray';
-                context.fillStyle = settings.colors[d.match_type];
+                if (d.highlight) context.fillStyle = settings.colors.highlight;
+                else context.fillStyle = settings.colors[d.match_type];
+                
                 context.fill();
                 if (draw_boxes) context.stroke();
 
@@ -1095,7 +1162,6 @@ class CanvasPlot {
                 if (draw_text) {
                     rectleft += rectwidth / 2;
                     let y_ = this.plot.y((d.start_time + d.end_time) / 2);
-
                     context.fillStyle = '#000';
                     context.fillText(d.words, rectleft, y_);
                 }
@@ -1293,13 +1359,18 @@ class CanvasPlot {
     if (settings.show_legend) drawLegend(top_row_container);
     drawMenu(top_row_container);
     const rangeSelector = new RangeSelector(top_row_container);
+    const searchBar = new SearchBar(top_row_container, words, settings.search_bar.initial_query);
+    var minimaps = [];
+    searchBar.onSearch(() => {
+        for (const minimap of minimaps) minimap.error_bars.updateBins();
+        redraw();
+    });
     const selectedUtteranceDetails = new SelectedDetailsView(d3.select(element_id).append("div").classed("top-row", true));
     // const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
 
     const plot_container = d3.select(element_id).append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
 
-    var minimaps = []
     var details_plot = null;
     function rebuild() {
         plot_div.selectAll("*").remove();
@@ -1359,5 +1430,6 @@ class CanvasPlot {
     }
 
     rebuild();
+    searchBar.search(settings.search_bar.initial_query);
     redraw();
 }

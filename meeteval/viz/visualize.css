@@ -224,3 +224,25 @@ i {
 .range-selector input[type=number] {
   -moz-appearance: textfield;
 }
+
+.tooltip-info {
+    font-style: italic;
+}
+
+.search-bar input {
+    border-color: transparent;
+}
+
+.search-bar button {
+  background-color: '#eee';
+  color: #333333;
+  cursor: pointer;
+  display: inline-block;
+  border: none;
+  margin: 0;
+  /* padding: 10px 12px; */
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
