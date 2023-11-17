@@ -140,7 +140,7 @@ i {
     z-index: 1;
     top: 100%;
     left: 0%;
-    margin-left: -60px;
+    margin-left: -150px;
     opacity: 0;
     transition: opacity 0.3s;
     transition-delay: 2s;
@@ -172,4 +172,36 @@ i {
     font-size: 10px;
     background-color: #fff;
     opacity: 0.5;
+}
+
+.wer-table {
+    border-collapse: collapse;
+    margin: auto;
+    width: 100%;
+}
+
+.wer-table thead tr {
+    /* background-color: #ffffff; */
+    color: #ffffff;
+    text-align: left;
+}
+
+.wer-table th,
+.wer-table td,
+.wer-table tr {
+    padding: 12px 15px;
+    background: transparent;
+}
+
+.wer-table tbody tr:nth-child(odd) {
+    background: #fff;
+}
+
+.wer-table tbody tr:nth-child(even) {
+    background: #eee;
+}
+
+.wer-table tbody tr td:nth-child(3),
+.wer-table tbody tr td:nth-child(4) {
+    font-family: monospace;
 }

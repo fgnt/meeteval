@@ -413,28 +413,56 @@ class CanvasPlot {
             if (icon) l.append("i").classed("fas " + icon, true);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
-            if (tooltip) l.append("div").classed("tooltiptext", true).text(tooltip);
+            if (tooltip) tooltip(l.append("div").classed("tooltiptext", true));
             return l;
         }
 
         label("ID:", info.filename);
-        label("Length:", info.length + "s");
-        label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%");
+        label("Length:", info.length.toFixed(2) + "s");
+        label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%", null, c => {
+            const table = c.append("table").classed("wer-table", true);
+            const head = table.append("thead").append("tr")
+            head.append("th").text("Error type");
+            head.append("th");
+            head.append("th").text("Total Number");
+            head.append("th").text("Relative");
+            const body = table.append("tbody");
+            const correct = body.append("tr");
+            correct.append("td").text("Correct");
+            correct.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["correct"]);
+            correct.append("td").text(info.wer.length - info.wer.substitutions - info.wer.insertions - info.wer.deletions);
+            correct.append("td").text("100.0%");
+            const substitution = body.append("tr");
+            substitution.append("td").text("Substitution");
+            substitution.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["substitution"]);
+            substitution.append("td").text(info.wer.substitutions);
+            substitution.append("td").text((info.wer.substitutions / info.wer.length * 100).toFixed(1) + "%");
+            const insertion = body.append("tr");
+            insertion.append("td").text("Insertion");
+            insertion.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["insertion"]);
+            insertion.append("td").text(info.wer.insertions);
+            insertion.append("td").text((info.wer.insertions / info.wer.length * 100).toFixed(1) + "%");
+            const deletion = body.append("tr");
+            deletion.append("td").text("Deletion");
+            deletion.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["deletion"]);
+            deletion.append("td").text(info.wer.deletions);
+            deletion.append("td").text((info.wer.deletions / info.wer.length * 100).toFixed(1) + "%");
+        });
         label("Alignment:", info.alignment_type)
         if (info.wer.reference_self_overlap?.overlap_rate) label(
             "Reference self-overlap:", 
             (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%", 
             "fa-triangle-exclamation",
-            "Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            c => c.text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "On the reference, this is usually an indication for annotation errors.\n" +
-            "Extreme self-overlap can lead to unexpected WERs!"
+            "Extreme self-overlap can lead to unexpected WERs!")
         ).classed("warn", true);
         if (info.wer.hypothesis_self_overlap?.overlap_rate) label(
             "Hypothesis self-overlap:", 
             (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%",
             "fa-triangle-exclamation",
-            "Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
-            "Extreme self-overlap can lead to unexpected WERs!"
+            c => c.text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            "Extreme self-overlap can lead to unexpected WERs!")
         ).classed("warn", true);
     }
 
