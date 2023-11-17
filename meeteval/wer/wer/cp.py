@@ -5,10 +5,9 @@ from typing import Optional, Tuple, List, Dict, Any, Iterable
 
 from meeteval._typing import Literal
 from meeteval.io import STM
+from meeteval.io.tidy import Tidy, tidy_args, TidyData, keys
 
 from meeteval.wer.wer.error_rate import ErrorRate
-from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
-from meeteval.wer.utils import _items, _values, _keys, _map
 
 __all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_stm']
 
@@ -92,24 +91,56 @@ class CPErrorRate(ErrorRate):
         )
 
 
-def cp_error_rate(
-        reference: 'List[Iterable] | Dict[Any, Iterable]',
-        hypothesis: 'List[Iterable] | Dict[Any, Iterable]',
-) -> CPErrorRate:
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
+@tidy_args(2)
+def siso_levenshtein_distance(reference: Tidy, hypothesis: Tidy) -> int:
+    """
+    Every element is treated as a single word.
 
-    return _cp_error_rate(
-        reference,
-        hypothesis,
-        distance_fn=levenshtein_distance,
-        siso_error_rate=_siso_error_rate,
+    TODO: is this a good idea?
+    """
+    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
+    from meeteval.io.tidy import keys
+
+    reference = [s[keys.WORDS] for s in reference if s[keys.WORDS]]
+    hypothesis = [s[keys.WORDS] for s in hypothesis if s[keys.WORDS]]
+
+    return levenshtein_distance(reference, hypothesis)
+
+
+def _siso_error_rate(reference: Tidy, hypothesis: Tidy) -> ErrorRate:
+    import kaldialign
+    from meeteval.io.tidy import keys
+
+    reference = [s[keys.WORDS] for s in reference if s[keys.WORDS]]
+    hypothesis = [s[keys.WORDS] for s in hypothesis if s[keys.WORDS]]
+
+    try:
+        result = kaldialign.edit_distance(reference, hypothesis)
+    except TypeError:
+        raise TypeError(type(reference), type(hypothesis), type(reference[0]), type(hypothesis[0]), reference[0],
+                        hypothesis[0])
+
+    return ErrorRate(
+        result['total'],
+        len(reference),
+        insertions=result['ins'],
+        deletions=result['del'],
+        substitutions=result['sub'],
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None,
     )
 
 
-def cp_word_error_rate(
-    reference: 'List[str | Iterable[str]] | Dict[str | Iterable[str]] | STM',
-    hypothesis: 'List[str | Iterable[str]] | Dict[str | Iterable[str]] | STM',
-):
+def cp_error_rate(reference: 'TidyData', hypothesis: 'TidyData') -> CPErrorRate:
+    return _cp_error_rate(
+        reference,
+        hypothesis,
+        distance_fn=siso_levenshtein_distance,
+        siso_error_rate=_siso_error_rate,
+    )
+
+@tidy_args(2, groups=(keys.SPEAKER,))
+def cp_word_error_rate(reference: 'Tidy', hypothesis: 'Tidy') -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
 
@@ -154,35 +185,17 @@ def cp_word_error_rate(
     >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
     CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     """
-    import meeteval.io
+    from meeteval.io.tidy import keys
 
-    def transcription_to_words(x):
-        def split(words):
-            if isinstance(words, str):
-                return words.split()
-            elif isinstance(words, list):
-                assert isinstance(words[0], str), (type(words[0]), words)
-                return words
-            elif isinstance(words, meeteval.io.stm.STM):
-                assert len({(line.filename, line.speaker_id) for line in words}) == 1, words
-                return [
-                    word
-                    for line in words.sorted_by_begin_time()
-                    for word in line.transcript.split()
-                ]
-            else:
-                raise TypeError(type(words), words)
+    def split_words(d):
+        # TODO: only keep relevant keys?
+        return [
+            {**s, keys.WORDS: w}
+            for s in d
+            for w in (s[keys.WORDS].split() if s[keys.WORDS].strip() else [''])
+        ]
 
-        if isinstance(x, meeteval.io.stm.STM):
-            assert len(x.filenames()) <= 1, (len(x.filenames()), x.filenames(), x)
-            return transcription_to_words(x.grouped_by_speaker_id())
-        else:
-            return _map(split, x)
-
-    return cp_error_rate(
-        transcription_to_words(reference),
-        transcription_to_words(hypothesis),
-    )
+    return cp_error_rate(split_words(reference), split_words(hypothesis))
 
 
 def cp_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, CPErrorRate]':
@@ -196,11 +209,10 @@ def cp_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict
 
 
 def _cp_error_rate(
-        reference,
-        hypothesis,
+        reference: Tidy,
+        hypothesis: Tidy,
         distance_fn: callable,
         siso_error_rate: callable,
-        missing=(),
 ):
     # Used in
     #   cp_word_error_rate
@@ -209,6 +221,10 @@ def _cp_error_rate(
     # .
     import scipy.optimize
     import numpy as np
+
+    from meeteval.io.tidy import groupby, keys
+    reference = groupby(reference, keys.SPEAKER)
+    hypothesis = groupby(hypothesis, keys.SPEAKER)
 
     if max(len(hypothesis), len(reference)) > 20:
         num_speakers = max(len(hypothesis), len(reference))
@@ -224,15 +240,15 @@ def _cp_error_rate(
         [
             distance_fn(tt, et)
             for et, _ in itertools.zip_longest(
-                _values(hypothesis),
-                reference,  # ignored, "padding" for underestimation
-                fillvalue=missing,
-            )
+            hypothesis.values(),
+            reference.values(),  # ignored, "padding" for underestimation
+            fillvalue=[],
+        )
         ]
         for tt, _ in itertools.zip_longest(
-            _values(reference),
-            hypothesis,  # ignored, "padding" for overestimation
-            fillvalue=missing,
+            reference.values(),
+            hypothesis.values(),  # ignored, "padding" for overestimation
+            fillvalue=[],
         )
     ])
 
@@ -244,8 +260,8 @@ def _cp_error_rate(
     # Compute WER from distance
     distance = sum(distances)
 
-    reference_keys = dict(enumerate(_keys(reference)))  # need `dict.get` of the keys for overestimation
-    hypothesis_keys = dict(enumerate(_keys(hypothesis)))  # need `dict.get` of the keys for underestimation
+    reference_keys = dict(enumerate(reference.keys()))  # need `dict.get` of the keys for overestimation
+    hypothesis_keys = dict(enumerate(hypothesis.keys()))  # need `dict.get` of the keys for underestimation
 
     assignment = tuple([
         (reference_keys.get(r), hypothesis_keys.get(c))
@@ -259,12 +275,12 @@ def _cp_error_rate(
         assignment,
         reference=reference,
         hypothesis=hypothesis,
-        missing=missing,
+        missing=[],
     )
 
     er = sum([
         siso_error_rate(r, hypothesis_new[speaker])
-        for speaker, r in _items(reference_new)
+        for speaker, r in reference_new.items()
     ])
 
     assert distance == er.errors, (distance, er)
