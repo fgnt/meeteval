@@ -662,7 +662,6 @@ class CanvasPlot {
                 this.brush_group.call(this.brush);
                 // No idea how to keep the selection when the size changes, so we just keep the screen position
             });
-            
         }
 
         draw() {
@@ -681,6 +680,10 @@ class CanvasPlot {
                 this.selection = this.max_range;
             } else {
                 this.selection = event.selection;
+            }
+            // Remove brush when fully zoomed out
+            if (event.selection !== null && this.selection[0] <= this.max_range[0] && this.selection[1] >= this.max_range[1]) {
+                this.brush_group.call(this.brush.move, null);
             }
             this._callOnSelectCallbacks();
         }
