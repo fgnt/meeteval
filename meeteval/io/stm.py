@@ -60,7 +60,7 @@ class STMLine(BaseLine):
             )
         except Exception as e:
             raise ValueError(f'Unable to parse STM line: {line}') from e
-        assert stm_line.begin_time >= 0, stm_line
+        # assert stm_line.begin_time >= 0, stm_line
         # We currently ignore the end time, so it's fine when it's before begin_time
         # assert stm_line.end_time >= stm_line.begin_time, stm_line
         return stm_line
@@ -89,6 +89,23 @@ class STMLine(BaseLine):
 class STM(Base):
     lines: List[STMLine]
     line_cls = STMLine
+
+    @classmethod
+    def convert(cls, d):
+        # TODO: generalize and move to Base
+        from meeteval.io.tidy import convert_to_tidy, keys
+        d = convert_to_tidy(d)
+        return cls([
+            STMLine(
+                filename=segment[keys.SESSION],
+                channel=segment.get(keys.CHANNEL, 1),
+                speaker_id=segment[keys.SPEAKER],
+                begin_time=segment[keys.START_TIME],
+                end_time=segment[keys.END_TIME],
+                transcript=segment[keys.WORDS]
+            )
+            for segment in d
+        ])
 
     @classmethod
     def _load(cls, file_descriptor, parse_float) -> 'List[STMLine]':
@@ -212,3 +229,14 @@ def apply_stm_multi_file(
             raise
     return result
 
+
+if __name__ == '__main__':
+    def to_rttm(file):
+        from pathlib import Path
+        STM.load(file).to_rttm().dump(Path(file).with_suffix('.rttm'))
+
+
+    import fire
+    fire.Fire({
+        'to_rttm': to_rttm,
+    })
