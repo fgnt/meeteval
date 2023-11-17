@@ -441,7 +441,7 @@ class CanvasPlot {
     class ErrorBarPlot {
         constructor(canvas_plot, num_bins, words, style='absolute', scaleExcludeCorrect=false) {
             this.plot = canvas_plot;
-            this.bin = d3.bin().thresholds(200).value(d => (d.begin_time + d.end_time) / 2)
+            this.bin = d3.bin().thresholds(200).value(d => (d.start_time + d.end_time) / 2)
             this.words = words;
             this.max = 0;
             this.binned_words = [];
@@ -546,20 +546,17 @@ class CanvasPlot {
 
         drawWords() {
             const [begin, end] = this.plot.x.domain();
-            this.plot.context.strokeStyle = "black";
-            this.words.filter(d => d.begin_time < end && d.end_time > begin).forEach(u => {
+            this.plot.context.strokeStyle = "gray";
+            const bandwidth = this.plot.y.bandwidth() / 2;
+            this.words.filter(d => d.start_time < end && d.end_time > begin).forEach(u => {
                 this.plot.context.beginPath();
-                let y_;
-                if (u.source === "hypothesis") {
-                    y_ = this.plot.y(u.speaker_id) + this.plot.y.bandwidth() / 2;
-                } else {
-                    y_ = this.plot.y(u.speaker_id);
-                }
+                let y_ = this.plot.y(u.speaker);
+                if (u.source === "hypothesis") y_ += bandwidth;
                 this.plot.context.rect(
-                    this.plot.x(u.begin_time),
+                    this.plot.x(u.start_time),
                     y_,
-                    this.plot.x(u.end_time) - this.plot.x(u.begin_time),
-                    this.plot.y.bandwidth() / 2,
+                    this.plot.x(u.end_time) - this.plot.x(u.start_time),
+                    bandwidth,
                 );
                 if (u.match_type !== undefined) {
                     this.plot.context.fillStyle = settings.colors[u.match_type];
@@ -595,7 +592,7 @@ class CanvasPlot {
             }
             this.word_plot = new WordPlot(
                 new CanvasPlot(e, width, 100, x_scale, y_scale,
-                    new CompactAxis(10, "time (s)"), new Axis(50), true),
+                    new CompactAxis(10, "time"), new Axis(50), true),
                 words
             );
 
@@ -795,7 +792,7 @@ class CanvasPlot {
             this.utterances = utterances;
             this.filtered_utterances = utterances;
             this.alignment = alignment;
-            this.speaker_ids = utterances.map(d => d.speaker_id);
+            this.speakers = utterances.map(d => d.speaker);
             this.max_length = plot.y.domain()[1];
             this.ref_hyp_gap = ref_hyp_gap;
 
@@ -813,7 +810,6 @@ class CanvasPlot {
             this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
 
             const self = this;
-            // Create elements for click handlers
             this.plot.element.on("click", (event) => {
                 const screenX = event.layerX;
                 const screenY = event.layerY;
@@ -822,24 +818,28 @@ class CanvasPlot {
                 // invert x band scale
                 const eachBand = self.plot.x.step();
                 const index = Math.floor((screenX - self.plot.y_axis_padding) / eachBand);
-                const speaker_id = self.plot.x.domain()[index];
+                const speaker = self.plot.x.domain()[index];
+                const within_speaker_coord = screenX - self.plot.x(speaker);
+                const source = within_speaker_coord < self.plot.x.bandwidth() / 2 - self.ref_hyp_gap ? "reference" : (within_speaker_coord > self.plot.x.bandwidth() / 2 + self.ref_hyp_gap ? "hypothesis" : null);
 
-                const utterance_candidates = this.filtered_utterances.filter(
-                    u => u.begin_time < y && u.end_time > y && u.speaker_id === speaker_id && u.source === "hypothesis"
-                )
-                if (utterance_candidates.length > 0) this.selectUtterance(utterance_candidates[0]);
-                else this.selectUtterance(null);
+                if (source) {
+                    const utterance_candidates = this.filtered_utterances.filter(
+                        u => u.start_time < y && u.end_time > y && u.speaker === speaker && u.source === source
+                    )
+                    if (utterance_candidates.length > 0) this.selectUtterance(utterance_candidates[0]);
+                    else this.selectUtterance(null);
+                } else this.selectUtterance(null);
             })
 
             this.plot.element.on("wheel", (event) => {
                 let [begin, end] = this.plot.y.domain();
-                let delta = (this.plot.y.invert(event.deltaY) - this.plot.y.invert(0)) * 0.3
+                let delta = (this.plot.y.invert(event.deltaY) - this.plot.y.invert(0)) * 0.5    // TODO: magic number
                 if (event.ctrlKey) {
                     // Zoom when ctrl is pressed. Zoom centered on mouse position
                     const mouse_y = this.plot.y.invert(event.layerY);
                     const ratio = (mouse_y - begin) / (end - begin);
-                    begin = Math.max(0, begin + delta * ratio);
-                    end = Math.min(end - delta * (1-ratio), this.max_length);
+                    begin = Math.max(0, begin - delta * ratio);
+                    end = Math.min(end + delta * (1-ratio), this.max_length);
                 } else {
                     // Move when ctrl is not pressed
                     if (end + delta > this.max_length) delta = this.max_length - end;
@@ -863,6 +863,7 @@ class CanvasPlot {
             var lastTouchY = [];
             this.plot.element.on("touchstart", event => {
                 // TouchList doesn't implement iterator
+                alert("touchstart")
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
                     lastTouchY.push(event.touches[i].screenY);
@@ -870,6 +871,7 @@ class CanvasPlot {
             });
             this.plot.element.on("touchend", event => {
                 // TouchList doesn't implement iterator
+                alert("touchend")
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
                     lastTouchY.push(event.touches[i].screenY);
@@ -931,7 +933,7 @@ class CanvasPlot {
             this.playhead = new PlayHead(
                 this.playhead_canvas, this.playhead_canvas.node().getContext("2d"),
                 this.plot.context, 0, this.plot.x, this.plot.y, 
-                utterance.begin_time,  utterance.end_time, utterance.audio
+                utterance.start_time,  utterance.end_time, utterance.audio
             )
         }
 
@@ -961,13 +963,13 @@ class CanvasPlot {
             const draw_text = filtered_words.length < 400;
             const draw_boxes = filtered_words.length < 1000;
             const draw_utterance_markers = filtered_words.length < 2000;
-            const band_width = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
+            const rectwidth = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
 
             // Draw background
             for (let i = 0; i < this.plot.x.domain().length; i++) {
-                const speaker_id = this.plot.x.domain()[i];
+                const speaker = this.plot.x.domain()[i];
                 const y = this.plot.y.range()[0];
-                const x = this.plot.x(speaker_id);
+                const x = this.plot.x(speaker);
                 const width = this.plot.x.bandwidth();
                 const height = this.plot.y.range()[1] - this.plot.y.range()[0];
                 context.fillStyle = "#eee";
@@ -975,31 +977,31 @@ class CanvasPlot {
             }
 
             // Draw lines for utterance begin and end times behind the words
-            // Draw utterance begin and end markers
             if (draw_utterance_markers) {
                 context.strokeStyle = "black";
                 context.lineWidth = .1;
                 context.beginPath();
+                const [minX, maxX] = this.plot.x.range();
                 filtered_utterances.forEach(d => {
-                    var y = this.plot.y(d.begin_time) - 1;
-                    context.moveTo(this.plot.x.range()[0], y);
-                    context.lineTo(this.plot.x.range()[1], y);
+                    var y = this.plot.y(d.start_time) - 1;
+                    context.moveTo(minX, y);
+                    context.lineTo(maxX, y);
                     y = this.plot.y(d.end_time) + 1;
-                    context.moveTo(this.plot.x.range()[0], y);
-                    context.lineTo(this.plot.x.range()[1], y);
+                    context.moveTo(minX, y);
+                    context.lineTo(maxX, y);
                 });
                 context.stroke();
 
                 if (this.selected_utterance) {
                     context.lineWidth = .5;
                     context.strokeStyle = 'red';
-                    var y = this.plot.y(this.selected_utterance.begin_time) - 1;
+                    var y = this.plot.y(this.selected_utterance.start_time) - 1;
                     context.beginPath();
-                    context.moveTo(this.plot.x.range()[0], y);
-                    context.lineTo(this.plot.x.range()[1], y);
+                    context.moveTo(minX, y);
+                    context.lineTo(maxX, y);
                     y = this.plot.y(this.selected_utterance.end_time) + 1;
-                    context.moveTo(this.plot.x.range()[0], y);
-                    context.lineTo(this.plot.x.range()[1], y);
+                    context.moveTo(minX, y);
+                    context.lineTo(maxX, y);
                     context.stroke();
                 }
             }
@@ -1009,68 +1011,101 @@ class CanvasPlot {
             context.textAlign = "center";
             context.textBaseline = "middle";
             context.lineWidth = 1;
+            const bandwidth = this.plot.x.bandwidth() / 2;
             filtered_words.forEach(d => {
-                let x_;
-                if (d.source === "hypothesis") {
-                    x_ = this.plot.x(d.speaker_id) + this.plot.x.bandwidth() / 2 + this.ref_hyp_gap;
-                } else {
-                    x_ = this.plot.x(d.speaker_id);
-                }
+                const bandleft = this.plot.x(d.speaker);
+                let rectleft = bandleft;
+                if (d.source === "hypothesis") rectleft += bandwidth + this.ref_hyp_gap;
 
                 context.beginPath();
                 context.rect(
-                    x_,
-                    this.plot.y(d.begin_time),
-                    band_width,
-                    this.plot.y(d.end_time) - this.plot.y(d.begin_time));
+                    rectleft,
+                    this.plot.y(d.start_time),
+                    rectwidth,
+                    this.plot.y(d.end_time) - this.plot.y(d.start_time));
                 context.strokeStyle = 'gray';
                 context.fillStyle = settings.colors[d.match_type];
                 context.fill();
                 if (draw_boxes) context.stroke();
 
+                // Stitches
+                if (d.match_type !== undefined) {
+                    context.beginPath();
+                    context.lineWidth = 2;
+                    context.strokeStyle = settings.colors[d.match_type];
+                    if (d.match_type === 'insertion') {
+                        const y = this.plot.y(d.center_time);
+                        context.moveTo(rectleft, y);
+                        context.lineTo(rectleft - this.ref_hyp_gap / 2, y);
+                    } else if (d.match_type === 'deletion') {
+                        const y = this.plot.y(d.center_time);
+                        context.moveTo(rectleft + rectwidth, y);
+                        context.lineTo(rectleft + rectwidth + this.ref_hyp_gap / 2, y);
+                    } else {
+                        // Substitution or correct
+                        const match_index = d.match_index
+                        const other = this.words[match_index];
+                        if (d.start_time < other.start_time || other.start_time < this.plot.y.domain()[0]) {
+                            let left, right;
+                            if (d.source == "hypothesis") {
+                                left = other;
+                                right = d;
+                            } else {
+                                left = d;
+                                right = other;
+                            }
+                            context.moveTo(bandleft + rectwidth, this.plot.y(left.center_time));
+                            context.lineTo(bandleft + rectwidth + this.ref_hyp_gap / 2, this.plot.y(left.center_time));
+                            context.lineTo(bandleft + rectwidth + 3 * this.ref_hyp_gap / 2, this.plot.y(right.center_time));
+                            context.lineTo(bandleft + rectwidth + 2 * this.ref_hyp_gap, this.plot.y(right.center_time));
+                        }
+                    }
+                    context.stroke();
+                }
+
                 // Text
                 if (draw_text) {
-                    x_ += band_width / 2;
-                    let y_ = this.plot.y((d.begin_time + d.end_time) / 2);
+                    rectleft += rectwidth / 2;
+                    let y_ = this.plot.y((d.start_time + d.end_time) / 2);
 
                     context.fillStyle = '#000';
-                    context.fillText(d.transcript, x_, y_);
+                    context.fillText(d.words, rectleft, y_);
                 }
             })
 
-            // Draw stitches
-            const filtered_alignment = this.alignment.filter(d => {
-                const begin_time = d.ref_center_time === undefined || d.ref_center_time > d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
-                const end_time = d.ref_center_time === undefined || d.ref_center_time < d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
-                return begin_time < end && end_time > begin;
-            });
-            const lineStartOffset = this.ref_hyp_gap / 2;
-            context.lineWidth = 2;
-            filtered_alignment.forEach(d => {
-                const x_ref = this.plot.x(d.ref_speaker_id) + this.plot.x.bandwidth() / 2;
-                const x_hyp = this.plot.x(d.hyp_speaker_id) + this.plot.x.bandwidth() / 2;
-                context.beginPath();
-                context.strokeStyle = settings.colors[d.match_type];
-                if (d.hyp_center_time === undefined) {
-                    const y = this.plot.y(d.ref_center_time);
-                    context.moveTo(x_ref - this.ref_hyp_gap - lineStartOffset, y);
-                    context.lineTo(x_hyp - this.ref_hyp_gap + lineStartOffset, y);
-                } else if (d.ref_center_time === undefined) {
-                    const y = this.plot.y(d.hyp_center_time);
-                    context.moveTo(x_ref + this.ref_hyp_gap + lineStartOffset, y);
-                    context.lineTo(x_hyp + this.ref_hyp_gap - lineStartOffset, y);
-                } else {
-                    const xl = x_ref - this.ref_hyp_gap;
-                    const yl = this.plot.y(d.ref_center_time)
-                    const xr = x_hyp + this.ref_hyp_gap;
-                    const yr = this.plot.y(d.hyp_center_time)
-                    context.moveTo(xl - lineStartOffset, yl);
-                    context.lineTo(xl + lineStartOffset, yl);
-                    context.lineTo(xr - lineStartOffset, yr);
-                    context.lineTo(xr + lineStartOffset, yr);
-                }
-                context.stroke();
-            });
+            // // Draw stitches
+            // const filtered_alignment = this.alignment.filter(d => {
+            //     const start_time = d.ref_center_time === undefined || d.ref_center_time > d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
+            //     const end_time = d.ref_center_time === undefined || d.ref_center_time < d.hyp_center_time ? d.hyp_center_time : d.ref_center_time;
+            //     return start_time < end && end_time > begin;
+            // });
+            // const lineStartOffset = this.ref_hyp_gap / 2;
+            // context.lineWidth = 2;
+            // filtered_alignment.forEach(d => {
+            //     const x_ref = this.plot.x(d.ref_speaker) + this.plot.x.bandwidth() / 2;
+            //     const x_hyp = this.plot.x(d.hyp_speaker) + this.plot.x.bandwidth() / 2;
+            //     context.beginPath();
+            //     context.strokeStyle = settings.colors[d.match_type];
+            //     if (d.hyp_center_time === undefined) {
+            //         const y = this.plot.y(d.ref_center_time);
+            //         context.moveTo(x_ref - this.ref_hyp_gap - lineStartOffset, y);
+            //         context.lineTo(x_hyp - this.ref_hyp_gap + lineStartOffset, y);
+            //     } else if (d.ref_center_time === undefined) {
+            //         const y = this.plot.y(d.hyp_center_time);
+            //         context.moveTo(x_ref + this.ref_hyp_gap + lineStartOffset, y);
+            //         context.lineTo(x_hyp + this.ref_hyp_gap - lineStartOffset, y);
+            //     } else {
+            //         const xl = x_ref - this.ref_hyp_gap;
+            //         const yl = this.plot.y(d.ref_center_time)
+            //         const xr = x_hyp + this.ref_hyp_gap;
+            //         const yr = this.plot.y(d.hyp_center_time)
+            //         context.moveTo(xl - lineStartOffset, yl);
+            //         context.lineTo(xl + lineStartOffset, yl);
+            //         context.lineTo(xr - lineStartOffset, yr);
+            //         context.lineTo(xr + lineStartOffset, yr);
+            //     }
+            //     context.stroke();
+            // });
 
             // Draw utterance begin and end markers
             const markerLength = 6;
@@ -1082,13 +1117,13 @@ class CanvasPlot {
                     context.beginPath();
 
                     // x is the left side of the marker
-                    var x = this.plot.x(d.speaker_id);
+                    var x = this.plot.x(d.speaker);
                     const bandwidth = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
                     if (d.source == "hypothesis") {
                         x += bandwidth + 2*this.ref_hyp_gap;
                     }
 
-                    var y = this.plot.y(d.begin_time) - 1;
+                    var y = this.plot.y(d.start_time) - 1;
 
                     context.moveTo(x - markerOverhang, y + markerLength);
                     context.lineTo(x - markerOverhang, y);
@@ -1103,7 +1138,7 @@ class CanvasPlot {
                     context.stroke();
                     
                     // Draw marker that text is empty
-                    if (d.transcript === "" && draw_text) {
+                    if (d.words === "" && draw_text) {
                         context.beginPath();
                         context.textAlign = "center";
                         context.textBaseline = "middle";
@@ -1112,14 +1147,14 @@ class CanvasPlot {
                         const x_ = x + bandwidth / 2;
                         context.font = `italic ${settings.font_size}px Arial`;
                         context.fillStyle = "gray";
-                        context.fillText('(empty segment)', x_, (this.plot.y(d.begin_time) + this.plot.y(d.end_time)) / 2);
+                        context.fillText('(empty segment)', x_, (this.plot.y(d.start_time) + this.plot.y(d.end_time)) / 2);
                     }
                     
                     if (d == this.selected_utterance) {
                         context.beginPath();
                         context.strokeStyle = "red";
                         context.lineWidth = 3;
-                        context.rect(x, this.plot.y(d.begin_time), bandwidth, this.plot.y(d.end_time) - this.plot.y(d.begin_time));
+                        context.rect(x, this.plot.y(d.start_time), bandwidth, this.plot.y(d.end_time) - this.plot.y(d.start_time));
                         context.stroke();
 
                         // Write begin time above begin marker
@@ -1127,7 +1162,7 @@ class CanvasPlot {
                         context.fillStyle = "gray";
                         context.textAlign = "center";
                         context.textBaseline = "bottom";
-                        context.fillText(`begin time: ${d.begin_time.toFixed(2)}`, x + bandwidth / 2, this.plot.y(d.begin_time) - 3);
+                        context.fillText(`begin time: ${d.start_time.toFixed(2)}`, x + bandwidth / 2, this.plot.y(d.start_time) - 3);
 
                         // Write end time below end marker
                         context.textBaseline = "top";
@@ -1148,8 +1183,8 @@ class CanvasPlot {
 
         zoomTo(x0, x1) {
             this.plot.y.domain([x0, x1]);
-            this.filtered_words = this.words.filter(w => w.begin_time < x1 && w.end_time > x0);
-            this.filtered_utterances = this.utterances.filter(w => w.begin_time < x1 && w.end_time > x0);
+            this.filtered_words = this.words.filter(w => w.start_time < x1 && w.end_time > x0);
+            this.filtered_utterances = this.utterances.filter(w => w.start_time < x1 && w.end_time > x0);
 
             call_throttled(this.draw.bind(this));
         }
@@ -1189,9 +1224,9 @@ class CanvasPlot {
     const alignment = data.alignment;
 
     const time_domain = [0, Math.max.apply(null, (utterances.map(d => d.end_time))) + 1];
-    const speaker_ids = utterances
+    const speakers = utterances
         // .filter(u => u.source === 'reference')
-        .map(d => d.speaker_id)
+        .map(d => d.speaker)
 
     // Setup plot elements
     var margin = {top: 30, right: 30, bottom: 70, left: 60},
@@ -1220,7 +1255,7 @@ class CanvasPlot {
             const minimap = new Minimap(
                 plot_div, width, settings.minimaps.height,
                 d3.scaleLinear().domain(time_domain),
-                d3.scaleBand().domain(speaker_ids).padding(0.1),
+                d3.scaleBand().domain(speakers).padding(0.1),
                 words,
             )
             if (minimaps[i-1] !== undefined) {
@@ -1232,7 +1267,7 @@ class CanvasPlot {
         if (settings.show_details) {
             details_plot = new DetailsPlot(
                 new CanvasPlot(plot_div, width, 700,
-                    d3.scaleBand().domain(speaker_ids).padding(0.1),
+                    d3.scaleBand().domain(speakers).padding(0.1),
                     d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
                     new DetailsAxis(30), new Axis(50), true
                 ), words, utterances, alignment

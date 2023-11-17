@@ -17,61 +17,8 @@ from meeteval.io.stm import STM, STMLine
 from meeteval.wer.wer.time_constrained import TimeMarkedTranscript
 
 
-def groupby(
-        iterable,
-        key = None,
-):
-    """
-    A non-lazy variant of `itertools.groupby` with advanced features.
+from meeteval.io.tidy import convert_to_tidy, keys, groupby, Tidy, tidy_args
 
-    Args:
-        iterable: Iterable to group
-        key: Determines by what to group. Can be:
-            - `None`: Use the iterables elements as keys directly
-            - `callable`: Gets called with every element and returns the group
-                key
-            - `str`, or `int`: Use `__getitem__` on elements in `iterable`
-                to obtain the key
-            - `Iterable`: Provides the keys. Has to have the same length as
-                `iterable`.
-
-    Examples:
-        >>> groupby('ab'*3)
-        {'a': ['a', 'a', 'a'], 'b': ['b', 'b', 'b']}
-        >>> groupby(range(10), lambda x: x%2)
-        {0: [0, 2, 4, 6, 8], 1: [1, 3, 5, 7, 9]}
-        >>> groupby(({'a': x%2, 'b': x} for x in range(3)), 'a')
-        {0: [{'a': 0, 'b': 0}, {'a': 0, 'b': 2}], 1: [{'a': 1, 'b': 1}]}
-        >>> groupby(['abc', 'bd', 'abd', 'cdef', 'c'], 0)
-        {'a': ['abc', 'abd'], 'b': ['bd'], 'c': ['cdef', 'c']}
-        >>> groupby(range(10), list(range(5))*2)
-        {0: [0, 5], 1: [1, 6], 2: [2, 7], 3: [3, 8], 4: [4, 9]}
-        >>> groupby('abc', ['a'])
-        Traceback (most recent call last):
-            ...
-        ValueError: zip() argument 2 is shorter than argument 1
-        >>> groupby('abc', {})
-        Traceback (most recent call last):
-            ...
-        TypeError: Invalid type for key: <class 'dict'>
-    """
-    if callable(key) or key is None:
-        key_fn = key
-    elif isinstance(key, (str, int)):
-        key_fn = operator.itemgetter(key)
-    elif not isinstance(key, Mapping):
-        value_getter = operator.itemgetter(0)
-        groups = collections.defaultdict(list)
-        for key, group in itertools.groupby(zip(iterable, key, strict=True), operator.itemgetter(1)):
-            groups[key].extend(map(value_getter, group))
-        return dict(groups)
-    else:
-        raise TypeError(f'Invalid type for key: {type(key)}')
-
-    groups = collections.defaultdict(list)
-    for key, group in itertools.groupby(iterable, key_fn):
-        groups[key].extend(group)
-    return dict(groups)
 
 def dumps_json(
         obj, *, indent=2, sort_keys=True, **kwargs):
@@ -140,19 +87,15 @@ html_template = """
 """
 
 
-def solve_assignment(ref: STM, hyp: STM, assignment_type, collar=5):
+def solve_assignment(ref: Tidy, hyp: Tidy, assignment_type, collar=5):
     if assignment_type == 'cp':
         from meeteval.wer.wer.cp import cp_word_error_rate
-        wer = cp_word_error_rate(
-            {k: [s['words'] for s in v] for k, v in groupby(sorted(ref, key=lambda x: x['start_time']), 'speaker').items()},
-            {k: [s['words'] for s in v] for k, v in groupby(sorted(hyp, key=lambda x: x['start_time']), 'speaker').items()},
-        )
+        wer = cp_word_error_rate(ref, hyp)
     elif assignment_type in ('tcp', 'ditcp'):
         from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
         # The visualization looks wrong if we don't sort segments
         wer = time_constrained_minimum_permutation_word_error_rate(
-            groupby(ref, 'speaker'),
-            groupby(hyp, 'speaker'),
+            ref, hyp,
             collar=collar,
             reference_sort='segment',
             hypothesis_sort='segment',
@@ -162,12 +105,13 @@ def solve_assignment(ref: STM, hyp: STM, assignment_type, collar=5):
     else:
         raise ValueError(assignment_type)
 
+    # TODO: replace with function that directly handles tidy data
     _, hyp = wer.apply_assignment(
-        groupby(ref, 'speaker'),
-        groupby(hyp, 'speaker'),
+        groupby(ref, keys.SPEAKER),
+        groupby(hyp, keys.SPEAKER),
     )
     hyp = [
-        {**l, 'speaker': k}
+        {**l, keys.SPEAKER: k}
         for k, v in hyp.items()
         for l in v
     ]
@@ -180,7 +124,7 @@ class STMLine2Spk(STMLine):
     speaker2_id: str
 
 
-def get_diarization_invariant_alignment(ref: List[Dict], hyp: List[Dict], collar=5):
+def get_diarization_invariant_alignment(ref: Tidy, hyp: Tidy, collar=5):
     from meet_eval.dicpwer.dicp import greedy_di_tcp_error_rate
     words, _ = get_words_and_alignment(ref, hyp, 'tcp', collar=collar)
 
@@ -201,7 +145,7 @@ def get_diarization_invariant_alignment(ref: List[Dict], hyp: List[Dict], collar
     return words, alignment
 
 
-def get_words_and_alignment(ref: List[Dict], hyp: List[Dict], alignment_type, collar=5):
+def get_words_and_alignment(ref: Tidy, hyp: Tidy, alignment_type, collar=5):
     if alignment_type == 'cp':
         from meeteval.wer.wer.time_constrained import align
         # Set the collar large enough that all words overlap with all other words
@@ -235,109 +179,56 @@ def get_words_and_alignment(ref: List[Dict], hyp: List[Dict], alignment_type, co
 
     # Compute alignment
     words = []
-    alignment = []
 
-    ref = groupby(sorted(ref, key=lambda x: x['start_time']), 'speaker')
-    hyp = groupby(sorted(hyp, key=lambda x: x['start_time']), 'speaker')
+    ref = groupby(sorted(ref, key=lambda x: x[keys.START_TIME]), keys.SPEAKER)
+    hyp = groupby(sorted(hyp, key=lambda x: x[keys.START_TIME]), keys.SPEAKER)
 
     for k in set(ref.keys()) | set(hyp.keys()):
         ref_ = ref.get(k, [])
         hyp_ = hyp.get(k, [])
 
         # Ignore timings here, we just need this for the speaker ID
-        hyp_words = [
-            {**l, 'words': w}
-            for l in hyp_
-            for w in l['words'].split()
-        ]
-        ref_word_timings = get_pseudo_word_level_timings(TimeMarkedTranscript.create(ref_), 'character_based')
-        hyp_word_timings = get_pseudo_word_level_timings(TimeMarkedTranscript.create(hyp_), 'character_based')
+        ref_word = get_pseudo_word_level_timings(ref_, 'character_based')
+        hyp_word = get_pseudo_word_level_timings(hyp_, 'character_based')
 
-        a = align(ref_word_timings, hyp_word_timings)
+        # Filter out empty words. Their boundaries will be drawn based on the utterance/segment boundaries
+        ref_word = [w for w in ref_word if w[keys.WORDS] != '']
+        hyp_word = [w for w in hyp_word if w[keys.WORDS] != '']
+
+        a = align(ref_word, hyp_word, reference_pseudo_word_level_timing='none', hypothesis_pseudo_word_level_timing='none', style='tidy', collar=collar)
+
         for r, h in a:
             assert r is not None or h is not None
             if r is not None:
-                match_type = 'deletion' if h is None else (
-                    'correct' if ref_word_timings.transcript[r] == hyp_word_timings.transcript[h] else 'substitution'
-                )
-                words.append({
-                    'transcript': ref_word_timings.transcript[r],
-                    'begin_time': ref_word_timings.timings[r][0],
-                    'end_time': ref_word_timings.timings[r][1],
-                    'speaker_id': k,
-                    'source': 'reference',
-                    'match_type': match_type
-                })
+                r['word_index'] = len(words)
+                if r[keys.WORDS] != '':
+                    match_type = 'deletion' if h is None or h[keys.WORDS] == '' else (
+                        'correct' if r[keys.WORDS] == h[keys.WORDS] else 'substitution'
+                    )
+                    r['match_type'] = match_type
+                    if h is not None:
+                        h['match_index'] = r['word_index']
+                words.append(r)
             if h is not None:
-                match_type = 'insertion' if r is None else (
-                    'correct' if ref_word_timings.transcript[r] == hyp_word_timings.transcript[h] else 'substitution'
-                )
-                words.append({
-                    'transcript': hyp_word_timings.transcript[h],
-                    'begin_time': hyp_word_timings.timings[h][0],
-                    'end_time': hyp_word_timings.timings[h][1],
-                    'speaker_id': k,
-                    'source': 'hypothesis',
-                    'match_type': match_type
-                })
+                h['word_index'] = len(words)
+                if h[keys.WORDS] != '':
+                    match_type = 'insertion' if r is None or r[keys.WORDS] == '' else (
+                        'correct' if r[keys.WORDS] == h[keys.WORDS] else 'substitution'
+                    )
+                    h['match_type'] = match_type
+                    if r is not None:
+                        r['match_index'] = h['word_index']
+                words.append(h)
+            if r is not None and h is not None:
+                assert r[keys.START_TIME] <= h[keys.END_TIME] + collar, (r, h)
+                assert h[keys.START_TIME] <= r[keys.END_TIME] + collar, (r, h)
 
-            if r is None:
-                alignment.append({
-                    'ref_speaker_id': k,
-                    'hyp_speaker_id': hyp_words[h].get('speaker2', k),
-                    'match_type': match_type,
-                    'hyp_center_time': (hyp_word_timings.timings[h][-1] + hyp_word_timings.timings[h][0]) / 2
-                })
-            elif h is None:
-                alignment.append({
-                    'ref_speaker_id': k,
-                    'hyp_speaker_id': k,
-                    'match_type': match_type,
-                    'ref_center_time': (ref_word_timings.timings[r][-1] + ref_word_timings.timings[r][0]) / 2
-                })
-            else:
-                alignment.append({
-                    'ref_speaker_id': k,
-                    'hyp_speaker_id': hyp_words[h].get('speaker2', k),
-                    'match_type': match_type,
-                    'ref_center_time': (ref_word_timings.timings[r][-1] + ref_word_timings.timings[r][0]) / 2,
-                    'hyp_center_time': (hyp_word_timings.timings[h][-1] + hyp_word_timings.timings[h][0]) / 2,
-                })
-
-            # TODO: Do we need this?
-            # # Find corresponding utterance / segment
-            # ref_utterance = None
-            # hyp_segment = None
-            # for u in utterances:
-            #     if u['speaker_id'] != k:
-            #         continue
-            #     if h is not None:
-            #         if u['source'] == 'hypothesis' and u['begin_time'] <= hyp_.timings[h][1] and u['end_time'] >= \
-            #                 hyp_.timings[h][0]:
-            #             hyp_segment = u
-            #     if r is not None:
-            #         if u['source'] == 'reference' and u['begin_time'] <= ref_.timings[r][1] and u['end_time'] >= \
-            #                 ref_.timings[r][0]:
-            #             ref_utterance = u
-            # if match_type == 'deletion':
-            #     ref_utterance['deletions'] += 1
-            # elif match_type == 'insertion':
-            #     hyp_segment['insertions'] += 1
-            # elif match_type == 'substitution':
-            #     ref_utterance['substitutions'] += 1
-            #     hyp_segment['substitutions'] += 1
-            # else:
-            #     ref_utterance['correct'] += 1
-            #     hyp_segment['correct'] += 1
-    alignment.sort(key=lambda x: x['ref_center_time'] if 'ref_center_time' in x else x['hyp_center_time'])
-    return words, alignment
+    words = [{**w, 'center_time': (w[keys.START_TIME] + w[keys.END_TIME]) / 2} for w in words]
+    return words
 
 
-def get_visualization_data(ref: List[Dict], hyp: List[Dict], assignment='tcp'):
-    if isinstance(ref, STM):
-        ref = ref.segments()
-    if isinstance(hyp, STM):
-        hyp = hyp.segments()
+@tidy_args(2)
+def get_visualization_data(ref: Tidy, hyp: Tidy, assignment='tcp'):
     data = {
         'info': {
             'filename': ref[0]['session_id'],
@@ -347,42 +238,18 @@ def get_visualization_data(ref: List[Dict], hyp: List[Dict], assignment='tcp'):
         }
     }
 
+    ref = [{**s, 'source': 'reference'} for s in ref]
+    hyp = [{**s, 'source': 'hypothesis'} for s in hyp]
+
+    ref = sorted(ref, key=lambda x: x[keys.START_TIME])
+    hyp = sorted(hyp, key=lambda x: x[keys.START_TIME])
+
     ref, hyp, wer = solve_assignment(ref, hyp, assignment)
 
-    hyp_utterances = [
-        {
-            'transcript': l['words'],
-            'begin_time': l['start_time'],
-            'end_time': l['end_time'],
-            'speaker_id': l['speaker'],
-            'source': 'hypothesis',
-            # 'correct': 0,
-            # 'substitutions': 0,
-            # 'insertions': 0,
-            'total': len(l['words'].split()),
-            **({'audio': l['audio']} if 'audio' in l else {})
-        }
-        for l in hyp
-    ]
-    ref_utterances = [
-        {
-            'transcript': l['words'],
-            'begin_time': l['start_time'],
-            'end_time': l['end_time'],
-            'speaker_id': l['speaker'],
-            'source': 'reference',
-            # 'correct': 0,
-            # 'substitutions': 0,
-            # 'deletions': 0,
-            'total': len(l['words'].split()),
-            **({'audio': l['audio']} if 'audio' in l else {})
-        }
-        for l in ref
-    ]
-    data['utterances'] = hyp_utterances + ref_utterances
+    data['utterances'] = [{**l, 'total': len(l[keys.WORDS].split())} for l in ref + hyp]
 
     # Word level
-    data['words'], data['alignment'] = get_words_and_alignment(ref, hyp, assignment)
+    data['words'] = get_words_and_alignment(ref, hyp, assignment)
 
     data['info']['wer'] = dataclasses.asdict(wer)
     return data
@@ -462,7 +329,6 @@ class AlignmentVisualization:
                 {visualize_js}
 
                 function exec() {{
-                    console.log("Waiting for d3 to load");
                     // Wait for d3 to load
                     if (typeof d3 !== 'undefined') alignment_visualization(
                         {dumps_json(self.data, indent=None)}, 
