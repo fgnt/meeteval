@@ -743,16 +743,27 @@ class CanvasPlot {
             this.word_plot.zoomTo(x0, x1);
             this._callOnSelectCallbacks();
         }
+        
+        moveBrush(x0, x1) {
+            this.brush_group.call(this.brush.move, [
+                this.word_plot.plot.x(x0), this.word_plot.plot.x(x1)
+            ])
+        }
+
+        removeBrush(){
+            this.brush_group.call(this.brush.move, null);
+        }
 
         _onselect(event) {
+            console.log("onselect", event.selection)
             if (event.selection === null) {
-                this.selection = this.max_range;
+                if (this.selection[0] > this.max_range[0] && this.selection[1] < this.max_range[1]) this.selection = this.max_range;
             } else {
                 this.selection = event.selection;
-            }
-            // Remove brush when fully zoomed out
-            if (event.selection !== null && this.selection[0] <= this.max_range[0] && this.selection[1] >= this.max_range[1]) {
-                this.brush_group.call(this.brush.move, null);
+                // Remove brush when fully zoomed out
+                if (this.selection[0] <= this.max_range[0] && this.selection[1] >= this.max_range[1]) {
+                    this.removeBrush();
+                }
             }
             this._callOnSelectCallbacks();
         }
@@ -1391,16 +1402,8 @@ class CanvasPlot {
                 const last_minimap = minimaps[minimaps.length - 1];
                 last_minimap.onSelect(details_plot.zoomTo.bind(details_plot));
                 last_minimap.onSelect(rangeSelector.zoomTo.bind(rangeSelector));
-                details_plot.onScroll((x0, x1) => {
-                    last_minimap.brush_group.call(last_minimap.brush.move, [
-                        last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
-                    ])
-                });
-                rangeSelector.onSelect((x0, x1) => {
-                    last_minimap.brush_group.call(last_minimap.brush.move, [
-                        last_minimap.word_plot.plot.x(x0), last_minimap.word_plot.plot.x(x1)
-                    ])
-                });
+                details_plot.onScroll(last_minimap.moveBrush.bind(last_minimap));
+                rangeSelector.onSelect(last_minimap.moveBrush.bind(last_minimap));
             } else {
                 // This is necessary to prevent update loops. We can't call details_plot.zoomTo in details_plot...
                 details_plot.onScroll(details_plot.zoomTo.bind(details_plot));
