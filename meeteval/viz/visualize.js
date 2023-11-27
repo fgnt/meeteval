@@ -44,8 +44,6 @@ function alignment_visualization(
         }
     }
 ) {
-    console.log(settings);
-
     // Validate settings
     for (const label of ['correct', 'substitution', 'insertion', 'deletion']) {
         if (settings.colors[label] === undefined) throw `Missing key in "colors" setting: ${label}`;
@@ -462,7 +460,13 @@ class CanvasPlot {
             deletion.append("td").text((info.wer.deletions / info.wer.length * 100).toFixed(1) + "%");
             c.append("div").classed("tooltip-info", true).text("Note: Values don't add up to 100% (except when Insertion=0)\nRef. Words = Correct + Substitution + Deletion\nHyp. Words = Correct + Substitution + Insertion");
         });
-        label("Alignment:", info.alignment_type)
+        label("Alignment:", info.alignment_type, null,
+            c => c.text("The alignment algorithm used to generate this visualization. Available are:\n" +
+            "cp: concatenated minimum-permutation\n" +
+            "tcp: time-constrained minimum permutation\n\n" +
+            "(This setting cannot be changed interactively, but has to be selected when generating the visualization)\n" + 
+            "Check the documentation for details")
+        )
         if (info.wer.reference_self_overlap?.overlap_rate) label(
             "Reference self-overlap:", 
             (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%", 
@@ -601,9 +605,6 @@ class CanvasPlot {
                     this.plot.context.fill();
                 }
 
-
-                
-
                 // Substitutions
                 var height = y(b.substitutions);
                 this.plot.context.fillStyle = settings.colors["substitution"];
@@ -621,8 +622,6 @@ class CanvasPlot {
                 this.plot.context.fillStyle = settings.colors["deletion"];
                 this.plot.context.fillRect(x, bottom_, width, height)
                 bottom_ = bottom_ + height;
-
-               
             });
         }
 
@@ -755,7 +754,6 @@ class CanvasPlot {
         }
 
         _onselect(event) {
-            console.log("onselect", event.selection)
             if (event.selection === null) {
                 if (this.selection[0] > this.max_range[0] && this.selection[1] < this.max_range[1]) this.selection = this.max_range;
             } else {
@@ -892,17 +890,17 @@ class CanvasPlot {
 
 
     class DetailsPlot {
-        constructor(plot, words, utterances, alignment, ref_hyp_gap=10) {
+        constructor(plot, words, utterances, markers, ref_hyp_gap=10) {
             this.plot = plot;
             this.plot.element.classed("minimap", true)
             this.words = words;
             this.filtered_words = words;
             this.utterances = utterances;
             this.filtered_utterances = utterances;
-            this.alignment = alignment;
-            this.speakers = utterances.map(d => d.speaker);
             this.max_length = plot.y.domain()[1];
             this.ref_hyp_gap = ref_hyp_gap;
+            this.markers = markers;
+            this.filtered_markers = markers;
 
             this.selected_utterance = null;
             this.playhead = null;
@@ -960,7 +958,6 @@ class CanvasPlot {
                 event.preventDefault();
             }, false)
 
-            // this.plot.element.on("drag", e => console.log("dragging", e))
             this.plot.element.on("mousemove", event => {
                 if (event.buttons !== 1) return;
                 const delta = this.plot.y.invert(event.movementY) - this.plot.y.invert(0);
@@ -1054,8 +1051,6 @@ class CanvasPlot {
         }
 
         drawDetails() {
-            const [begin, end] = this.plot.y.domain();
-
             const filtered_words = this.filtered_words;
             if (filtered_words.length > 3000) {
                 this.plot.context.font = "30px Arial";
@@ -1113,6 +1108,37 @@ class CanvasPlot {
                     context.stroke();
                 }
             }
+
+            const filtered_markers = this.filtered_markers;
+            // Draw a range marker on the left side of the plot with two lines spanning the full width
+            if (filtered_markers) filtered_markers.forEach(m => {
+                // TODO: custom color and label, markers for speakers
+                if (m.type === "range") {
+                    const y0 = this.plot.y(m.start_time);
+                    const y1 = this.plot.y(m.end_time);
+                    context.fillStyle = "purple";
+                    context.strokeStyle = "purple";
+                    context.lineWidth = .5;
+                    context.fillRect(this.plot.y_axis_padding, y0, 10, y1 - y0);
+                    context.beginPath();
+                    context.moveTo(this.plot.y_axis_padding, y0);
+                    context.lineTo(this.plot.x.range()[1], y0);
+                    context.moveTo(this.plot.y_axis_padding, y1);
+                    context.lineTo(this.plot.x.range()[1], y1);
+                    context.stroke();
+                } else if (m.type === "point") {
+                    const y = this.plot.y(m.time);
+                    context.fillStyle = "purple";
+                    context.strokeStyle = "purple";
+                    context.lineWidth = .5;
+                    context.beginPath();
+                    context.arc(this.plot.y_axis_padding + 5, y, 5, 0, 2 * Math.PI);
+                    context.moveTo(this.plot.y_axis_padding, y);
+                    context.lineTo(this.plot.x.range()[1], y);
+                    context.fill();
+                    context.stroke();
+                }
+            });
 
             // Draw words
             context.font = `${settings.font_size}px Arial`;
@@ -1265,6 +1291,7 @@ class CanvasPlot {
             this.plot.y.domain([x0, x1]);
             this.filtered_words = this.words.filter(w => w.start_time < x1 && w.end_time > x0);
             this.filtered_utterances = this.utterances.filter(w => w.start_time < x1 && w.end_time > x0);
+            this.filtered_markers = this.markers ? this.markers.filter(m => m.start_time < x1 && m.end_time > x0) : null;
 
             call_throttled(this.draw.bind(this));
         }
@@ -1317,7 +1344,6 @@ class CanvasPlot {
             this.container.append("span").text("-")
             this.upper_input = this.container.append("input").attr("type", "number").classed("range-selector-input", true).attr("min", 0).attr("max", 1).attr("step", 0.01).attr("value", 0).on("change", this._onSelect.bind(this))
             this.on_select_callbacks = [];
-            this.onSelect((a, b) => console.log("onselect", a, b))
         }
 
         _onSelect() {
@@ -1336,14 +1362,8 @@ class CanvasPlot {
     }
 
     // Data preprocessing
-    const utterances = data.utterances;
-    const words = data.words;
-    const alignment = data.alignment;
-
-    const time_domain = [0, Math.max.apply(null, (utterances.map(d => d.end_time))) + 1];
-    const speakers = utterances
-        // .filter(u => u.source === 'reference')
-        .map(d => d.speaker)
+    const time_domain = [0, Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
+    const speakers = data.utterances .map(d => d.speaker)
 
     // Setup plot elements
     var margin = {top: 30, right: 30, bottom: 70, left: 60},
@@ -1356,7 +1376,7 @@ class CanvasPlot {
     if (settings.show_legend) drawLegend(top_row_container);
     drawMenu(top_row_container);
     const rangeSelector = new RangeSelector(top_row_container);
-    const searchBar = new SearchBar(top_row_container, words, settings.search_bar.initial_query);
+    const searchBar = new SearchBar(top_row_container, data.words, settings.search_bar.initial_query);
     var minimaps = [];
     searchBar.onSearch(() => {
         for (const minimap of minimaps) minimap.error_bars.updateBins();
@@ -1379,7 +1399,7 @@ class CanvasPlot {
                 plot_div, width, settings.minimaps.height,
                 d3.scaleLinear().domain(time_domain),
                 d3.scaleBand().domain(speakers).padding(0.1),
-                words,
+                data.words,
             )
             if (minimaps[i-1] !== undefined) {
                 minimaps[i-1].onSelect(minimap.zoomTo.bind(minimap));
@@ -1393,7 +1413,7 @@ class CanvasPlot {
                     d3.scaleBand().domain(speakers).padding(0.1),
                     d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
                     new DetailsAxis(30), new Axis(50), true
-                ), words, utterances, alignment
+                ), data.words, data.utterances, data.markers
             )
 
             details_plot.onUtteranceSelect(selectedUtteranceDetails.update.bind(selectedUtteranceDetails));
