@@ -105,8 +105,10 @@ def md_eval_22(
             logging.info(f'Wrote {md_eval_22}')
 
     def get_details(r, h, key, tmpdir):
-        r.dump(r_file := tmpdir / f'{key}.ref.rttm')
-        h.dump(h_file := tmpdir / f'{key}.hyp.rttm')
+        r_file = tmpdir / f'{key}.ref.rttm'
+        h_file = tmpdir / f'{key}.hyp.rttm'
+        r.dump(r_file)
+        h.dump(h_file)
 
         cmd = [
             'perl', f'{md_eval_22}',
