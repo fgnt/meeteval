@@ -2,7 +2,7 @@ import typing
 from typing import List, NamedTuple
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
-from meeteval.io.tidy import TidySegment
+from meeteval.io.seglst import TidySegment
 
 if typing.TYPE_CHECKING:
     import decimal

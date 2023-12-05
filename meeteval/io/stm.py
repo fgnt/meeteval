@@ -5,7 +5,7 @@ from typing import List, NamedTuple
 from meeteval.io.base import Base, BaseLine
 import logging
 
-from meeteval.io.tidy import TidySegment
+from meeteval.io.seglst import TidySegment
 
 if typing.TYPE_CHECKING:
     from meeteval.wer import ErrorRate

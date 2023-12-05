@@ -5,7 +5,7 @@ from typing import Optional, Tuple, List, Dict, Any, Iterable
 
 from meeteval._typing import Literal
 from meeteval.io import STM
-from meeteval.io.tidy import Tidy, tidy_args
+from meeteval.io.seglst import Tidy, tidy_args
 
 from meeteval.wer.wer.error_rate import ErrorRate
 
@@ -509,7 +509,7 @@ def tidy_apply_cp_assignment(
     file1 0 a 0 1 O2hyp
     <BLANKLINE>
     """
-    from meeteval.io.tidy import _to_convertible
+    from meeteval.io.seglst import _to_convertible
     lc = _to_convertible(reference, required_keys=('speaker',), final_types=None)
     rc = _to_convertible(hypothesis, required_keys=('speaker',), final_types=None)
     l = lc.to_tidy()

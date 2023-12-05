@@ -337,7 +337,7 @@ class Base:
         return {x.filename for x in self.lines}
 
     def to_tidy(self) -> 'Tidy':
-        from meeteval.io.tidy import Tidy
+        from meeteval.io.seglst import Tidy
         return Tidy([l.to_tidy() for l in self.lines])
 
     @classmethod

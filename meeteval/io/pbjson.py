@@ -8,7 +8,7 @@ python -m meeteval.io.pbjson to_stm /scratch/hpc-prf-nt2/cbj/deploy/css/egs/libr
 import json
 from pathlib import Path
 
-from meeteval.io.tidy import Tidy
+from meeteval.io.seglst import Tidy
 
 
 def _load_json(file):

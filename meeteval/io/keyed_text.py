@@ -2,7 +2,7 @@ import typing
 from dataclasses import dataclass
 
 from meeteval.io.base import BaseLine, Base
-from meeteval.io.tidy import TidySegment
+from meeteval.io.seglst import TidySegment
 
 
 if typing.TYPE_CHECKING:

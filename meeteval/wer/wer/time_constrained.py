@@ -6,7 +6,7 @@ import typing
 from dataclasses import dataclass, replace
 
 from meeteval.io.stm import STM
-from meeteval.io.tidy import Tidy, tidy_map, convert_to_tidy, tidy_args
+from meeteval.io.seglst import Tidy, tidy_map, convert_to_tidy, tidy_args
 from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
 from typing import List, Dict

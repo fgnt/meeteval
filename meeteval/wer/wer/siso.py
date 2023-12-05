@@ -2,11 +2,11 @@ import typing
 from typing import List, Hashable, Dict
 
 from meeteval.wer.wer.error_rate import ErrorRate
-from meeteval.io.tidy import tidy_args
+from meeteval.io.seglst import tidy_args
 
 if typing.TYPE_CHECKING:
     from meeteval.io.stm import STM
-    from meeteval.io.tidy import Tidy
+    from meeteval.io.seglst import Tidy
 
 __all__ = ['siso_word_error_rate', 'siso_character_error_rate', 'siso_word_error_rate_keyed_text']
 

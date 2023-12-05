@@ -13,7 +13,7 @@ __all__ = [
     'CTMGroup',
 ]
 
-from meeteval.io.tidy import TidySegment, Tidy
+from meeteval.io.seglst import TidySegment, Tidy
 
 
 @dataclass(frozen=True)

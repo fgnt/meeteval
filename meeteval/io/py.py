@@ -2,7 +2,7 @@ import dataclasses
 import typing
 from typing import Any, List, Tuple
 
-from meeteval.io.tidy import Tidy
+from meeteval.io.seglst import Tidy
 
 if typing.TYPE_CHECKING:
     from typing import Self
