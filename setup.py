@@ -42,6 +42,7 @@ extras_require = {
         'pytest-cov',
         'ipython',  # IPython.lib.pretty.pprint
         'pyyaml',
+        'simplejson',
     ],
     'all': [  # List only missing from the other lists
         'lazy_dataset',
