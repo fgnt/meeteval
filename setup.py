@@ -31,6 +31,7 @@ extras_require = {
     'cli': [
         'pyyaml',
         'fire',
+        'simplejson',
     ],
     'test': [
         'editdistance',     # Faulty for long sequences, but useful for testing

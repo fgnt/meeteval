@@ -5,9 +5,11 @@ import json
 import logging
 import os
 import re
+import decimal
 from pathlib import Path
 from typing import List, Tuple
 
+import meeteval.io
 from meeteval.io.ctm import CTMGroup
 from meeteval.io.keyed_text import KeyedText
 from meeteval.io.stm import STM
@@ -21,6 +23,32 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
     """
     Dumps the `obj` to `path`. Parses the suffix to find the file type.
     When a suffix is missing, use json.
+
+    >>> import tempfile
+    >>> data = {
+    ...     'a': 1,
+    ...     'b': decimal.Decimal('3.9'),
+    ...     'c': decimal.Decimal('100000000000.0173455555')
+    ... }
+    >>> def test(suffix):
+    ...     with tempfile.TemporaryDirectory() as tmpdir:
+    ...         _dump(data, f'{tmpdir}/test{suffix}')
+    ...         print(Path(f'{tmpdir}/test{suffix}').read_text())
+
+    >>> test('.json')
+    {
+      "a": 1,
+      "b": 3.9,
+      "c": 100000000000.0173455555
+    }
+    >>> test('.yaml')
+    a: 1
+    b: !!python/object/apply:decimal.Decimal
+    - '3.9'
+    c: !!python/object/apply:decimal.Decimal
+    - '100000000000.0173455555'
+    <BLANKLINE>
+
     """
     path = Path(path)
     if path.stem == '-':
@@ -31,15 +59,20 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
             p = path.open('w')
         except FileNotFoundError as e:
             raise FileNotFoundError(
-                f'Couldn\'t open the output file. Consider explicitly setting '
-                f'the output files, especially when piping into this tool.'
+                f'Couldn\'t open the output file ({path}).\n'
+                f'Consider explicitly setting the output files,'
+                f'especially when piping into this tool.'
             ) from e
     with p as fd:
         suffix = path.suffix
         if suffix == '':
             suffix = default_suffix
         if suffix == '.json':
-            json.dump(obj, fd, indent=2, sort_keys=False)
+            # CB: Tried json, simplejson, orjson and ujson.
+            #     Only simplejson was able to handle decimal.Decimal
+            #     without changing the value.
+            import simplejson
+            simplejson.dump(obj, fd, indent=2, sort_keys=False)
         elif suffix == '.yaml':
             import yaml
             yaml.dump(obj, fd, sort_keys=False)
@@ -324,7 +357,7 @@ class CLI:
         logging.addLevelName(100,
                              'SILENT')  # Add a level that creates no output
         self.parser.add_argument(
-            '--log-level', help='Log level', default='WARNING',
+            '--log-level', help='Log level', default='INFO',
             choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'SILENT']
         )
 
