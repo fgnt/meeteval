@@ -2,7 +2,7 @@ import typing
 from typing import List, NamedTuple
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
-
+from meeteval.io.tidy import TidySegment
 
 if typing.TYPE_CHECKING:
     import decimal
@@ -74,6 +74,31 @@ class RTTMLine(BaseLine):
             confidence=confidence,
             signal_look_ahead_time=signal_look_ahead_time,
         )
+
+    @classmethod
+    def convert(cls, segment: 'TidySegment') -> 'RTTMLine':
+        # TODO: read spec and handle speech segments with transcripts
+        return RTTMLine(
+            filename=segment['session_id'],
+            channel=segment.get('channel', cls.channel),
+            speaker_id=segment['speaker'],
+            begin_time=segment['start_time'],
+            duration=segment['end_time'] - segment['start_time'],
+        )
+
+    def to_tidy(self) -> 'TidySegment':
+        # TODO: read spec and handle speech segments with transcripts and other types
+        d = {
+            'session_id': self.filename,
+            'speaker': self.speaker_id,
+            'start_time': self.begin_time,
+            'end_time': self.begin_time + self.duration,
+        }
+
+        if self.channel != self.__class__.channel:
+            d['channel'] = self.channel
+
+        return d
 
     def serialize(self):
         """

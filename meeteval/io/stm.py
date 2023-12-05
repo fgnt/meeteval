@@ -5,9 +5,9 @@ from typing import List, NamedTuple
 from meeteval.io.base import Base, BaseLine
 import logging
 
+from meeteval.io.tidy import TidySegment
+
 if typing.TYPE_CHECKING:
-    import decimal
-    from meeteval.io.uem import UEM, UEMLine
     from meeteval.wer import ErrorRate
 
 __all__ = [
@@ -65,6 +65,27 @@ class STMLine(BaseLine):
         # assert stm_line.end_time >= stm_line.begin_time, stm_line
         return stm_line
 
+    @classmethod
+    def from_tidy(cls, segment: 'TidySegment'):
+        return cls(
+            filename=segment['session_id'],
+            channel=segment.get('channel', 1),
+            speaker_id=segment['speaker'],
+            begin_time=segment['start_time'],
+            end_time=segment['end_time'],
+            transcript=segment['words'],
+        )
+
+    def to_tidy(self) -> 'TidySegment':
+        return {
+            'session_id': self.filename,
+            'channel': self.channel,
+            'speaker': self.speaker_id,
+            'start_time': self.begin_time,
+            'end_time': self.end_time,
+            'words': self.transcript,
+        }
+
     def serialize(self):
         """
         >>> line = STMLine.parse('rec1 0 A 10 20 Hello World')
@@ -74,38 +95,11 @@ class STMLine(BaseLine):
         return (f'{self.filename} {self.channel} {self.speaker_id} '
                 f'{self.begin_time} {self.end_time} {self.transcript}')
 
-    def segment_dict(self):
-        """Returns a segment dict in the style of Chime-7 annotations"""
-        return {
-            'start_time': self.begin_time,
-            'end_time': self.end_time,
-            'words': self.transcript,
-            'speaker': self.speaker_id,
-            'session_id': self.filename
-        }
-
 
 @dataclass(frozen=True)
 class STM(Base):
     lines: List[STMLine]
     line_cls = STMLine
-
-    @classmethod
-    def convert(cls, d):
-        # TODO: generalize and move to Base
-        from meeteval.io.tidy import convert_to_tidy, keys
-        d = convert_to_tidy(d)
-        return cls([
-            STMLine(
-                filename=segment[keys.SESSION],
-                channel=segment.get(keys.CHANNEL, 1),
-                speaker_id=segment[keys.SPEAKER],
-                begin_time=segment[keys.START_TIME],
-                end_time=segment[keys.END_TIME],
-                transcript=segment[keys.WORDS]
-            )
-            for segment in d
-        ])
 
     @classmethod
     def _load(cls, file_descriptor, parse_float) -> 'List[STMLine]':
@@ -125,19 +119,7 @@ class STM(Base):
         # ToDo: Fix `line.end_time - line.begin_time`, when they are floats.
         #       Sometimes there is a small error and the error will be written
         #       to the rttm file.
-
-        return RTTM([
-            RTTMLine(
-                filename=line.filename,
-                channel=line.channel,
-                begin_time=line.begin_time,
-                duration=line.end_time - line.begin_time,
-                speaker_id=line.speaker_id,
-                # line.transcript  RTTM doesn't support transcript
-                # hence this information is dropped.
-            )
-            for line in self.lines
-        ])
+        return RTTM.from_tidy(self.to_tidy())
 
     def to_array_interval(self, sample_rate, group=True):
         import paderbox as pb
@@ -159,9 +141,6 @@ class STM(Base):
 
     def merged_transcripts(self) -> str:
         return ' '.join(self.utterance_transcripts())
-
-    def segments(self):
-        return [l.segment_dict() for l in self]
 
 
 def iter_examples(reference: 'STM', hypothesis: 'STM', *, allowed_empty_examples_ratio=0.1):

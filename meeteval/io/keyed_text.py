@@ -1,7 +1,12 @@
+import typing
 from dataclasses import dataclass
-from typing import List
 
 from meeteval.io.base import BaseLine, Base
+from meeteval.io.tidy import TidySegment
+
+
+if typing.TYPE_CHECKING:
+    from typing import Self, List
 
 
 @dataclass(frozen=True)
@@ -29,10 +34,23 @@ class KeyedTextLine(BaseLine):
             transcript = ''
         return cls(filename, transcript)
 
+    @classmethod
+    def from_tidy(cls, segment: 'TidySegment') -> 'Self':
+        return cls(
+            filename=segment['session_id'],
+            transcript=segment['words'],
+        )
+
+    def to_tidy(self) -> 'TidySegment':
+        return {
+            'session_id': self.filename,
+            'words': self.transcript,
+        }
+
 
 @dataclass(frozen=True)
 class KeyedText(Base):
-    lines: List[KeyedTextLine]
+    lines: 'List[KeyedTextLine]'
     line_cls = KeyedTextLine
 
     @classmethod
@@ -47,6 +65,6 @@ class KeyedText(Base):
     def merged_transcripts(self) -> str:
         raise NotImplementedError()
 
-    def utterance_transcripts(self) -> List[str]:
+    def utterance_transcripts(self) -> 'List[str]':
         """There is no notion of an "utterance" in CTM files."""
         raise NotImplementedError()

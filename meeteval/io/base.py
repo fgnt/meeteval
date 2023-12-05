@@ -26,6 +26,13 @@ class BaseLine:
     def parse(cls, line: str) -> 'Self':
         raise NotImplementedError(cls)
 
+    @classmethod
+    def from_tidy(cls, segment: 'TidySegment') -> 'Self':
+        raise NotImplementedError(cls)
+
+    def to_tidy(self) -> 'TidySegment':
+        raise NotImplementedError(self)
+
     def serialize(self):
         raise NotImplementedError(type(self))
 
@@ -112,10 +119,17 @@ class BaseLine:
         return dataclasses.replace(self, **kwargs)
 
 
-@dataclass(frozen=True)
 class Base:
     lines: 'List[LineSubclasses]'
     line_cls = 'LineSubclasses'
+
+    def __init__(self, data, **defaults):
+        if isinstance(data, self.__class__):
+            self.lines = data.lines
+        elif hasattr(data, 'to_tidy'):
+            self.lines = [self.line_cls.from_tidy({**defaults, **segment}) for segment in data.to_tidy()]
+        else:
+            self.lines = data
 
     @classmethod
     def _load(cls, file_descriptor, parse_float) -> 'List[Self.line_cls]':
@@ -131,6 +145,10 @@ class Base:
                 parsed_lines.extend(cls._load(fd, parse_float=parse_float))
 
         return cls(parsed_lines)
+
+    @classmethod
+    def parse(cls, s: str) -> 'Self':
+        return cls([cls.line_cls.parse(line) for line in s.splitlines() if line.strip()])
 
     def _repr_pretty_(self, p, cycle):
         name = self.__class__.__name__
@@ -317,6 +335,15 @@ class Base:
 
     def filenames(self):
         return {x.filename for x in self.lines}
+
+    def to_tidy(self) -> 'Tidy':
+        from meeteval.io.tidy import Tidy
+        return Tidy([l.to_tidy() for l in self.lines])
+
+    @classmethod
+    def from_tidy(cls, tidy: 'Tidy', **defaults) -> 'Self':
+        return cls([cls.line_cls.from_tidy({**defaults, **segment}) for segment in tidy])
+
 
 
 def _open(f, mode='r'):

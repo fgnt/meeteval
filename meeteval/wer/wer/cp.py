@@ -5,7 +5,7 @@ from typing import Optional, Tuple, List, Dict, Any, Iterable
 
 from meeteval._typing import Literal
 from meeteval.io import STM
-from meeteval.io.tidy import Tidy, tidy_args, TidyData, keys
+from meeteval.io.tidy import Tidy, tidy_args
 
 from meeteval.wer.wer.error_rate import ErrorRate
 
@@ -91,47 +91,8 @@ class CPErrorRate(ErrorRate):
         )
 
 
-@tidy_args(2)
-def siso_levenshtein_distance(reference: Tidy, hypothesis: Tidy) -> int:
-    """
-    Every element is treated as a single word.
-
-    TODO: is this a good idea?
-    """
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
-    from meeteval.io.tidy import keys
-
-    reference = [s[keys.WORDS] for s in reference if s[keys.WORDS]]
-    hypothesis = [s[keys.WORDS] for s in hypothesis if s[keys.WORDS]]
-
-    return levenshtein_distance(reference, hypothesis)
-
-
-def _siso_error_rate(reference: Tidy, hypothesis: Tidy) -> ErrorRate:
-    import kaldialign
-    from meeteval.io.tidy import keys
-
-    reference = [s[keys.WORDS] for s in reference if s[keys.WORDS]]
-    hypothesis = [s[keys.WORDS] for s in hypothesis if s[keys.WORDS]]
-
-    try:
-        result = kaldialign.edit_distance(reference, hypothesis)
-    except TypeError:
-        raise TypeError(type(reference), type(hypothesis), type(reference[0]), type(hypothesis[0]), reference[0],
-                        hypothesis[0])
-
-    return ErrorRate(
-        result['total'],
-        len(reference),
-        insertions=result['ins'],
-        deletions=result['del'],
-        substitutions=result['sub'],
-        reference_self_overlap=None,
-        hypothesis_self_overlap=None,
-    )
-
-
 def cp_error_rate(reference: 'TidyData', hypothesis: 'TidyData') -> CPErrorRate:
+    from meeteval.wer.wer.siso import _siso_error_rate, siso_levenshtein_distance
     return _cp_error_rate(
         reference,
         hypothesis,
@@ -139,7 +100,8 @@ def cp_error_rate(reference: 'TidyData', hypothesis: 'TidyData') -> CPErrorRate:
         siso_error_rate=_siso_error_rate,
     )
 
-@tidy_args(2, groups=(keys.SPEAKER,))
+
+@tidy_args('speaker', 'words')
 def cp_word_error_rate(reference: 'Tidy', hypothesis: 'Tidy') -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
@@ -185,15 +147,9 @@ def cp_word_error_rate(reference: 'Tidy', hypothesis: 'Tidy') -> CPErrorRate:
     >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
     CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     """
-    from meeteval.io.tidy import keys
-
-    def split_words(d):
-        # TODO: only keep relevant keys?
-        return [
-            {**s, keys.WORDS: w}
-            for s in d
-            for w in (s[keys.WORDS].split() if s[keys.WORDS].strip() else [''])
-        ]
+    def split_words(d: 'Tidy'):
+        return d.flatmap(
+            lambda s: [{**s, 'words': w} for w in (s['words'].split() if s['words'].strip() else [''])])
 
     return cp_error_rate(split_words(reference), split_words(hypothesis))
 
@@ -222,9 +178,8 @@ def _cp_error_rate(
     import scipy.optimize
     import numpy as np
 
-    from meeteval.io.tidy import groupby, keys
-    reference = groupby(reference, keys.SPEAKER)
-    hypothesis = groupby(hypothesis, keys.SPEAKER)
+    reference = reference.groupby('speaker')
+    hypothesis = hypothesis.groupby('speaker')
 
     if max(len(hypothesis), len(reference)) > 20:
         num_speakers = max(len(hypothesis), len(reference))
@@ -449,3 +404,183 @@ def apply_cp_assignment(
         hypothesis_new[k] = get(hypothesis, h_key, missing)
 
     return reference_new, hypothesis_new
+
+
+def tidy_apply_cp_assignment(
+        assignment,
+        reference,
+        hypothesis,
+        style='ref',
+        fallback_keys=string.ascii_letters,
+        missing='',
+):
+    """
+    Apply the assignment, so that reference and hypothesis have the same
+    keys.
+
+    >>> from IPython.lib.pretty import pprint
+
+    >>> def test(assignment):
+    ...     reference = {k: f'{k}ref' for k, _ in assignment if k is not None}
+    ...     hypothesis = {k: f'{k}hyp' for _, k in assignment if k is not None}
+    ...     pprint(tidy_apply_cp_assignment(assignment, reference, hypothesis, style='hyp'))
+    ...     pprint(tidy_apply_cp_assignment(assignment, reference, hypothesis, style='ref'))
+
+    >>> test([('A', 'O1'), ('B', 'O3'), (None, 'O2')])
+    ({'O1': 'Aref', 'O3': 'Bref', 'O2': ''},
+     {'O1': 'O1hyp', 'O3': 'O3hyp', 'O2': 'O2hyp'})
+    ({'A': 'Aref', 'B': 'Bref', 'a': ''},
+     {'A': 'O1hyp', 'B': 'O3hyp', 'a': 'O2hyp'})
+
+    >>> test([('A', 'A')])  # Same keys, matching assignment
+    ({'A': 'Aref'}, {'A': 'Ahyp'})
+    ({'A': 'Aref'}, {'A': 'Ahyp'})
+    >>> test([('A', 'O')])  # Different keys
+    ({'O': 'Aref'}, {'O': 'Ohyp'})
+    ({'A': 'Aref'}, {'A': 'Ohyp'})
+    >>> test([('A', 'B'), ('B', 'A')])  # Swap keys
+    ({'B': 'Aref', 'A': 'Bref'}, {'B': 'Bhyp', 'A': 'Ahyp'})
+    ({'A': 'Aref', 'B': 'Bref'}, {'A': 'Bhyp', 'B': 'Ahyp'})
+    >>> test([('A', 'M'), ('B', 'N'), ('M', 'O')])  # Key confusion
+    ({'M': 'Aref', 'N': 'Bref', 'O': 'Mref'},
+     {'M': 'Mhyp', 'N': 'Nhyp', 'O': 'Ohyp'})
+    ({'A': 'Aref', 'B': 'Bref', 'M': 'Mref'},
+     {'A': 'Mhyp', 'B': 'Nhyp', 'M': 'Ohyp'})
+    >>> test([('A', 'M'), ('M', None)])  # Key confusion fallback
+    ({'M': 'Aref', 'a': 'Mref'}, {'M': 'Mhyp', 'a': ''})
+    ({'A': 'Aref', 'M': 'Mref'}, {'A': 'Mhyp', 'M': ''})
+
+    >>> def test_list(assignment):
+    ...     reference = {k: f'{k}ref' for k, _ in assignment if k is not None}
+    ...     hypothesis = {k: f'{k}hyp' for _, k in assignment if k is not None}
+    ...     reference = list(dict(sorted(reference.items())).values())
+    ...     hypothesis = list(dict(sorted(hypothesis.items())).values())
+    ...     pprint(tidy_apply_cp_assignment(assignment, reference, hypothesis, style='hyp'))
+    ...     pprint(tidy_apply_cp_assignment(assignment, reference, hypothesis, style='ref'))
+
+    >>> test_list([(0, 0)])
+    (['0ref'], ['0hyp'])
+    (['0ref'], ['0hyp'])
+    >>> test_list([(0, 0), (1, None)])
+    (['0ref', '1ref'], ['0hyp', ''])
+    (['0ref', '1ref'], ['0hyp', ''])
+    >>> test_list([(0, 0), (None, 1)])
+    (['0ref', ''], ['0hyp', '1hyp'])
+    (['0ref', ''], ['0hyp', '1hyp'])
+
+
+    >>> from meeteval.io import STM, STMLine
+    >>> def test_stm(assignment):
+    ...     reference = STM([STMLine.parse(f'file1 0 {k} 0 1 {k}ref') for k, _ in assignment if k is not None])
+    ...     hypothesis = STM([STMLine.parse(f'file1 0 {k} 0 1 {k}hyp') for _, k in assignment if k is not None])
+    ...     r, h = tidy_apply_cp_assignment(assignment, reference, hypothesis, style='hyp', missing=None)
+    ...     print(r.dumps())
+    ...     print(h.dumps())
+    ...     print()
+    ...     r, h = tidy_apply_cp_assignment(assignment, reference, hypothesis, style='ref', missing=None)
+    ...     print(r.dumps())
+    ...     print(h.dumps())
+    >>> test_stm([('A', 'B')])
+    file1 0 B 0 1 Aref
+    <BLANKLINE>
+    file1 0 B 0 1 Bhyp
+    <BLANKLINE>
+    <BLANKLINE>
+    file1 0 A 0 1 Aref
+    <BLANKLINE>
+    file1 0 A 0 1 Bhyp
+    <BLANKLINE>
+    >>> test_stm([('A', 'O1'), ('B', 'O3'), (None, 'O2'), ('C', None)])
+    file1 0 O1 0 1 Aref
+    file1 0 O3 0 1 Bref
+    file1 0 a 0 1 Cref
+    <BLANKLINE>
+    file1 0 O1 0 1 O1hyp
+    file1 0 O3 0 1 O3hyp
+    file1 0 O2 0 1 O2hyp
+    <BLANKLINE>
+    <BLANKLINE>
+    file1 0 A 0 1 Aref
+    file1 0 B 0 1 Bref
+    file1 0 C 0 1 Cref
+    <BLANKLINE>
+    file1 0 A 0 1 O1hyp
+    file1 0 B 0 1 O3hyp
+    file1 0 a 0 1 O2hyp
+    <BLANKLINE>
+    """
+    from meeteval.io.tidy import _to_convertible
+    lc = _to_convertible(reference, required_keys=('speaker',), final_types=None)
+    rc = _to_convertible(hypothesis, required_keys=('speaker',), final_types=None)
+    l = lc.to_tidy()
+    r = rc.to_tidy()
+
+    if 'session_id' in l.keys or 'session_id' in r.keys:
+        # The user likely did something wrong when more than one session is present
+        assert len(r.unique('session_id')) == 1, r.unique('session_id')
+        assert len(l.unique('session_id')) == 1, l.unique('session_id')
+        assert l.unique('session_id') == r.unique('session_id'), (l.unique('session_id'), r.unique('session_id'))
+
+    # `assginment` maps from ref to hyp
+    if style == 'ref':
+        # Change the keys of the hypothesis to those of the reference
+        assignment = [(h, r) for r, h in assignment]
+        r, l = l, r
+
+    akl = set(a for a, _ in assignment)
+    akr = set(a for _, a in assignment)
+
+    kl = set(r['speaker'] for r in l)
+    kr = set(h['speaker'] for h in r)
+
+    # Fill fallback keys: Replace Nones with a valid key (but it must be different for each speaker here!)
+    # TODO: fill with meaningful keys of the correct datatype
+    if all([isinstance(k, int) for k in kr]):
+        fallback_keys_iter = iter(range(
+            min(kr) + 1,
+            max(len(kr), len(kl)),
+        ))
+    else:
+        fallback_keys_iter = iter([
+            k
+            for k in fallback_keys
+            if k not in akl | akr | kl | kr
+        ])
+    new_assignment = []
+    l_missing_speakers = []
+    r_missing_speakers = []
+    for a, b in assignment:
+        if a is None:
+            l_missing_speakers.append(b)
+        elif b is None:
+            fallback_key = next(fallback_keys_iter)
+            new_assignment.append((a, fallback_key))
+            r_missing_speakers.append(fallback_key)
+        else:
+            new_assignment.append((a, b))
+
+    assignment = dict(new_assignment)
+
+    # Apply assignment by remapping keys
+    l = l.map(lambda s: {**s, 'speaker': assignment[s['speaker']]})
+
+    # Add empty segments for missing speakers
+    if missing is not None:
+        if isinstance(missing, str):
+            missing = {'words': missing}
+        else:
+            assert isinstance(missing, dict), missing
+
+        if 'session_id' in l.keys:
+            missing = {**missing, 'session_id': l[0]['session_id']}
+
+        l = Tidy(l.segments + [{**missing, 'speaker': k} for k in l_missing_speakers])
+        r = Tidy(r.segments + [{**missing, 'speaker': k} for k in r_missing_speakers])
+
+    l, r = rc.convert(l), rc.convert(r)
+
+    # Permute back
+    if style == 'ref':
+        l, r = r, l
+
+    return l, r

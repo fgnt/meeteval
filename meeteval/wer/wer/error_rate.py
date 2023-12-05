@@ -2,7 +2,7 @@ import dataclasses
 
 __all__ = ['ErrorRate', 'combine_error_rates']
 
-from typing import Optional
+from typing import Optional, List
 import logging
 
 logger = logging.getLogger('error_rate')
@@ -227,12 +227,43 @@ class ErrorRate:
 def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None), ErrorRate(0, 10, 0, 0, 0, None, None))
-    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
+    CombinedErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10, reference_self_overlap=None, hypothesis_self_overlap=None, details=(ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0)))
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None))
     ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10)
     >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10, None, None)]*10))
-    ErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100)
+    CombinedErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100, reference_self_overlap=None, hypothesis_self_overlap=None, details=(ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10)))
     """
     if len(error_rates) == 1:
         return error_rates[0]
-    return sum(error_rates)
+    return CombinedErrorRate.from_error_rates(error_rates)
+
+
+@dataclasses.dataclass(frozen=True)
+class CombinedErrorRate(ErrorRate):
+    details: 'Dict[Any, ErrorRate]'
+
+    @classmethod
+    def from_error_rates(cls, error_rates: 'Dict[Any, ErrorRate]'):
+        er = sum(error_rates.values())
+        return cls(
+            errors=er.errors,
+            length=er.length,
+            insertions=er.insertions,
+            deletions=er.deletions,
+            substitutions=er.substitutions,
+            reference_self_overlap=er.reference_self_overlap,
+            hypothesis_self_overlap=er.hypothesis_self_overlap,
+            details=error_rates,
+        )
+
+    def __repr__(self):
+        return (
+                self.__class__.__qualname__ + '(' +
+                ', '.join([
+                    f"{f.name}={getattr(self, f.name)!r}"
+                    if f.name != 'details' else 'details=...'
+                    for f in dataclasses.fields(self)
+                    if getattr(self, f.name) is not None
+                ]) + ')'
+        )
+    

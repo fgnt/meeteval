@@ -1,15 +1,19 @@
+import typing
 import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from typing import NamedTuple
 from meeteval.io.base import Base, BaseLine
 
+if typing.TYPE_CHECKING:
+    from typing import Self
 
 __all__ = [
     'CTMLine',
     'CTM',
     'CTMGroup',
 ]
+
+from meeteval.io.tidy import TidySegment, Tidy
 
 
 @dataclass(frozen=True)
@@ -64,6 +68,32 @@ class CTMLine(BaseLine):
         return (f'{self.filename} {self.channel} {self.begin_time} '
                 f'{self.duration} {self.word} {self.confidence}')
 
+    @classmethod
+    def from_tidy(cls, segment: 'TidySegment') -> 'Self':
+        # CTM only supports words as segments.
+        # If this check fails, the input data was not converted to words before.
+        assert ' ' not in segment['words'], segment
+        return cls(
+            filename=segment['session_id'],
+            channel=segment['channel'],
+            begin_time=segment['begin_time'],
+            duration=segment['end_time'] - segment['start_time'],
+            word=segment['words'],
+            confidence=segment.get('confidence', None),
+        )
+
+    def to_tidy(self) -> 'TidySegment':
+        d = {
+            'session_id': self.filename,
+            'channel': self.channel,
+            'begin_time': self.begin_time,
+            'end_time': self.begin_time + self.duration,
+            'words': self.word,
+        }
+        if self.confidence is not None:
+            d['confidence'] = self.confidence
+        return d
+
 
 @dataclass(frozen=True)
 class CTM(Base):
@@ -85,6 +115,16 @@ class CTM(Base):
     def utterance_transcripts(self) -> List[str]:
         """There is no notion of an "utterance" in CTM files."""
         raise NotImplementedError()
+
+    @classmethod
+    def from_tidy(cls, tidy: 'Tidy', **defaults) -> 'Self':
+        # CTM only supports a single speaker. Use CTMGroup to represent multiple speakers with this format.
+        if len(tidy.unique('speaker')) > 1:
+            raise ValueError(
+                f'CTM only supports a single speaker, but found {len(tidy.unique("speaker"))} speakers '
+                f'({tidy.unique("speaker")}). Use CTMGroup to represent multiple speakers with this format.'
+            )
+        return super().from_tidy(tidy, **defaults)
 
 
 @dataclass(frozen=True)
@@ -130,6 +170,13 @@ class CTMGroup:
 
     def grouped_by_speaker_id(self) -> Dict[str, CTM]:
         return self.ctms
+
+    @classmethod
+    def from_tidy(cls, tidy: 'Tidy') -> 'Self':
+        return cls({k: CTM.from_tidy(v) for k, v in tidy.groupby('speaker').items()})
+
+    def to_tidy(self) -> 'Tidy':
+        return Tidy.merge(*[ctm.to_tidy().map(lambda x: {**x, 'speaker': speaker}) for speaker, ctm in self.ctms.items()])
 
     def to_stm(self):
         from meeteval.io import STM, STMLine
