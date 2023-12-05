@@ -115,7 +115,8 @@ setup(
     package_data={'meeteval': ['**/*.pyx', '**/*.h']},  # https://stackoverflow.com/a/60751886
     entry_points={
         'console_scripts': [
-            'meeteval-wer=meeteval.wer.__main__:cli'
+            'meeteval-wer=meeteval.wer.__main__:cli',
+            'meeteval-der=meeteval.der.__main__:cli',
         ]
     }
 )

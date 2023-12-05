@@ -540,7 +540,8 @@ class CLI:
         self.parser.print_help()
 
 
-if __name__ == '__main__':
+def cli():
+
     cli = CLI()
 
     cli.add_command(wer)
@@ -552,3 +553,7 @@ if __name__ == '__main__':
     cli.add_command(average)
 
     cli.run()
+
+
+if __name__ == '__main__':
+    cli()
