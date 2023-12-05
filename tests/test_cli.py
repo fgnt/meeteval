@@ -34,6 +34,7 @@ def run(cmd):
 def test_burn_orc():
     # Normal test with stm files
     run(f'python -m meeteval.wer orcwer -h hyp.stm -r ref.stm')
+    run(f'meeteval-wer orcwer -h hyp.stm -r ref.stm')
 
     # Multiple stm files
     run(f"python -m meeteval.wer orcwer -h hypA.stm -h hypB.stm -r refA.stm -r refB.stm")
@@ -80,6 +81,11 @@ def test_burn_tcp():
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
+
+
+def test_burn_md_eval_22():
+    run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm --collar 0.25')
 
 
 def test_burn_merge():
