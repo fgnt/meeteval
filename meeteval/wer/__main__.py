@@ -478,9 +478,11 @@ class CLI:
         else:
             raise AssertionError("Error in command definition", name)
 
-    def add_command(self, fn):
+    def add_command(self, fn, command_name=None):
+        if command_name is None:
+            command_name = fn.__name__
         command_parser = self.commands.add_parser(
-            fn.__name__,
+            command_name,
             add_help=False,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             help=fn.__doc__,

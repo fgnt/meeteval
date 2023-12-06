@@ -85,7 +85,11 @@ def test_burn_tcp():
 
 def test_burn_md_eval_22():
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm')
+    run(f'meeteval-der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm --collar 0.25')
+    # examples for collar:
+    #    0:    CHiME-6
+    #    0.25: CHiME-7 DASR
 
 
 def test_burn_merge():

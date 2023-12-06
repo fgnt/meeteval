@@ -13,7 +13,9 @@ from meeteval.wer.wer.error_rate import ErrorRate
 
 def _fix_channel(r):
     return meeteval.io.rttm.RTTM([
-        line.replace(channel='1')  # Thilo puts there usually some random value, e.g. <NA> for hyp and 0 for ref, while common default is 1
+        line.replace(channel='1')
+        # Thilo puts there usually some random value, e.g. <NA> for hyp and 0
+        # for ref, while dscore enforces the default to be 1
         for line in r
     ])
 
@@ -67,7 +69,7 @@ class DiaErrorRate:
         )
 
 
-def md_eval_22(
+def _md_eval_22(
         reference,
         hypothesis,
         average_out='{parent}/{stem}_md_eval_22.json',
@@ -134,15 +136,13 @@ def md_eval_22(
         def convert(string):
             return decimal.Decimal(string)
 
-        details = dict(
+        return DiaErrorRate(
             scored_speaker_time=convert(length),
-            # errors=float(errors),
             missed_speaker_time=convert(deletions),
             falarm_speaker_time=convert(insertions),
             speaker_error_time=convert(substitutions),
             error_rate=convert(error_rate) / 100,
         )
-        return DiaErrorRate(**details)
 
     per_reco = {}
     with tempfile.TemporaryDirectory() as tmpdir:
