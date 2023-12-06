@@ -168,8 +168,3 @@ def _md_eval_22(
 
     from meeteval.wer.__main__ import _save_results
     _save_results(per_reco, hypothesis_paths, per_reco_out, average_out)
-
-
-if __name__ == '__main__':
-    import fire
-    fire.Fire(md_eval_22)
