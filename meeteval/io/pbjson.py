@@ -8,7 +8,7 @@ python -m meeteval.io.pbjson to_stm /scratch/hpc-prf-nt2/cbj/deploy/css/egs/libr
 import json
 from pathlib import Path
 
-from meeteval.io.seglst import Tidy
+from meeteval.io.seglst import SegLST
 
 
 def _load_json(file):
@@ -74,15 +74,15 @@ class PBJson:
         return cls(_load_json(file))
 
     @classmethod
-    def from_tidy(cls, tidy, *, sample_rate=16000, dataset_name='default_dataset', **defaults):
+    def from_seglst(cls, s, *, sample_rate=16000, dataset_name='default_dataset', **defaults):
         # This copies the segments (since we are going to `pop` keys later), applies defaults and makes sure
         # that the dataset_name key is set for all segments.
-        tidy = tidy.map(lambda x: {**defaults, **x, 'dataset_name': x['dataset_name'] or dataset_name})
+        s = s.map(lambda x: {**defaults, **x, 'dataset_name': x['dataset_name'] or dataset_name})
         return cls({
             'datasets': {
                 dataset_name: {
                     example_id: {
-                        # Translate structure from tidy to pbjson
+                        # Translate structure from SegLST to pbjson
                         'num_samples': {
                             'original_source': (example.pop('end_time') - example.pop('start_time')) * sample_rate,
                         },
@@ -94,12 +94,12 @@ class PBJson:
                     }
                     for example_id, example in dataset.groupby('example_id')
                 }
-                for dataset_name, dataset in tidy.groupby('dataset_name')
+                for dataset_name, dataset in s.groupby('dataset_name')
             }
         })
 
-    def to_tidy(self) -> 'Tidy':
-        return Tidy([
+    def to_seglst(self) -> 'SegLST':
+        return SegLST([
             {
                 # Translate known keys
                 'dataset_name': dataset_name,

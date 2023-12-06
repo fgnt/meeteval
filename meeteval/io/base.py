@@ -27,10 +27,10 @@ class BaseLine:
         raise NotImplementedError(cls)
 
     @classmethod
-    def from_tidy(cls, segment: 'TidySegment') -> 'Self':
+    def from_seglst(cls, segment: 'SegLstSegment') -> 'Self':
         raise NotImplementedError(cls)
 
-    def to_tidy(self) -> 'TidySegment':
+    def to_seglst(self) -> 'SegLstSegment':
         raise NotImplementedError(self)
 
     def serialize(self):
@@ -126,8 +126,8 @@ class Base:
     def __init__(self, data, **defaults):
         if isinstance(data, self.__class__):
             self.lines = data.lines
-        elif hasattr(data, 'to_tidy'):
-            self.lines = [self.line_cls.from_tidy({**defaults, **segment}) for segment in data.to_tidy()]
+        elif hasattr(data, 'to_seglst'):
+            self.lines = [self.line_cls.from_seglst({**defaults, **segment}) for segment in data.to_seglst()]
         else:
             self.lines = data
 
@@ -336,13 +336,13 @@ class Base:
     def filenames(self):
         return {x.filename for x in self.lines}
 
-    def to_tidy(self) -> 'Tidy':
-        from meeteval.io.seglst import Tidy
-        return Tidy([l.to_tidy() for l in self.lines])
+    def to_seglst(self) -> 'SegLST':
+        from meeteval.io.seglst import SegLST
+        return SegLST([l.to_seglst() for l in self.lines])
 
     @classmethod
-    def from_tidy(cls, tidy: 'Tidy', **defaults) -> 'Self':
-        return cls([cls.line_cls.from_tidy({**defaults, **segment}) for segment in tidy])
+    def from_seglst(cls, s: 'SegLST', **defaults) -> 'Self':
+        return cls([cls.line_cls.from_seglst({**defaults, **segment}) for segment in s])
 
 
 

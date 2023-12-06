@@ -2,7 +2,7 @@ import typing
 from dataclasses import dataclass
 
 from meeteval.io.base import BaseLine, Base
-from meeteval.io.seglst import TidySegment
+from meeteval.io.seglst import SegLstSegment
 
 
 if typing.TYPE_CHECKING:
@@ -35,13 +35,13 @@ class KeyedTextLine(BaseLine):
         return cls(filename, transcript)
 
     @classmethod
-    def from_tidy(cls, segment: 'TidySegment') -> 'Self':
+    def from_seglst(cls, segment: 'SegLstSegment') -> 'Self':
         return cls(
             filename=segment['session_id'],
             transcript=segment['words'],
         )
 
-    def to_tidy(self) -> 'TidySegment':
+    def to_seglst(self) -> 'SegLstSegment':
         return {
             'session_id': self.filename,
             'words': self.transcript,

@@ -227,15 +227,15 @@ class ErrorRate:
 def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None), ErrorRate(0, 10, 0, 0, 0, None, None))
-    CombinedErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10, reference_self_overlap=None, hypothesis_self_overlap=None, details=(ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=0.0, errors=0, length=10, insertions=0, deletions=0, substitutions=0)))
+    ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None))
     ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10)
     >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10, None, None)]*10))
-    CombinedErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100, reference_self_overlap=None, hypothesis_self_overlap=None, details=(ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10), ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10)))
+    ErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100)
     """
     if len(error_rates) == 1:
         return error_rates[0]
-    return CombinedErrorRate.from_error_rates(error_rates)
+    return sum(error_rates)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -244,7 +244,8 @@ class CombinedErrorRate(ErrorRate):
 
     @classmethod
     def from_error_rates(cls, error_rates: 'Dict[Any, ErrorRate]'):
-        er = sum(error_rates.values())
+        from meeteval.wer.utils import _values
+        er = sum(_values(error_rates))
         return cls(
             errors=er.errors,
             length=er.length,

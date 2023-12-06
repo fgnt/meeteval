@@ -1,9 +1,10 @@
 import dataclasses
 from typing import Tuple, List, Dict, Iterable, Any
 
+from meeteval.io.seglst import asseglst
 from meeteval.wer.wer.error_rate import ErrorRate
-from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
-from meeteval.wer.utils import _keys, _items, _values, _map
+from meeteval.wer.wer.siso import _siso_error_rate
+from meeteval.wer.utils import _keys, _items, _values
 
 __all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mimo_word_error_rate_stm']
 
@@ -22,8 +23,8 @@ class MimoErrorRate(ErrorRate):
 
 
 def mimo_error_rate(
-    reference: 'List[List[Iterable]] | Dict[Any, List[Iterable]]',
-    hypothesis: 'List[Iterable] | Dict[Iterable]',
+        reference: 'List[List[Iterable]] | Dict[Any, List[Iterable]]',
+        hypothesis: 'List[Iterable] | Dict[Iterable]',
 ):
     if max(len(hypothesis), len(reference)) > 10:
         num_speakers = max(len(hypothesis), len(reference))
@@ -69,9 +70,6 @@ def mimo_error_rate(
     )
 
 
-
-
-
 def mimo_word_error_rate(
         reference: 'List[List[str] | Dict[Any, str]] | Dict[List[str], Dict[Any, str]] | STM',
         hypothesis: 'List[str] | Dict[str] | STM',
@@ -94,21 +92,30 @@ def mimo_word_error_rate(
     ...                      {'O1': 'c d', 'O2': 'a b e f'})
     MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
+    >>> mimo_word_error_rate(STM.parse('X 1 A 0.0 1.0 a b\\nX 1 A 1.0 2.0 c d\\nX 1 B 0.0 2.0 e f\\n'), STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n'))
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', '0'), ('B', '0'), ('A', '1')])
     """
-    if isinstance(reference, STM) or isinstance(hypothesis, STM):
-        from meeteval.wer.wer.utils import _check_valid_input_files
-        _check_valid_input_files(reference, hypothesis)
-        reference = {
-            speaker_id: r.utterance_transcripts()
-            for speaker_id, r in reference.grouped_by_speaker_id().items()
-        }
-        hypothesis = {
-            speaker_id: h.merged_transcripts()
-            for speaker_id, h in hypothesis.grouped_by_speaker_id().items()
-        }
+    reference = asseglst(reference)
+    hypothesis = asseglst(hypothesis)
 
-    reference = _map(lambda x: _map(str.split, x), reference)
-    hypothesis = _map(str.split, hypothesis)
+    # Sort by start time if the start time is available
+    # TODO: implement something like reference_sort from time_constrained.py?
+    if 'start_time' in reference.keys:
+        reference = reference.sorted('start_time')
+    if 'start_time' in hypothesis.keys:
+        hypothesis = hypothesis.sorted('start_time')
+
+    # Convert to dict of lists of words
+    reference = {
+        k: [s['words'].split() for s in v if s['words'] != '']
+        for k, v in reference.groupby('speaker').items()
+    }
+    hypothesis = {
+        k: [w for s in v if s['words'] != '' for w in s['words'].split()]
+        for k, v in hypothesis.groupby('speaker').items()
+    }
+
+    # Call core function
     return mimo_error_rate(reference, hypothesis)
 
 

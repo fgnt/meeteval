@@ -1,23 +1,15 @@
-"""
-A "tidy" or "wide" representation of transcripts.
-
-This format can be converted from and to any other format (e.g., STM, CTM(Group), CSV, Chime7 JSON, plain Python structures, ...).
-
-The name is inspired by R's definition of tidy data:
- - https://cran.r-project.org/web/packages/tidyr/vignettes/tidy-data.html#:~:text=Tidy%20data%20is%20a%20standard,with%20observations%2C%20variables%20and%20types.
- - https://vita.had.co.nz/papers/tidy-data.pdf
-
-"""
 import dataclasses
 import functools
 from typing import List, TypedDict, Callable
 
 from cached_property import cached_property
 
+from meeteval.io.py import NestedStructure
 
-class TidySegment(TypedDict, total=False):
+
+class SegLstSegment(TypedDict, total=False):
     """
-    A segment in tidy format. This is a pure-Python data structure.
+    A segment.
 
     Note:
         We do not define an enum with all these keys for speed reasons
@@ -36,12 +28,15 @@ class TidySegment(TypedDict, total=False):
 
 
 @dataclasses.dataclass(frozen=True)
-class Tidy:
+class SegLST:
     """
-    A collection of segments in tidy format. This is a pure-Python data structure and the input type to most
+    A collection of segments in SegLST format. This the input type to most
     functions in MeetEval that process transcript segments.
     """
-    segments: 'List[TidySegment]'
+    segments: 'List[SegLstSegment]'
+
+    # Caches
+    _unique = None
 
     @cached_property
     def keys(self):
@@ -55,8 +50,6 @@ class Tidy:
     def unique(self, key):
         """
         Returns the unique values for `key` among all segments.
-
-        TODO: cache
         """
         return set([s[key] for s in self.segments])
 
@@ -70,145 +63,137 @@ class Tidy:
         return len(self.segments)
 
     def __add__(self, other):
-        if isinstance(other, Tidy):
-            return Tidy(self.segments + other.segments)
+        if isinstance(other, SegLST):
+            return SegLST(self.segments + other.segments)
         return NotImplemented
 
     def groupby(self, key):
         """
-        >>> t = convert_to_tidy(['a b c', 'd e f', 'g h i'], keys=('speaker',))
+        >>> t = asseglst(['a b c', 'd e f', 'g h i'])
         >>> t.segments
-        [{'words': 'a b c', 'speaker': 0}, {'words': 'd e f', 'speaker': 1}, {'words': 'g h i', 'speaker': 2}]
+        [{'words': 'a b c', 'segment_index': 0, 'speaker': 0}, {'words': 'd e f', 'segment_index': 0, 'speaker': 1}, {'words': 'g h i', 'segment_index': 0, 'speaker': 2}]
 
         >>> from pprint import pprint
         >>> pprint(t.groupby('speaker')) # doctest: +ELLIPSIS
-        {0: Tidy(segments=[{'speaker': 0, 'words': 'a b c'}],
-                 inversion_fn=...),
-         1: Tidy(segments=[{'speaker': 1, 'words': 'd e f'}],
-                 inversion_fn=...),
-         2: Tidy(segments=[{'speaker': 2, 'words': 'g h i'}],
-                 inversion_fn=...}
-        >>> t.groupby('speaker')[0].invert()
-        ['a b c']
+        {0: SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}]),
+         1: SegLST(segments=[{'words': 'd e f', 'segment_index': 0, 'speaker': 1}]),
+         2: SegLST(segments=[{'words': 'g h i', 'segment_index': 0, 'speaker': 2}])}
         """
-        return {k: Tidy(g) for k, g in groupby(self.segments, key=key).items()}
+        return {k: SegLST(g) for k, g in groupby(self.segments, key=key).items()}
 
     def sorted(self, key):
         """
         Returns a copy of this object with the segments sorted by `key`.
         """
-        return Tidy(sorted(self.segments, key=_get_key(key)))
+        return SegLST(sorted(self.segments, key=_get_key(key)))
 
     def map(self, fn):
         """
-        Applies `fn` to all segments and returns a new `Tidy` object with the results.
+        Applies `fn` to all segments and returns a new `SegLST` object with the results.
         """
-        return Tidy([fn(s) for s in self.segments])
+        return SegLST([fn(s) for s in self.segments])
 
     def flatmap(self, fn):
         """
-        Applies `fn` to all segments, flattens the output and returns a new `Tidy` object with the results.
+        Applies `fn` to all segments, flattens the output and returns a new `SegLST` object with the results.
 
         Example:
-            >>> Tidy([{'words': 'a b c'}]).flatmap(lambda x: [{'words': w} for w in x['words'].split()])
-            Tidy(segments=[{'words': 'a'}, {'words': 'b'}, {'words': 'c'}])
+            >>> SegLST([{'words': 'a b c'}]).flatmap(lambda x: [{'words': w} for w in x['words'].split()])
+            SegLST(segments=[{'words': 'a'}, {'words': 'b'}, {'words': 'c'}])
         """
-        return Tidy([s for t in self.segments for s in fn(t)])
+        return SegLST([s for t in self.segments for s in fn(t)])
 
     def filter(self, fn):
         """
-        Applies `fn` to all segments and returns a new `Tidy` object with the segments for which `fn` returns true.
+        Applies `fn` to all segments and returns a new `SegLST` object with the segments for which `fn` returns true.
         """
-        return Tidy([s for s in self.segments if fn(s)])
+        return SegLST([s for s in self.segments if fn(s)])
 
     @classmethod
     def merge(cls, *t):
         """
-        Merges multiple `Tidy` objects into one by concatenating all segments.
+        Merges multiple `SegLST` objects into one by concatenating all segments.
         """
-        return Tidy([s for t_ in t for s in t_.segments])
+        return SegLST([s for t_ in t for s in t_.segments])
 
-    def to_tidy(self):
+    def to_seglst(self):
         return self
 
     @classmethod
-    def from_tidy(cls, d: 'Tidy', **defaults):
+    def from_seglst(cls, d: 'SegLST', **defaults):
         if defaults:
-            d = Tidy([{**defaults, **s} for s in d])
+            d = SegLST([{**defaults, **s} for s in d])
         return d
 
 
-def _to_convertible(d):
+def asseglistconvertible(d, *, py_convert=NestedStructure):
     """
-    Converts `d` into a structure that is convertible to the tidy format, i.e., that
-    has `to_tidy` (and often `from_tidy`) defined.
+    Converts `d` into a structure that is convertible to the SegLST format, i.e., that
+    has `to_seglst` (and often `from_seglst`) defined.
     """
     # Already convertible
-    if hasattr(d, 'to_tidy'):
+    if hasattr(d, 'to_seglst'):
         return d
 
-    # Chime7 format / List of `TidySegment`s
+    # Chime7 format / List of `SegLstSegment`s
     if isinstance(d, list) and (len(d) == 0 or isinstance(d[0], dict) and 'words' in d[0]):
-        # TODO: Conversion back?
-        return Tidy(d)
+        # TODO: Conversion back to list of segments (Python structure)?
+        return SegLST(d)
 
     # TODO: pandas DataFrame
 
     # Convert Python structures
     if isinstance(d, (list, tuple, dict, str)):
-        # We support a fixed structure for automatic conversion, as to prevent confusions.
-        # If the user wants to use a different format, they can convert it manually.
-        from meeteval.io.py import NestedStructure
-        return NestedStructure(d, level_keys=('speaker', 'segment_index'))
+        if py_convert is None:
+            raise TypeError(f'Cannot convert {type(d)} to SegLST with py_convert={py_convert!r}!')
+        # TODO: Conversion back to Python structure?
+        return py_convert(d)
 
     raise NotImplementedError(f'No conversion implemented for {type(d)}!')
 
 
-def convert_to_tidy(d, *, required_keys=()) -> 'Tidy':
+def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
     """
-    Converts an object `d` into tidy data format. `d` can be anything convertible to the tidy format.
+    Converts an object `d` into SegLST data format. `d` can be anything convertible to the SegLST format.
+    Returns `d` if `isinstance(d, SegLST)`.
 
-    Python structures
-    >>> convert_to_tidy('a b c')
-    Tidy(segments=[{'words': 'a b c'}])
+    Python structures have to have one or two nested levels. The first level is interpreted as the speaker key and the
+    second level as the segment key.
+    >>> asseglst(['a b c'])
+    SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+    >>> asseglst([['a b c', 'd e f'], ['g h i']])
+    SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}, {'words': 'd e f', 'segment_index': 1, 'speaker': 0}, {'words': 'g h i', 'segment_index': 0, 'speaker': 1}])
+    >>> asseglst({'A': ['a b c', 'd e f'], 'B': ['g h i']})
+    SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 'A'}, {'words': 'd e f', 'segment_index': 1, 'speaker': 'A'}, {'words': 'g h i', 'segment_index': 0, 'speaker': 'B'}])
 
     Data formats are also converted
     >>> from meeteval.io.stm import STM, STMLine
-    >>> stm = STM([STMLine('ex', 1, 'A', 0, 1, 'a b c')])
-    >>> convert_to_tidy(stm).segments
+    >>> stm = STM.parse('ex 1 A 0 1 a b c')
+    >>> asseglst(stm).segments
     [{'session_id': 'ex', 'channel': 1, 'speaker': 'A', 'start_time': 0, 'end_time': 1, 'words': 'a b c'}]
 
-    The Tidy representation can be converted back to its original representation
-    >>> stm.convert(convert_to_tidy(stm))
-    STM(lines=[STMLine(filename='ex', channel=1, speaker_id='A', begin_time=0, end_time=1, transcript='a b c')])
+    The SegLST representation can be converted back to its original representation
+    >>> print(stm.from_seglst(asseglst(stm)).dumps())
+    ex 1 A 0 1 a b c
+    <BLANKLINE>
 
     And modified before inversion
-    >>> tidy = convert_to_tidy(stm)
-    >>> tidy.segments[0][keys.WORDS] = 'x y z'
-    >>> stm.convert(tidy)
-    STM(lines=[STMLine(filename='ex', channel=1, speaker_id='A', begin_time=0, end_time=1, transcript='x y z')])
-
-    >>> from meeteval.io.py import NestedStructure
-    >>> p = NestedStructure({'A': 'a b c', 'B': 'd e f'}, required_keys=('speaker',))
-    >>> tidy = convert_to_tidy(p)
-    >>> tidy.segments[0]['speaker'] = 'C'
-    >>> p.convert(tidy)
-    {'C': 'a b c', 'B': 'd e f'}
-
-    In some cases, (lossless) inversion is not possible after modification.
-    Here, words are concatenated, but the original representation cannot be restored.
-    >>> p = NestedStructure(['a b c', 'd e f'], required_keys=('speaker',))
-    >>> tidy = convert_to_tidy(p)
-    >>> tidy.segments[1]['speaker'] = 0
-    >>> p.convert(tidy)
-    ['a b c d e f']
+    >>> s = asseglst(stm)
+    >>> s.segments[0]['words'] = 'x y z'
+    >>> print(stm.from_seglst(s).dumps())
+    ex 1 A 0 1 x y z
+    <BLANKLINE>
     """
     assert isinstance(required_keys, tuple), required_keys
 
-    # Get a type that is convertible
-    d = _to_convertible(d)
+    # Exit early if already in the correct format
+    if isinstance(d, SegLST):
+        return d
 
-    t = d.to_tidy()
+    # Get a type that is convertible to SegLST
+    d = asseglistconvertible(d, py_convert=py_convert)
+
+    t = d.to_seglst()
 
     # Check that `t` has all required keys
     if len(t) and not set(required_keys).issubset(t.keys):
@@ -260,12 +245,6 @@ def groupby(
         {0: [{'a': 0, 'b': 0}, {'a': 0, 'b': 2}], 1: [{'a': 1, 'b': 1}]}
         >>> groupby(['abc', 'bd', 'abd', 'cdef', 'c'], 0)
         {'a': ['abc', 'abd'], 'b': ['bd'], 'c': ['cdef', 'c']}
-        >>> groupby(range(10), list(range(5))*2)
-        {0: [0, 5], 1: [1, 6], 2: [2, 7], 3: [3, 8], 4: [4, 9]}
-        >>> groupby('abc', ['a'])
-        Traceback (most recent call last):
-            ...
-        ValueError: zip() argument 2 is shorter than argument 1
         >>> groupby('abc', {})
         Traceback (most recent call last):
             ...
@@ -287,72 +266,39 @@ def groupby(
     return dict(groups)
 
 
-def tidy_args(*required_keys):
+def seglst_map(*, required_keys=(), py_convert=NestedStructure):
     """
-    Decorator for a function that require tidy data input to automatically convert other input formats to `Tidy`.
+    Decorator to for a function that takes a (single) `SegLST` object as input and returns a (single) `SegLST` object
+    as output. Automatically converts the input to `SegLST` and converts the returned value back to its original type.
 
-    Automatically converts all positional args to `Tidy` if they are not already `Tidy` and checks if all `keys` are
-    present in the structure.
-
-    Arguments:
-        required_keys: The keys that must be present in the data structure.
-    """
-    from functools import wraps
-    from inspect import signature
-
-    def _tidy_args_wrapper(fn):
-        s = signature(fn)
-
-        num_parameters = len([p for p in s.parameters.values() if p.kind in (
-            p.POSITIONAL_ONLY,
-            p.POSITIONAL_OR_KEYWORD,
-            p.VAR_POSITIONAL,
-        )])
-        if not required_keys:
-            rkeys = ((),) * num_parameters
-        elif required_keys and isinstance(required_keys[0], str):
-            rkeys = (required_keys,) * num_parameters
-        else:
-            assert len(required_keys) == num_parameters, (required_keys, num_parameters)
-            rkeys = required_keys
-
-        @wraps(fn)
-        def _wrapped_tidy(*args, **kwargs):
-            bound_args = s.bind(*args, **kwargs)
-            args = [
-                convert_to_tidy(a, required_keys=k)
-                for (a, k) in zip(bound_args.args, rkeys)
-            ]
-            return fn(*args, **bound_args.kwargs)
-
-        return _wrapped_tidy
-
-    return _tidy_args_wrapper
-
-
-def tidy_map(*, required_keys=()):
-    """
-    Decorator to for a function that can be applied to anything convertible to Tidy (and invertible).
-
-    >>> tidy_map(required_keys=('speaker',))(lambda x: x.map(lambda x: {**x, 'speaker': 'X'}))({'A': 'a b c', 'B': 'd e f'})
-    {'X': 'a b c d e f'}
+    >>> @seglst_map(required_keys=('speaker',))
+    ... def fn(seglst, *, speaker='X'):
+    ...     return seglst.map(lambda x: {**x, 'speaker': speaker})
+    >>> from meeteval.io.stm import STM
+    >>> fn(STM.parse('X 1 A 0 1 a b c'))
+    STM(lines=[STMLine(filename='X', channel=1, speaker_id='X', begin_time=0, end_time=1, transcript='a b c')])
+    >>> from meeteval.io.rttm import RTTM
+    >>> fn(RTTM.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>'))
+    RTTM(lines=[RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration=2.3499999999999943, othography='<NA>', speaker_type='<NA>', speaker_id='X', confidence='<NA>', signal_look_ahead_time='<NA>')])
+    >>> fn(['abc', 'def']).structure
+    ['abc def']
     """
 
-    def _tidy_map(fn):
+    def _seglst_map(fn):
         @functools.wraps(fn)
-        def __tidy_map(arg, *args, **kwargs):
-            c = _to_convertible(arg)
-            arg = convert_to_tidy(c, required_keys=required_keys)
+        def _seglst_map(arg, *args, **kwargs):
+            c = asseglistconvertible(arg, py_convert=py_convert)
+            arg = asseglst(c, required_keys=required_keys)
             arg = fn(arg, *args, **kwargs)
-            return c.from_tidy(arg)
+            return c.from_seglst(arg)
 
-        return __tidy_map
+        return _seglst_map
 
-    return _tidy_map
+    return _seglst_map
 
 
 def apply_multi_file(
-        fn: 'Callable[[Tidy, Tidy], ErrorRate]',
+        fn: 'Callable[[SegLST, SegLST], ErrorRate]',
         reference, hypothesis,
         *,
         allowed_empty_examples_ratio=0.1
@@ -360,21 +306,8 @@ def apply_multi_file(
     """
     Applies a function individually to all sessions / files.
 
-    `reference` and `hypothesis` must be convertible to `Tidy`. If they are a Python structure, the first level
+    `reference` and `hypothesis` must be convertible to `SegLST`. If they are a Python structure, the first level
     is interpreted as the session / file key.
-
-    Pass in data in tidy format. The function is applied to each session individually.
-    # >>> from meeteval.wer.wer.error_rate import ErrorRate
-    # >>> ref = [{keys.SESSION: 'S1', keys.WORDS: 'A'}, {keys.SESSION: 'S2', keys.WORDS: 'B'}]
-    # >>> hyp = [{keys.SESSION: 'S1', keys.WORDS: 'A'}, {keys.SESSION: 'S2', keys.WORDS: 'C'}]
-    # >>> apply_multi_file(lambda r, h: ErrorRate(r != h, 0, 0, 0, r != h, None, None), ref, hyp)
-    # CombinedErrorRate(errors=1, length=0, insertions=0, deletions=0, substitutions=1, details=...)
-    #
-    # >>> @tidy_args()
-    # ... def fn(ref, hyp):
-    # ...     return ErrorRate(ref != hyp, 0, 0, 0, ref != hyp, None, None)
-    # >>> apply_multi_file(fn, ref, hyp)
-    # CombinedErrorRate(errors=1, length=0, insertions=0, deletions=0, substitutions=1, details=...)
 
     >>> from meeteval.wer.wer.cp import cp_word_error_rate
     >>> from pprint import pprint
@@ -389,8 +322,14 @@ def apply_multi_file(
     """
     import logging
     # TODO: support having no session keys. Support python structures with three levels (session, speaker, segment)
-    reference = convert_to_tidy(reference, required_keys=('session_id',)).groupby('session_id')
-    hypothesis = convert_to_tidy(hypothesis, required_keys=('session_id',)).groupby('session_id')
+    reference = asseglst(
+        reference, required_keys=('session_id',),
+        py_convert=lambda p: NestedStructure(p, ('session_id', 'speaker', 'segment_id'))
+    ).groupby('session_id')
+    hypothesis = asseglst(
+        hypothesis, required_keys=('session_id',),
+        py_convert=lambda p: NestedStructure(p, ('session_id', 'speaker', 'segment_id'))
+    ).groupby('session_id')
 
     # Check session keys. Print a warning if they differ and raise an exception when they differ too much
     if reference.keys() != hypothesis.keys():
@@ -428,7 +367,6 @@ def apply_multi_file(
                 f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(hypothesis)})\n'
                 f'reference - hypothesis: e.g. {r_minus_h[:5]} (Total: {len(r_minus_h)} of {len(reference)})'
             )
-
 
     results = {}
     for session in reference.keys():

@@ -6,7 +6,7 @@ import typing
 from dataclasses import dataclass, replace
 
 from meeteval.io.stm import STM
-from meeteval.io.seglst import Tidy, tidy_map, convert_to_tidy, tidy_args
+from meeteval.io.seglst import SegLST, seglst_map, asseglst
 from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
 from typing import List, Dict
@@ -135,7 +135,7 @@ def _check_timing_annotations(t, k):
 
 
 def _time_constrained_siso_error_rate(
-        reference: Tidy, hypothesis: Tidy, prune='auto'
+        reference: SegLST, hypothesis: SegLST, prune='auto'
 ):
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
 
@@ -164,16 +164,16 @@ class TimeMarkedTranscript:
     transcript: List[str]
     timings: List[typing.Tuple[float, float]]
 
-    def segments(self):
-        return [{
+    def to_seglst(self):
+        return SegLST([{
             'words': transcript,
             'start_time': timing[0],
             'end_time': timing[1],
-        } for transcript, timing in zip(self.transcript, self.timings)]
+        } for transcript, timing in zip(self.transcript, self.timings)])
 
     @classmethod
-    def convert(cls, d):
-        d = convert_to_tidy(d)
+    def from_seglst(cls, d):
+        d = asseglst(d)
         return cls(
             transcript=[s['words'] for s in d],
             timings=[(s['start_time'], s['end_time']) for s in d],
@@ -309,18 +309,21 @@ class TimeMarkedTranscript:
 TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
 
 
-@tidy_map()
-def apply_collar(s: Tidy, collar: float):
+@seglst_map()
+def apply_collar(s: SegLST, collar: float):
     """
-    >>> apply_collar([{'start_time': 0, 'end_time': 1}], 1)
-    [{'start_time': -1, 'end_time': 2}]
+    >>> apply_collar(SegLST([{'start_time': 0, 'end_time': 1}]), 1)
+    SegLST(segments=[{'start_time': -1, 'end_time': 2}])
+    >>> print(apply_collar(STM.parse('X 1 A 0 1 a b'), 1).dumps())
+    X 1 A -1 2 a b
+    <BLANKLINE>
     """
     return s.map(
         lambda s: {**s, 'start_time': s['start_time'] - collar, 'end_time': s['end_time'] + collar})
 
 
-@tidy_map()
-def get_pseudo_word_level_timings(t: Tidy, strategy: str) -> Tidy:
+@seglst_map()
+def get_pseudo_word_level_timings(t: SegLST, strategy: str) -> SegLST:
     """
     TODO: Remove TimeMarkedTranscript from testcases
 
@@ -397,12 +400,12 @@ def get_pseudo_word_level_timings(t: Tidy, strategy: str) -> Tidy:
     return t.flatmap(get_words)
 
 
-@tidy_map()
+@seglst_map()
 def remove_overlaps(
-        t: Tidy,
+        t: SegLST,
         max_overlap: float = 0.4,
         warn_message: str = None,
-) -> Tidy:
+) -> SegLST:
     """
     Remove overlaps between words or segments in a transcript.
 
@@ -440,7 +443,7 @@ def remove_overlaps(
     return t.map(correct)
 
 
-def sort_and_validate(segments: Tidy, sort, pseudo_word_level_timing, name):
+def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
     """
     Args:
         segments:
@@ -452,18 +455,18 @@ def sort_and_validate(segments: Tidy, sort, pseudo_word_level_timing, name):
         pseudo_word_level_timing:
         name:
 
-    >>> segments = [{'words': 'c d', 'start_time': 1, 'end_time': 3}, {'words': 'a b', 'start_time': 0, 'end_time': 3}]
+    >>> segments = SegLST([{'words': 'c d', 'start_time': 1, 'end_time': 3}, {'words': 'a b', 'start_time': 0, 'end_time': 3}])
     >>> sort_and_validate(segments, True, 'character_based', 'test')
     Traceback (most recent call last):
     ...
     ValueError: The order of word-level timings contradicts the segment-level order in test: 2 of 4 times.
     Consider setting sort to False or "segment" or "word".
     >>> sort_and_validate(segments, False, 'character_based', 'test')
-    ([{'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}, {'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}], False)
+    SegLST(segments=[{'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}, {'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}])
     >>> sort_and_validate(segments, 'segment', 'character_based', 'test')
-    ([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}, {'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}], False)
+    SegLST(segments=[{'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}, {'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
     >>> sort_and_validate(segments, 'word', 'character_based', 'test')
-    ([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}], True)
+    SegLST(segments=[{'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
     """
     if sort not in (True, False, 'segment', 'word'):
         raise ValueError(f'Invalid value for sort: {sort}. Choose one of True, False, "segment", "word"')
@@ -497,8 +500,43 @@ def sort_and_validate(segments: Tidy, sort, pseudo_word_level_timing, name):
     return words
 
 
-@tidy_args('start_time', 'end_time')
-def get_self_overlap(d: Tidy):
+def get_self_overlap(d: SegLST):
+    """
+    Returns the self-overlap of the transcript.
+
+    ▇
+     ▇
+      ▇
+    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0, 1), (1, 2), (2, 3)]))
+    SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=3)
+
+    ▇
+    ▇
+    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b'], [(0,1), (0,1)]))
+    SelfOverlap(overlap_rate=1.0, overlap_time=1, total_time=1)
+
+    ▇
+    ▇
+    ▇
+    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0,1), (0,1), (0,1)]))
+    SelfOverlap(overlap_rate=2.0, overlap_time=2, total_time=1)
+
+    ▇▇▇▇▇▇▇▇▇▇
+     ▇
+       ▇
+    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0,10), (1,2), (3,4)]))
+    SelfOverlap(overlap_rate=0.2, overlap_time=2, total_time=10)
+
+    ▇▇▇▇
+     ▇▇
+      ▇▇▇
+    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0,4), (1,3), (2,5)]))
+    SelfOverlap(overlap_rate=0.8, overlap_time=4, total_time=5)
+
+    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0, 1), (0.5, 1.5), (1, 2)]))
+    SelfOverlap(overlap_rate=0.5, overlap_time=1.0, total_time=2.0)
+    """
+    d = asseglst(d, required_keys=('start_time', 'end_time'), py_convert=None)
     latest_end = 0
     self_overlap = 0
     total = 0
@@ -510,7 +548,7 @@ def get_self_overlap(d: Tidy):
     return SelfOverlap(self_overlap, total)
 
 
-def time_constrained_siso_levenshtein_distance(reference: 'Tidy', hypothesis: 'Tidy') -> int:
+def time_constrained_siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
 
     reference_words = [s['words'] for s in reference if s['words']]
@@ -522,8 +560,8 @@ def time_constrained_siso_levenshtein_distance(reference: 'Tidy', hypothesis: 'T
 
 
 def time_constrained_siso_word_error_rate(
-        reference: 'TidyData',
-        hypothesis: 'TidyData',
+        reference: 'SegLST',
+        hypothesis: 'SegLST',
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
@@ -551,10 +589,18 @@ def time_constrained_siso_word_error_rate(
     >>> time_constrained_siso_word_error_rate(TimeMarkedTranscript(['a b', 'c d'], [(0,2), (0,2)]), TimeMarkedTranscript(['a'], [(0,1)]))
     ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=1.0, overlap_time=2, total_time=2), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1))
     """
-    # TODO: assert single speaker?
+    # Convert to SegLST. Disallow Python conversions since there is currently no way to get the timings from a
+    # Python structure.
+    reference = asseglst(reference, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
+    hypothesis = asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
 
-    _reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing)
-    _hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing)
+    # Only single-speaker transcripts are supported, but we can here have multiple segments, e.g., for word-level
+    # transcripts
+    assert 'speaker' not in reference.keys or len(reference.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
+    assert 'speaker' not in hypothesis.keys or len(hypothesis.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
+
+    _reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
+    _hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
     _hypothesis = apply_collar(_hypothesis, collar)
 
     er = _time_constrained_siso_error_rate(_reference, _hypothesis)
@@ -569,10 +615,9 @@ def time_constrained_siso_word_error_rate(
     return er
 
 
-@tidy_args('speaker', 'start_time', 'end_time', 'words')
 def time_constrained_minimum_permutation_word_error_rate(
-        reference: 'Tidy',
-        hypothesis: 'Tidy',
+        reference: 'SegLST',
+        hypothesis: 'SegLST',
         *,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
@@ -600,6 +645,9 @@ def time_constrained_minimum_permutation_word_error_rate(
     """
     from meeteval.wer.wer.cp import _cp_error_rate
 
+    reference = asseglst(reference, required_keys=('start_time', 'end_time', 'words', 'speaker'), py_convert=None)
+    hypothesis = asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words', 'speaker'), py_convert=None)
+
     reference = reference.groupby('speaker')
     hypothesis = hypothesis.groupby('speaker')
 
@@ -609,14 +657,17 @@ def time_constrained_minimum_permutation_word_error_rate(
     hypothesis_self_overlap = sum([get_self_overlap(v) for v in hypothesis.values()], start=SelfOverlap(0, 0))
 
     # Convert segments into lists of words and word-level timings
-    reference = {k: sort_and_validate(v, reference_sort, reference_pseudo_word_level_timing, f'reference speaker "{k}"')
-                 for k, v in reference.items()}
+    reference = {
+        k: sort_and_validate(v, reference_sort, reference_pseudo_word_level_timing, f'reference speaker "{k}"')
+        for k, v in reference.items()
+    }
     hypothesis = {
-        k: sort_and_validate(v, hypothesis_sort, hypothesis_pseudo_word_level_timing, f'hypothesis speaker "{k}"') for
-        k, v in hypothesis.items()}
+        k: sort_and_validate(v, hypothesis_sort, hypothesis_pseudo_word_level_timing, f'hypothesis speaker "{k}"')
+        for k, v in hypothesis.items()
+    }
 
-    reference = Tidy.merge(*reference.values())
-    hypothesis = Tidy.merge(*hypothesis.values())
+    reference = SegLST.merge(*reference.values())
+    hypothesis = SegLST.merge(*hypothesis.values())
 
     hypothesis = apply_collar(hypothesis, collar)
 
@@ -677,9 +728,8 @@ def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'
     ]
 
 
-@tidy_args('words', 'start_time', 'end_time')
 def align(
-        reference: Tidy, hypothesis: Tidy,
+        reference: SegLST, hypothesis: SegLST,
         *,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
@@ -700,7 +750,7 @@ def align(
         style: Alignment output style. Can be one of
             - 'words' or 'kaldi': Output in the style of `kaldialign.align`
             - 'index': Output indices of the reference and hypothesis words instead of the words
-            - 'tidy': Output the (tidy) segments for each word
+            - 'seglst': Output the (seglst) segments for each word
         reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
         hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
         
@@ -719,7 +769,7 @@ def align(
     [('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', '*'), ('e', 'e'), ('*', 'f')]
     >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1, style='index')
     [(0, 0), (1, 1), (2, 2), (3, None), (4, 3), (None, 4)]
-    >>> pprint(align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]), style='tidy'))
+    >>> pprint(align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]), style='seglst'))
     [({'end_time': 1, 'start_time': 0, 'words': 'a'},
       {'end_time': 0.5, 'start_time': 0.5, 'words': 'a'}),
      ({'end_time': 2, 'start_time': 1, 'words': 'b'},
@@ -727,24 +777,26 @@ def align(
      ({'end_time': 3, 'start_time': 2, 'words': 'c'}, None),
      (None, {'end_time': 3.5, 'start_time': 3.5, 'words': 'c'})]
 
-    Any additional attributes are passed through when style='tidy'
-    >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='tidy')
+    Any additional attributes are passed through when style='seglst'
+    >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='seglst')
     [({'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}, None)]
     >>> from meeteval.io.stm import STM, STMLine
-    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a')]), STM([STMLine.parse('ex 1 B 0 1 a')]), style='tidy'))
-    [({'end_time': 1,
+    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a')]), STM([STMLine.parse('ex 1 B 0 1 a')]), style='seglst'))
+    [({'channel': 1,
+       'end_time': 1,
        'session_id': 'ex',
        'speaker': 'A',
        'start_time': 0,
        'words': 'a'},
-      {'end_time': 0.5,
+      {'channel': 1,
+       'end_time': 0.5,
        'session_id': 'ex',
        'speaker': 'B',
        'start_time': 0.5,
        'words': 'a'})]
-
-    >>> align([{'start_time': 40.3219375, 'end_time': 40.611802364864865, 'words': 'THEN'}], [{'start_time': 16.208375, 'end_time': 20.080375, 'words': ''}], style='tidy')
     """
+    reference = asseglst(reference, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
+    hypothesis = asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
     reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
     hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
     hypothesis_ = apply_collar(hypothesis, collar=collar)
@@ -762,7 +814,7 @@ def align(
 
     if style in ('kaldi', 'words'):
         alignment = index_alignment_to_kaldi_alignment(alignment, reference_words, hypothesis_words)
-    elif style == 'tidy':
+    elif style == 'seglst':
         alignment = [
             (None if a is None else reference[a],
              None if b is None else hypothesis[b])

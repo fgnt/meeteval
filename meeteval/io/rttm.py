@@ -2,7 +2,7 @@ import typing
 from typing import List, NamedTuple
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
-from meeteval.io.seglst import TidySegment
+from meeteval.io.seglst import SegLstSegment
 
 if typing.TYPE_CHECKING:
     import decimal
@@ -76,7 +76,7 @@ class RTTMLine(BaseLine):
         )
 
     @classmethod
-    def convert(cls, segment: 'TidySegment') -> 'RTTMLine':
+    def from_seglst(cls, segment: 'SegLstSegment') -> 'RTTMLine':
         # TODO: read spec and handle speech segments with transcripts
         return RTTMLine(
             filename=segment['session_id'],
@@ -86,7 +86,7 @@ class RTTMLine(BaseLine):
             duration=segment['end_time'] - segment['start_time'],
         )
 
-    def to_tidy(self) -> 'TidySegment':
+    def to_seglst(self) -> 'SegLstSegment':
         # TODO: read spec and handle speech segments with transcripts and other types
         d = {
             'session_id': self.filename,

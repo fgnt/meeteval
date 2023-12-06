@@ -5,7 +5,7 @@ from typing import List, NamedTuple
 from meeteval.io.base import Base, BaseLine
 import logging
 
-from meeteval.io.seglst import TidySegment
+from meeteval.io.seglst import SegLstSegment
 
 if typing.TYPE_CHECKING:
     from meeteval.wer import ErrorRate
@@ -66,7 +66,7 @@ class STMLine(BaseLine):
         return stm_line
 
     @classmethod
-    def from_tidy(cls, segment: 'TidySegment'):
+    def from_seglst(cls, segment: 'SegLstSegment'):
         return cls(
             filename=segment['session_id'],
             channel=segment.get('channel', 1),
@@ -76,7 +76,7 @@ class STMLine(BaseLine):
             transcript=segment['words'],
         )
 
-    def to_tidy(self) -> 'TidySegment':
+    def to_seglst(self) -> 'SegLstSegment':
         return {
             'session_id': self.filename,
             'channel': self.channel,
@@ -119,7 +119,7 @@ class STM(Base):
         # ToDo: Fix `line.end_time - line.begin_time`, when they are floats.
         #       Sometimes there is a small error and the error will be written
         #       to the rttm file.
-        return RTTM.from_tidy(self.to_tidy())
+        return RTTM.from_seglst(self.to_seglst())
 
     def to_array_interval(self, sample_rate, group=True):
         import paderbox as pb

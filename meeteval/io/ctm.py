@@ -13,7 +13,7 @@ __all__ = [
     'CTMGroup',
 ]
 
-from meeteval.io.seglst import TidySegment, Tidy
+from meeteval.io.seglst import SegLstSegment, SegLST
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class CTMLine(BaseLine):
                 f'{self.duration} {self.word} {self.confidence}')
 
     @classmethod
-    def from_tidy(cls, segment: 'TidySegment') -> 'Self':
+    def from_seglst(cls, segment: 'SegLstSegment') -> 'Self':
         # CTM only supports words as segments.
         # If this check fails, the input data was not converted to words before.
         assert ' ' not in segment['words'], segment
@@ -82,7 +82,7 @@ class CTMLine(BaseLine):
             confidence=segment.get('confidence', None),
         )
 
-    def to_tidy(self) -> 'TidySegment':
+    def to_seglst(self) -> 'SegLstSegment':
         d = {
             'session_id': self.filename,
             'channel': self.channel,
@@ -117,14 +117,14 @@ class CTM(Base):
         raise NotImplementedError()
 
     @classmethod
-    def from_tidy(cls, tidy: 'Tidy', **defaults) -> 'Self':
+    def from_seglst(cls, s: 'SegLST', **defaults) -> 'Self':
         # CTM only supports a single speaker. Use CTMGroup to represent multiple speakers with this format.
-        if len(tidy.unique('speaker')) > 1:
+        if len(s.unique('speaker')) > 1:
             raise ValueError(
-                f'CTM only supports a single speaker, but found {len(tidy.unique("speaker"))} speakers '
-                f'({tidy.unique("speaker")}). Use CTMGroup to represent multiple speakers with this format.'
+                f'CTM only supports a single speaker, but found {len(s.unique("speaker"))} speakers '
+                f'({s.unique("speaker")}). Use CTMGroup to represent multiple speakers with this format.'
             )
-        return super().from_tidy(tidy, **defaults)
+        return super().from_seglst(s, **defaults)
 
 
 @dataclass(frozen=True)
@@ -172,11 +172,11 @@ class CTMGroup:
         return self.ctms
 
     @classmethod
-    def from_tidy(cls, tidy: 'Tidy') -> 'Self':
-        return cls({k: CTM.from_tidy(v) for k, v in tidy.groupby('speaker').items()})
+    def from_seglst(cls, s: 'SegLST') -> 'Self':
+        return cls({k: CTM.from_seglst(v) for k, v in s.groupby('speaker').items()})
 
-    def to_tidy(self) -> 'Tidy':
-        return Tidy.merge(*[ctm.to_tidy().map(lambda x: {**x, 'speaker': speaker}) for speaker, ctm in self.ctms.items()])
+    def to_seglst(self) -> 'SegLST':
+        return SegLST.merge(*[ctm.to_seglst().map(lambda x: {**x, 'speaker': speaker}) for speaker, ctm in self.ctms.items()])
 
     def to_stm(self):
         from meeteval.io import STM, STMLine
