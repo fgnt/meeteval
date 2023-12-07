@@ -1,5 +1,6 @@
 import dataclasses
 import functools
+import typing
 from typing import List, TypedDict, Callable
 
 try:
@@ -11,6 +12,8 @@ except ImportError:
 
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
+if typing.TYPE_CHECKING:
+    from meeteval.wer.wer.error_rate import ErrorRate
 
 
 class SegLstSegment(TypedDict, total=False):

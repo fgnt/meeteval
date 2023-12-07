@@ -2,7 +2,7 @@ import dataclasses
 
 __all__ = ['ErrorRate', 'combine_error_rates']
 
-from typing import Optional, List
+from typing import Optional, Dict, Any
 import logging
 
 logger = logging.getLogger('error_rate')

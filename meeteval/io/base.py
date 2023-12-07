@@ -12,7 +12,7 @@ from itertools import groupby
 
 if typing.TYPE_CHECKING:
     from typing import Self
-    from meeteval.io.seglst import SegLstSegment
+    from meeteval.io.seglst import SegLstSegment, SegLST
     from meeteval.io.uem import UEM, UEMLine
     from meeteval.io.stm import STM, STMLine
     from meeteval.io.ctm import CTM, CTMLine

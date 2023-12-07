@@ -1,14 +1,10 @@
-import sys
 import typing
 from dataclasses import dataclass
-from typing import List, NamedTuple
+from typing import List
 from meeteval.io.base import Base, BaseLine
-import logging
+import decimal
 
 from meeteval.io.seglst import SegLstSegment
-
-if typing.TYPE_CHECKING:
-    from meeteval.wer import ErrorRate
 
 __all__ = [
     'STMLine',
