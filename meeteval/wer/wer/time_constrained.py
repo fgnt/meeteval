@@ -672,9 +672,11 @@ def time_constrained_minimum_permutation_word_error_rate(
     hypothesis = apply_collar(hypothesis, collar)
 
     # Convert into integer representation to save some computation later. `'words'` contains a single word only.
-    sym2int = {v: i for i, v in enumerate({
+    sym2int = {v: i for i, v in enumerate([
         segment['words'] for segment in itertools.chain(reference, hypothesis)
-    })}
+        if segment['words']
+    ], start=1)}
+    sym2int[''] = 0
 
     reference = reference.map(lambda s: {**s, 'words': sym2int[s['words']]})
     hypothesis = hypothesis.map(lambda s: {**s, 'words': sym2int[s['words']]})

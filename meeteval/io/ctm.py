@@ -76,7 +76,7 @@ class CTMLine(BaseLine):
         return cls(
             filename=segment['session_id'],
             channel=segment['channel'],
-            begin_time=segment['begin_time'],
+            begin_time=segment['start_time'],
             duration=segment['end_time'] - segment['start_time'],
             word=segment['words'],
             confidence=segment.get('confidence', None),
@@ -86,7 +86,7 @@ class CTMLine(BaseLine):
         d = {
             'session_id': self.filename,
             'channel': self.channel,
-            'begin_time': self.begin_time,
+            'start_time': self.begin_time,
             'end_time': self.begin_time + self.duration,
             'words': self.word,
         }
