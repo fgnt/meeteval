@@ -224,8 +224,8 @@ def wer(
                          f'Got: {reference_paths} for reference and {hypothesis_paths} for hypothesis.')
     reference = KeyedText.load(reference)
     hypothesis = KeyedText.load(hypothesis)
-    from meeteval.wer.wer.siso import siso_word_error_rate_keyed_text
-    results = siso_word_error_rate_keyed_text(reference, hypothesis)
+    from meeteval.wer.wer.siso import siso_word_error_rate_multifile
+    results = siso_word_error_rate_multifile(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -236,10 +236,10 @@ def orcwer(
         regex=None,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
-    from meeteval.wer.wer.orc import orc_word_error_rate_stm
+    from meeteval.wer.wer.orc import orc_word_error_rate_multifile
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex=regex)
-    results = orc_word_error_rate_stm(reference, hypothesis)
+    results = orc_word_error_rate_multifile(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -250,10 +250,10 @@ def cpwer(
         regex=None,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
-    from meeteval.wer.wer.cp import cp_word_error_rate_stm
+    from meeteval.wer.wer.cp import cp_word_error_rate_multifile
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex)
-    results = cp_word_error_rate_stm(reference, hypothesis)
+    results = cp_word_error_rate_multifile(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -264,10 +264,10 @@ def mimower(
         regex=None,
 ):
     """Computes the MIMO WER"""
-    from meeteval.wer.wer.mimo import mimo_word_error_rate_stm
+    from meeteval.wer.wer.mimo import mimo_word_error_rate_multifile
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex=regex)
-    results = mimo_word_error_rate_stm(reference, hypothesis)
+    results = mimo_word_error_rate_multifile(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
 
@@ -283,10 +283,10 @@ def tcpwer(
         hypothesis_sort='segment',
 ):
     """Computes the time-constrained minimum permutation WER"""
-    from meeteval.wer.wer.time_constrained import tcp_word_error_rate_stm
+    from meeteval.wer.wer.time_constrained import tcp_word_error_rate_multifile
     reference, _, hypothesis, hypothesis_paths = _load_texts(
         reference, hypothesis, regex=regex)
-    results = tcp_word_error_rate_stm(
+    results = tcp_word_error_rate_multifile(
         reference, hypothesis,
         reference_pseudo_word_level_timing=ref_pseudo_word_timing,
         hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,

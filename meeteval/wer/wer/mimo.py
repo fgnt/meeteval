@@ -6,7 +6,7 @@ from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _keys, _items, _values
 
-__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mimo_word_error_rate_stm']
+__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mimo_word_error_rate_multifile']
 
 from meeteval.io import STM
 
@@ -70,10 +70,7 @@ def mimo_error_rate(
     )
 
 
-def mimo_word_error_rate(
-        reference: 'List[List[str] | Dict[Any, str]] | Dict[List[str], Dict[Any, str]] | STM',
-        hypothesis: 'List[str] | Dict[str] | STM',
-) -> MimoErrorRate:
+def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
     """
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
 
@@ -119,14 +116,14 @@ def mimo_word_error_rate(
     return mimo_error_rate(reference, hypothesis)
 
 
-def mimo_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, MimoErrorRate]':
+def mimo_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'Dict[str, MimoErrorRate]':
     """
     Computes the MIMO WER for each example in the reference and hypothesis STM files.
 
-    To compute the overall WER, use `sum(mimo_word_error_rate_stm(r, h).values())`.
+    To compute the overall WER, use `sum(mimo_word_error_rate_multifile(r, h).values())`.
     """
-    from meeteval.io.stm import apply_stm_multi_file
-    return apply_stm_multi_file(mimo_word_error_rate, reference_stm, hypothesis_stm)
+    from meeteval.io.seglst import apply_multi_file
+    return apply_multi_file(mimo_word_error_rate, reference_stm, hypothesis_stm)
 
 
 def apply_mimo_assignment(

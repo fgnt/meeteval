@@ -29,7 +29,8 @@ if typing.TYPE_CHECKING:
 __all__ = [
     'time_constrained_minimum_permutation_word_error_rate',
     'time_constrained_siso_word_error_rate',
-    'tcp_word_error_rate_stm'
+    'tcp_word_error_rate_multifile',
+    'align',
 ]
 
 
@@ -697,8 +698,8 @@ def time_constrained_minimum_permutation_word_error_rate(
 tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
 
 
-def tcp_word_error_rate_stm(
-        reference_stm: 'STM', hypothesis_stm: 'STM',
+def tcp_word_error_rate_multifile(
+        reference, hypothesis,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
@@ -709,17 +710,17 @@ def tcp_word_error_rate_stm(
     Computes the tcpWER for each example in the reference and hypothesis STM files.
     See `time_constrained_minimum_permutation_word_error_rate` for details.
     
-    To compute the overall WER, use `sum(tcp_word_error_rate_stm(r, h).values())`.
+    To compute the overall WER, use `sum(tcp_word_error_rate_multifile(r, h).values())`.
     """
-    from meeteval.io.stm import apply_stm_multi_file
-    r = apply_stm_multi_file(lambda r, h: time_constrained_minimum_permutation_word_error_rate(
+    from meeteval.io.seglst import apply_multi_file
+    r = apply_multi_file(lambda r, h: time_constrained_minimum_permutation_word_error_rate(
         r, h,
         reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
         hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
         collar=collar,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
-    ), reference_stm, hypothesis_stm)
+    ), reference, hypothesis)
     return r
 
 

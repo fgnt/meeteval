@@ -321,7 +321,6 @@ def apply_multi_file(
      1: CPErrorRate(error_rate=1.0, errors=3, length=3, insertions=3, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=((0, 1), (None, 0)))}
     """
     import logging
-    # TODO: support having no session keys. Support python structures with three levels (session, speaker, segment)
     reference = asseglst(
         reference, required_keys=('session_id',),
         py_convert=lambda p: NestedStructure(p, ('session_id', 'speaker', 'segment_id'))
@@ -372,5 +371,4 @@ def apply_multi_file(
     for session in reference.keys():
         results[session] = fn(reference[session], hypothesis[session])
 
-    from meeteval.wer.wer.error_rate import CombinedErrorRate
-    return CombinedErrorRate.from_error_rates(results)
+    return results

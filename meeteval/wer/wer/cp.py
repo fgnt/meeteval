@@ -4,12 +4,11 @@ import string
 from typing import Optional, Tuple, List, Dict, Any, Iterable
 
 from meeteval._typing import Literal
-from meeteval.io import STM
 from meeteval.io.seglst import SegLST, asseglst
 
 from meeteval.wer.wer.error_rate import ErrorRate
 
-__all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_stm']
+__all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_multifile']
 
 
 @dataclasses.dataclass(frozen=True, repr=False)
@@ -156,14 +155,14 @@ def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate
     return cp_error_rate(split_words(reference), split_words(hypothesis))
 
 
-def cp_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, CPErrorRate]':
+def cp_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'Dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
 
-    To compute the overall WER, use `sum(cp_word_error_rate_stm(r, h).values())`.
+    To compute the overall WER, use `sum(cp_word_error_rate_multifile(r, h).values())`.
     """
-    from meeteval.io.stm import apply_stm_multi_file
-    return apply_stm_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
+    from meeteval.io.seglst import apply_multi_file
+    return apply_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
 
 
 def _cp_error_rate(

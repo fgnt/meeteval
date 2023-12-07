@@ -8,7 +8,7 @@ from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _items, _keys, _values, _map
 from meeteval.io.stm import STM
 
-__all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_stm', 'apply_orc_assignment']
+__all__ = ['OrcErrorRate', 'orc_word_error_rate', 'orc_word_error_rate_multifile', 'apply_orc_assignment']
 
 
 @dataclasses.dataclass(frozen=True, repr=False)
@@ -40,14 +40,14 @@ class OrcErrorRate(ErrorRate):
         return ref, hypothesis
 
 
-def orc_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, OrcErrorRate]':
+def orc_word_error_rate_multifile(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, OrcErrorRate]':
     """
     Computes the ORC WER for each example in the reference and hypothesis STM files.
 
-    To compute the overall WER, use `sum(orc_word_error_rate_stm(r, h).values())`.
+    To compute the overall WER, use `sum(orc_word_error_rate_multifile(r, h).values())`.
     """
-    from meeteval.io.stm import apply_stm_multi_file
-    return apply_stm_multi_file(orc_word_error_rate, reference_stm, hypothesis_stm)
+    from meeteval.io.seglst import apply_multi_file
+    return apply_multi_file(orc_word_error_rate, reference_stm, hypothesis_stm)
 
 
 def orc_error_rate(

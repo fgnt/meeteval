@@ -9,7 +9,7 @@ if typing.TYPE_CHECKING:
     from meeteval.io.stm import STM
     from meeteval.io.seglst import SegLST
 
-__all__ = ['siso_word_error_rate', 'siso_character_error_rate', 'siso_word_error_rate_keyed_text']
+__all__ = ['siso_word_error_rate', 'siso_character_error_rate', 'siso_word_error_rate_multifile']
 
 
 def siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
@@ -101,15 +101,14 @@ def siso_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate
     return siso_error_rate(split_words(reference), split_words(hypothesis))
 
 
-def siso_word_error_rate_keyed_text(reference: 'STM | KeyedText',
-                                    hypothesis: 'STM | KeyedText') -> 'Dict[str, ErrorRate]':
+def siso_word_error_rate_multifile(reference, hypothesis) -> 'Dict[str, ErrorRate]':
     """
     Computes the standard WER for each example in the reference and hypothesis files.
 
-    To compute the overall WER, use `sum(siso_word_error_rate_keyed_text(r, h).values())`.
+    To compute the overall WER, use `sum(siso_word_error_rate_multifile(r, h).values())`.
     """
-    from meeteval.io.stm import apply_stm_multi_file
-    return apply_stm_multi_file(siso_word_error_rate, reference, hypothesis, allowed_empty_examples_ratio=0)
+    from meeteval.io.seglst import apply_multi_file
+    return apply_multi_file(siso_word_error_rate, reference, hypothesis, allowed_empty_examples_ratio=0)
 
 
 def siso_character_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate:
