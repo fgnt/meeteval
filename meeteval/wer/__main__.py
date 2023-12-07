@@ -5,9 +5,11 @@ import json
 import logging
 import os
 import re
+import decimal
 from pathlib import Path
 from typing import List, Tuple
 
+import meeteval.io
 from meeteval.io.ctm import CTMGroup
 from meeteval.io.keyed_text import KeyedText
 from meeteval.io.stm import STM
@@ -21,6 +23,32 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
     """
     Dumps the `obj` to `path`. Parses the suffix to find the file type.
     When a suffix is missing, use json.
+
+    >>> import tempfile
+    >>> data = {
+    ...     'a': 1,
+    ...     'b': decimal.Decimal('3.9'),
+    ...     'c': decimal.Decimal('100000000000.0173455555')
+    ... }
+    >>> def test(suffix):
+    ...     with tempfile.TemporaryDirectory() as tmpdir:
+    ...         _dump(data, f'{tmpdir}/test{suffix}')
+    ...         print(Path(f'{tmpdir}/test{suffix}').read_text())
+
+    >>> test('.json')
+    {
+      "a": 1,
+      "b": 3.9,
+      "c": 100000000000.0173455555
+    }
+    >>> test('.yaml')
+    a: 1
+    b: !!python/object/apply:decimal.Decimal
+    - '3.9'
+    c: !!python/object/apply:decimal.Decimal
+    - '100000000000.0173455555'
+    <BLANKLINE>
+
     """
     path = Path(path)
     if path.stem == '-':
@@ -31,15 +59,20 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
             p = path.open('w')
         except FileNotFoundError as e:
             raise FileNotFoundError(
-                f'Couldn\'t open the output file. Consider explicitly setting '
-                f'the output files, especially when piping into this tool.'
+                f'Couldn\'t open the output file ({path}).\n'
+                f'Consider explicitly setting the output files,'
+                f'especially when piping into this tool.'
             ) from e
     with p as fd:
         suffix = path.suffix
         if suffix == '':
             suffix = default_suffix
         if suffix == '.json':
-            json.dump(obj, fd, indent=2, sort_keys=False)
+            # CB: Tried json, simplejson, orjson and ujson.
+            #     Only simplejson was able to handle decimal.Decimal
+            #     without changing the value.
+            import simplejson
+            simplejson.dump(obj, fd, indent=2, sort_keys=False)
         elif suffix == '.yaml':
             import yaml
             yaml.dump(obj, fd, sort_keys=False)
@@ -312,20 +345,25 @@ def average(files, out):
     return _merge(files, out, average=True)
 
 
-def cli():
-    # Define argument parser and commands
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--version', action='store_true', help='Show version')
+class CLI:
+    def __init__(self):
 
-    # Logging and verbosity
-    logging.addLevelName(100, 'SILENT')     # Add a level that creates no output
-    parser.add_argument(
-        '--log-level', help='Log level', default='WARNING',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'SILENT']
-    )
+        # Define argument parser and commands
+        self.parser = argparse.ArgumentParser()
+        self.parser.add_argument('--version', action='store_true',
+                            help='Show version')
 
-    commands = parser.add_subparsers(title='Subcommands')
+        # Logging and verbosity
+        logging.addLevelName(100,
+                             'SILENT')  # Add a level that creates no output
+        self.parser.add_argument(
+            '--log-level', help='Log level', default='INFO',
+            choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'SILENT']
+        )
 
+        self.commands = self.parser.add_subparsers(title='Subcommands')
+
+    @staticmethod
     def positive_number(x: str):
         if x.isdigit():
             # Positive integer
@@ -337,9 +375,114 @@ def cli():
 
         return x
 
-    def add_command(fn):
-        command_parser = commands.add_parser(
-            fn.__name__,
+    def add_argument(self, command_parser, name, p):
+        if name == 'reference':
+            command_parser.add_argument(
+                '-r', '--reference',
+                help='Reference file(s) in STM or CTM format',
+                nargs='+', action='append',
+                required=True,
+            )
+        elif name == 'hypothesis':
+            command_parser.add_argument(
+                '-h', '--hypothesis',
+                help='Hypothesis file(s) in STM or CTM format',
+                nargs='+', action='append',
+                required=True,
+            )
+        elif name == 'average_out':
+            command_parser.add_argument(
+                '--average-out',
+                help='Output file for the average file. {stem} is replaced '
+                     'with the stem of the (first) hypothesis file. '
+                     '"-" is interpreted as stdout. For example: "-.yaml" '
+                     'prints to stdout in yaml format.'
+            )
+        elif name == 'per_reco_out':
+            command_parser.add_argument(
+                '--per-reco-out',
+                help='Output file for the per_reco file. {stem} is replaced '
+                     'with the stem of the (first) hypothesis file. '
+                     '"-" is interpreted as stdout. For example: "-.yaml" '
+                     'prints to stdout in yaml format.'
+            )
+        elif name == 'out':
+            command_parser.add_argument(
+                '-o', '--out',
+                required=False, default='-',
+            )
+        elif name == 'collar':
+            command_parser.add_argument(
+                '--collar', type=self.positive_number,
+                help='Collar applied to the hypothesis timings'
+            )
+        elif name == 'regex':
+            command_parser.add_argument(
+                '--regex',
+                help='A regex pattern to select only particular filenames.'
+            )
+        elif name == 'hyp_pseudo_word_timing':
+            command_parser.add_argument(
+                '--hyp-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
+                help='Specifies how word-level timings are '
+                     'determined from segment-level timing '
+                     'for the hypothesis. Choices: '
+                     'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
+                     'equidistant_points: Place time points equally spaded int the segment-level intervals; '
+                     'full_segment: Use the full segment for each word that belongs to that segment;'
+                     'character_based: Estimate the word length based on the number of characters; '
+                     'character_based_points: Estimates the word length based on the number of characters and '
+                     'creates a point in the center of each word; '
+                     'none: Do not estimate word-level timings but assume that the provided timings are already '
+                     'given on a word level.'
+            )
+        elif name == 'ref_pseudo_word_timing':
+            command_parser.add_argument(
+                '--ref-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
+                help='Specifies how word-level timings are '
+                     'determined from segment-level timing '
+                     'for the reference. Choices: '
+                     'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
+                     'equidistant_points: Place time points equally spaded int the segment-level intervals; '
+                     'full_segment: Use the full segment for each word that belongs to that segment. '
+                     'character_based: Estimate the word length based on the number of characters; '
+                     'character_based_points: Estimates the word length based on the number of characters and '
+                     'creates a point in the center of each word; '
+                     'none: Do not estimate word-level timings but assume that the provided timings are already '
+                     'given on a word level.'
+            )
+        elif name == 'reference_sort':
+            command_parser.add_argument(
+                '--reference-sort', choices=[True, False, 'word', 'segment'],
+                help='How to sort words/segments in the reference; '
+                     'True: sort by segment start time and assert that the word-level timings are sorted by start '
+                     'time; '
+                     'False: do not sort and do not check word order. Segment order is taken from input file '
+                     'and sorting is up to the user; '
+                     'segment: sort segments by start time and do not check word order'
+                     'word: sort words by start time'
+            )
+        elif name == 'hypothesis_sort':
+            command_parser.add_argument(
+                '--hypothesis-sort', choices=[True, False, 'word', 'segment'],
+                help='How to sort words/segments in the reference; '
+                     'True: sort by segment start time and assert that the word-level timings are sorted by start '
+                     'time; '
+                     'False: do not sort and do not check word order. Segment order is taken from input file '
+                     'and sorting is up to the user; '
+                     'segment: sort segments by start time and do not check word order'
+                     'word: sort words by start time'
+            )
+        elif name == 'files':
+            command_parser.add_argument('files', nargs='+')
+        else:
+            raise AssertionError("Error in command definition", name)
+
+    def add_command(self, fn, command_name=None):
+        if command_name is None:
+            command_name = fn.__name__
+        command_parser = self.commands.add_parser(
+            command_name,
             add_help=False,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             help=fn.__doc__,
@@ -355,107 +498,7 @@ def cli():
         parameters = inspect.signature(fn).parameters
 
         for name, p in parameters.items():
-            if name == 'reference':
-                command_parser.add_argument(
-                    '-r', '--reference',
-                    help='Reference file(s) in STM or CTM format',
-                    nargs='+', action='append',
-                    required=True,
-                )
-            elif name == 'hypothesis':
-                command_parser.add_argument(
-                    '-h', '--hypothesis',
-                    help='Hypothesis file(s) in STM or CTM format',
-                    nargs='+', action='append',
-                    required=True,
-                )
-            elif name == 'average_out':
-                command_parser.add_argument(
-                    '--average-out',
-                    help='Output file for the average file. {stem} is replaced '
-                         'with the stem of the (first) hypothesis file. '
-                         '"-" is interpreted as stdout. For example: "-.yaml" '
-                         'prints to stdout in yaml format.'
-                )
-            elif name == 'per_reco_out':
-                command_parser.add_argument(
-                    '--per-reco-out',
-                    help='Output file for the per_reco file. {stem} is replaced '
-                         'with the stem of the (first) hypothesis file. '
-                         '"-" is interpreted as stdout. For example: "-.yaml" '
-                         'prints to stdout in yaml format.'
-                )
-            elif name == 'out':
-                command_parser.add_argument(
-                    '-o', '--out',
-                    required=False, default='-',
-                )
-            elif name == 'collar':
-                command_parser.add_argument(
-                    '--collar', type=positive_number,
-                    help='Collar applied to the hypothesis timings'
-                )
-            elif name == 'regex':
-                command_parser.add_argument(
-                    '--regex',
-                    help='A regex pattern to select only particular filenames.'
-                )
-            elif name == 'hyp_pseudo_word_timing':
-                command_parser.add_argument(
-                    '--hyp-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
-                    help='Specifies how word-level timings are '
-                         'determined from segment-level timing '
-                         'for the hypothesis. Choices: '
-                         'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
-                         'equidistant_points: Place time points equally spaded int the segment-level intervals; '
-                         'full_segment: Use the full segment for each word that belongs to that segment;'
-                         'character_based: Estimate the word length based on the number of characters; '
-                         'character_based_points: Estimates the word length based on the number of characters and '
-                         'creates a point in the center of each word; '
-                         'none: Do not estimate word-level timings but assume that the provided timings are already '
-                         'given on a word level.'
-                )
-            elif name == 'ref_pseudo_word_timing':
-                command_parser.add_argument(
-                    '--ref-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
-                    help='Specifies how word-level timings are '
-                         'determined from segment-level timing '
-                         'for the reference. Choices: '
-                         'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
-                         'equidistant_points: Place time points equally spaded int the segment-level intervals; '
-                         'full_segment: Use the full segment for each word that belongs to that segment. '
-                         'character_based: Estimate the word length based on the number of characters; '
-                         'character_based_points: Estimates the word length based on the number of characters and '
-                         'creates a point in the center of each word; '
-                         'none: Do not estimate word-level timings but assume that the provided timings are already '
-                         'given on a word level.'
-                )
-            elif name == 'reference_sort':
-                command_parser.add_argument(
-                    '--reference-sort', choices=[True, False, 'word', 'segment'],
-                    help='How to sort words/segments in the reference; '
-                         'True: sort by segment start time and assert that the word-level timings are sorted by start '
-                         'time; '
-                         'False: do not sort and do not check word order. Segment order is taken from input file '
-                         'and sorting is up to the user; '
-                         'segment: sort segments by start time and do not check word order'
-                         'word: sort words by start time'
-                )
-            elif name == 'hypothesis_sort':
-                command_parser.add_argument(
-                    '--hypothesis-sort', choices=[True, False, 'word', 'segment'],
-                    help='How to sort words/segments in the reference; '
-                         'True: sort by segment start time and assert that the word-level timings are sorted by start '
-                         'time; '
-                         'False: do not sort and do not check word order. Segment order is taken from input file '
-                         'and sorting is up to the user; '
-                         'segment: sort segments by start time and do not check word order'
-                         'word: sort words by start time'
-                )
-            elif name == 'files':
-                command_parser.add_argument('files', nargs='+')
-            else:
-                raise AssertionError("Error in command definition", name)
+            self.add_argument(command_parser, name, p)
 
         # Get defaults from signature
         command_parser.set_defaults(
@@ -467,43 +510,51 @@ def cli():
             }
         )
 
-    add_command(wer)
-    add_command(cpwer)
-    add_command(orcwer)
-    add_command(mimower)
-    add_command(tcpwer)
-    add_command(merge)
-    add_command(average)
+    def run(self):
+        # Parse arguments and find command to execute
+        args = self.parser.parse_args()
 
-    # Parse arguments and find command to execute
-    args = parser.parse_args()
+        # Logging
+        logging.basicConfig(level=args.log_level.upper(), format='%(levelname)s - %(message)s')
 
-    # Logging
-    logging.basicConfig(level=args.log_level.upper(), format='%(levelname)s - %(message)s')
+        if hasattr(args, 'func'):
+            kwargs = vars(args)
+            fn = args.func
+            # Pop also removes from args namespace
+            kwargs.pop('func')
+            kwargs.pop('version')
+            kwargs.pop('log_level')
+            if 'reference' in kwargs:
+                kwargs['reference'] = [
+                    r for reference in kwargs['reference'] for r in reference
+                ]
+            if 'hypothesis' in kwargs:
+                kwargs['hypothesis'] = [
+                    h for hypothesis in kwargs['hypothesis'] for h in hypothesis
+                ]
+            return fn(**kwargs)
 
-    if hasattr(args, 'func'):
-        kwargs = vars(args)
-        fn = args.func
-        # Pop also removes from args namespace
-        kwargs.pop('func')
-        kwargs.pop('version')
-        kwargs.pop('log_level')
-        if 'reference' in kwargs:
-            kwargs['reference'] = [
-                r for reference in kwargs['reference'] for r in reference
-            ]
-        if 'hypothesis' in kwargs:
-            kwargs['hypothesis'] = [
-                h for hypothesis in kwargs['hypothesis'] for h in hypothesis
-            ]
-        return fn(**kwargs)
+        if getattr(args, 'version', False):
+            from meeteval import __version__
+            print(__version__)
+            return
 
-    if getattr(args, 'version', False):
-        from meeteval import __version__
-        print(__version__)
-        return
+        self.parser.print_help()
 
-    parser.print_help()
+
+def cli():
+
+    cli = CLI()
+
+    cli.add_command(wer)
+    cli.add_command(cpwer)
+    cli.add_command(orcwer)
+    cli.add_command(mimower)
+    cli.add_command(tcpwer)
+    cli.add_command(merge)
+    cli.add_command(average)
+
+    cli.run()
 
 
 if __name__ == '__main__':

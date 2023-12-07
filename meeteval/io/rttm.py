@@ -32,10 +32,18 @@ class RTTMLine(BaseLine):
             SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>
             SPEAKER CMU_20020319-1400_d01_NONE 1 157.610000 3.060 <NA> <NA> tbc <NA> <NA>
             SPEAKER CMU_20020319-1400_d01_NONE 1 130.490000 0.450 <NA> <NA> chek <NA> <NA>
+
+    Note:
+        The RTTM definition (Appendix A in "The 2009 (RT-09) Rich Transcription
+        Meeting Recognition Evaluation Plan") doesn't say anything about the
+        channel format or defaults, but dscore enforces a "1" for the channel
+        (https://github.com/nryant/dscore#rttm),
+        Hence, the default here is 1 for channel.
+
     """
     type: str = 'SPEAKER'
     filename: str = '<NA>'
-    channel: str = '<NA>'
+    channel: str = '1'
     begin_time: 'float | int | str | decimal.Decimal' = 0
     duration: 'float | int | str | decimal.Decimal' = 0
     othography: 'str' = '<NA>'
