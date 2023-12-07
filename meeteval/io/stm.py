@@ -143,72 +143,6 @@ class STM(Base):
         return ' '.join(self.utterance_transcripts())
 
 
-def iter_examples(reference: 'STM', hypothesis: 'STM', *, allowed_empty_examples_ratio=0.1):
-    reference = reference.grouped_by_filename()
-    hypothesis = hypothesis.grouped_by_filename()
-
-    if reference.keys() != hypothesis.keys():
-        h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
-        r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
-
-        ratio = len(r_minus_h) / len(reference.keys())
-
-        if h_minus_r:
-            # This is a warning, because missing in reference is not a problem,
-            # we can safely ignore it. Missing in hypothesis is a problem,
-            # because we cannot distinguish between silence and missing.
-            logging.warning(
-                f'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(reference)})\n'
-                f'Drop them.',
-            )
-            hypothesis = {
-                k: v
-                for k, v in hypothesis.items()
-                if k not in h_minus_r
-            }
-
-        if len(r_minus_h) == 0:
-            pass
-        elif ratio <= allowed_empty_examples_ratio:
-            logging.warning(
-                f'Missing {ratio * 100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
-                f'Please check your system, if it ignored some recordings or predicted no transcriptions for some recordings.\n'
-                f'Continue with the assumption, that the system predicted silence for the missing recordings.',
-            )
-        else:
-            raise RuntimeError(
-                'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(hypothesis)})\n'
-                f'reference - hypothesis: e.g. {r_minus_h[:5]} (Total: {len(r_minus_h)} of {len(reference)})'
-            )
-
-    for filename in reference:
-        yield filename, reference[filename], hypothesis[filename]
-
-
-def apply_stm_multi_file(
-        fn: 'typing.Callable[[STM, STM], ErrorRate]',
-        reference: 'STM',
-        hypothesis: 'STM',
-        *,
-        allowed_empty_examples_ratio=0.1
-):
-    result = {}
-    for f, r, h in iter_examples(
-            reference, hypothesis,
-            allowed_empty_examples_ratio=allowed_empty_examples_ratio
-    ):
-        logging.debug(f'Processing example {f}')
-        try:
-            result[f] = fn(r, h)
-            logging.debug(f'Result of example {f}: {result[f]}')
-        except Exception:
-            logging.error(f'Exception in example {f}')
-            raise
-    return result
-
-
 if __name__ == '__main__':
     def to_rttm(file):
         from pathlib import Path
@@ -216,6 +150,7 @@ if __name__ == '__main__':
 
 
     import fire
+
     fire.Fire({
         'to_rttm': to_rttm,
     })
