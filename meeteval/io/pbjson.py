@@ -42,10 +42,11 @@ def get_sample_rate(ex):
     return sample_rate
 
 
-class PBJson(SegLSTMixin):
+class PBJsonUtt(SegLSTMixin):
     """
-    The JSON format used at the NT department internally for storing databases.
+    A JSON format where each entry/example represents a single utterance.
 
+    Example:
     ```python
     pbjson = {
         'datasets': {
