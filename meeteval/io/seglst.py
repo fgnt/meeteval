@@ -27,6 +27,20 @@ class SegLstSegment(TypedDict, total=False):
     confidence: float
 
 
+class SegLSTMixin:
+    @classmethod
+    def new(cls, d, **defaults):
+        return cls.from_seglst(asseglst(d, **defaults))
+
+    @classmethod
+    def from_seglst(cls, d: 'SegLST', **defaults):
+        raise NotImplementedError()
+
+    def to_seglst(self):
+        raise NotImplementedError()
+
+
+
 @dataclasses.dataclass(frozen=True)
 class SegLST:
     """

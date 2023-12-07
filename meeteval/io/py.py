@@ -5,7 +5,7 @@ from typing import Any, List, Tuple
 
 if typing.TYPE_CHECKING:
     from typing import Self
-    from meeteval.io.seglst import SegLST
+    from meeteval.io.seglst import SegLST, SegLSTMixin
 
 
 def _convert_python_structure(structure, *, keys=(), final_key='words', final_types=str):
@@ -120,7 +120,7 @@ def _invert_python_structure(t: 'SegLST', types, keys):
 
 
 @dataclasses.dataclass(frozen=True)
-class NestedStructure:
+class NestedStructure(SegLSTMixin):
     """
     Wraps a Python structure where the structure levels represent keys.
 

@@ -4,13 +4,14 @@ import sys
 import typing
 from pathlib import Path
 import contextlib
-from typing import Dict, List, NamedTuple
+from typing import Dict, List
 import dataclasses
 from dataclasses import dataclass
 from itertools import groupby
 
 if typing.TYPE_CHECKING:
     from typing import Self
+    from meeteval.io.seglst import SegLstSegment, SegLSTMixin
     from meeteval.io.uem import UEM, UEMLine
     from meeteval.io.stm import STM, STMLine
     from meeteval.io.ctm import CTM, CTMLine
@@ -119,16 +120,11 @@ class BaseLine:
         return dataclasses.replace(self, **kwargs)
 
 
-class Base:
+class Base(SegLSTMixin):
     lines: 'List[LineSubclasses]'
     line_cls = 'LineSubclasses'
 
-    def __init__(self, data, **defaults):
-        if isinstance(data, self.__class__):
-            self.lines = data.lines
-        elif hasattr(data, 'to_seglst'):
-            self.lines = [self.line_cls.from_seglst({**defaults, **segment}) for segment in data.to_seglst()]
-        else:
+    def __init__(self, data):
             self.lines = data
 
     @classmethod

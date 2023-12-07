@@ -13,7 +13,7 @@ __all__ = [
     'CTMGroup',
 ]
 
-from meeteval.io.seglst import SegLstSegment, SegLST
+from meeteval.io.seglst import SegLstSegment, SegLST, SegLSTMixin
 
 
 @dataclass(frozen=True)
@@ -128,7 +128,7 @@ class CTM(Base):
 
 
 @dataclass(frozen=True)
-class CTMGroup:
+class CTMGroup(SegLSTMixin):
     ctms: 'Dict[str, CTM]'
 
     @classmethod

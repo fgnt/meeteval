@@ -8,7 +8,7 @@ python -m meeteval.io.pbjson to_stm /scratch/hpc-prf-nt2/cbj/deploy/css/egs/libr
 import json
 from pathlib import Path
 
-from meeteval.io.seglst import SegLST
+from meeteval.io.seglst import SegLST, SegLSTMixin
 
 
 def _load_json(file):
@@ -42,7 +42,7 @@ def get_sample_rate(ex):
     return sample_rate
 
 
-class PBJson:
+class PBJson(SegLSTMixin):
     """
     The JSON format used at the NT department internally for storing databases.
 
