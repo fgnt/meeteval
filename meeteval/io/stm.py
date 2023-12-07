@@ -119,7 +119,7 @@ class STM(Base):
         # ToDo: Fix `line.end_time - line.begin_time`, when they are floats.
         #       Sometimes there is a small error and the error will be written
         #       to the rttm file.
-        return RTTM.from_seglst(self.to_seglst())
+        return RTTM.new(self.to_seglst())
 
     def to_array_interval(self, sample_rate, group=True):
         import paderbox as pb

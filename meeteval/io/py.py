@@ -2,10 +2,11 @@ import dataclasses
 import typing
 from typing import Any, List, Tuple
 
+from meeteval.io.base import BaseABC
 
 if typing.TYPE_CHECKING:
     from typing import Self
-    from meeteval.io.seglst import SegLST, SegLSTMixin
+    from meeteval.io.seglst import SegLST
 
 
 def _convert_python_structure(structure, *, keys=(), final_key='words', final_types=str):
@@ -120,7 +121,7 @@ def _invert_python_structure(t: 'SegLST', types, keys):
 
 
 @dataclasses.dataclass(frozen=True)
-class NestedStructure(SegLSTMixin):
+class NestedStructure(BaseABC):
     """
     Wraps a Python structure where the structure levels represent keys.
 
@@ -143,7 +144,7 @@ class NestedStructure(SegLSTMixin):
     _used_keys = None
     _seglst = None
 
-    def from_seglst(self, t: 'SegLST', **defaults) -> 'Self':
+    def new(self, t: 'SegLST', **defaults) -> 'Self':
         """
         This is usually a classmethod, but here, it's an instance method
         because we need `keys` and `types` for conversion.
@@ -153,7 +154,7 @@ class NestedStructure(SegLSTMixin):
         ...     t = s.to_seglst()
         ...     if mod:
         ...         t = mod(t)
-        ...     return s.from_seglst(t).structure
+        ...     return s.new(t).structure
         >>> convert_cycle('a b c', keys=())
         'a b c'
         >>> convert_cycle(['a b c', 'd e f'], keys=('speaker',))
@@ -162,9 +163,9 @@ class NestedStructure(SegLSTMixin):
         {'A': 'a b c', 'B': 'd e f'}
         >>> s = NestedStructure({'B': 'd e f', 'A': 'a b c'}, level_keys=('speaker',))
         >>> s2 = NestedStructure(['a b c', 'd e f'], level_keys=('speaker',))
-        >>> s.from_seglst(s2.to_seglst()).structure
+        >>> s.new(s2.to_seglst()).structure
         {0: 'a b c', 1: 'd e f'}
-        >>> s2.from_seglst(s.to_seglst()).structure   # Keys are sorted when converting to list (TODO: is this expected behavior?)
+        >>> s2.new(s.to_seglst()).structure   # Keys are sorted when converting to list (TODO: is this expected behavior?)
         ['d e f', 'a b c']
 
         Empty structures are only invertible if all keys can be inferred and empty nesting levels get lost (TODO)
@@ -183,7 +184,8 @@ class NestedStructure(SegLSTMixin):
         """
         if self.types is None:
             raise ValueError('Cannot convert to Python structure because this structure is not invertible.')
-        t = t.map(lambda x: {**defaults, **x})
+        from meeteval.io.seglst import asseglst
+        t = asseglst(t).map(lambda x: {**defaults, **x})
         return NestedStructure(_invert_python_structure(t, self.types, self.level_keys + (self.final_key,)),
                                self.level_keys, self.final_key, self.final_types)
 

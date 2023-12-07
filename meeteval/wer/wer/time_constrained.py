@@ -173,7 +173,7 @@ class TimeMarkedTranscript:
         } for transcript, timing in zip(self.transcript, self.timings)])
 
     @classmethod
-    def from_seglst(cls, d):
+    def new(cls, d):
         d = asseglst(d)
         return cls(
             transcript=[s['words'] for s in d],

@@ -6,9 +6,13 @@ python -m meeteval.io.pbjson to_stm /scratch/hpc-prf-nt2/cbj/deploy/css/egs/libr
 """
 
 import json
+import typing
 from pathlib import Path
 
-from meeteval.io.seglst import SegLST, SegLSTMixin
+from meeteval.io.base import BaseABC
+
+if typing.TYPE_CHECKING:
+    from meeteval.io.seglst import SegLST
 
 
 def _load_json(file):
@@ -42,7 +46,7 @@ def get_sample_rate(ex):
     return sample_rate
 
 
-class PBJsonUtt(SegLSTMixin):
+class PBJsonUtt(BaseABC):
     """
     A JSON format where each entry/example represents a single utterance.
 
@@ -75,10 +79,11 @@ class PBJsonUtt(SegLSTMixin):
         return cls(_load_json(file))
 
     @classmethod
-    def from_seglst(cls, s, *, sample_rate=16000, dataset_name='default_dataset', **defaults):
+    def new(cls, s, *, sample_rate=16000, dataset_name='default_dataset', **defaults):
         # This copies the segments (since we are going to `pop` keys later), applies defaults and makes sure
         # that the dataset_name key is set for all segments.
-        s = s.map(lambda x: {**defaults, **x, 'dataset_name': x['dataset_name'] or dataset_name})
+        from meeteval.io.seglst import asseglst
+        s = asseglst(s).map(lambda x: {**defaults, **x, 'dataset_name': x['dataset_name'] or dataset_name})
         return cls({
             'datasets': {
                 dataset_name: {

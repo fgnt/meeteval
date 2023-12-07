@@ -1,3 +1,4 @@
+import abc
 import io
 import os
 import sys
@@ -11,7 +12,7 @@ from itertools import groupby
 
 if typing.TYPE_CHECKING:
     from typing import Self
-    from meeteval.io.seglst import SegLstSegment, SegLSTMixin
+    from meeteval.io.seglst import SegLstSegment
     from meeteval.io.uem import UEM, UEMLine
     from meeteval.io.stm import STM, STMLine
     from meeteval.io.ctm import CTM, CTMLine
@@ -19,6 +20,20 @@ if typing.TYPE_CHECKING:
 
     LineSubclasses = 'UEMLine | STMLine | CTMLine | RTTMLine'
     Subclasses = 'UEM | STM | CTM | RTTM'
+
+
+
+class BaseABC:
+    @classmethod
+    def new(cls, d, **defaults):
+        # Example code:
+        # from meeteval.io.seglst import asseglst
+        # seglst = asseglst(d).map(lambda s: {**s, **defaults})
+        # ... (conert seglst to cls)
+        raise NotImplementedError()
+
+    def to_seglst(self):
+        raise NotImplementedError()
 
 
 @dataclass(frozen=True)
@@ -120,12 +135,12 @@ class BaseLine:
         return dataclasses.replace(self, **kwargs)
 
 
-class Base(SegLSTMixin):
+class Base(BaseABC):
     lines: 'List[LineSubclasses]'
     line_cls = 'LineSubclasses'
 
     def __init__(self, data):
-            self.lines = data
+        self.lines = data
 
     @classmethod
     def _load(cls, file_descriptor, parse_float) -> 'List[Self.line_cls]':
@@ -337,8 +352,9 @@ class Base(SegLSTMixin):
         return SegLST([l.to_seglst() for l in self.lines])
 
     @classmethod
-    def from_seglst(cls, s: 'SegLST', **defaults) -> 'Self':
-        return cls([cls.line_cls.from_seglst({**defaults, **segment}) for segment in s])
+    def new(cls, s, **defaults) -> 'Self':
+        from meeteval.io.seglst import asseglst
+        return cls([cls.line_cls.from_seglst({**defaults, **segment}) for segment in asseglst(s)])
 
 
 

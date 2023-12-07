@@ -2,10 +2,11 @@ import typing
 import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from meeteval.io.base import Base, BaseLine
+from meeteval.io.base import Base, BaseLine, BaseABC
 
 if typing.TYPE_CHECKING:
     from typing import Self
+    from meeteval.io.seglst import SegLstSegment, SegLST
 
 __all__ = [
     'CTMLine',
@@ -13,7 +14,7 @@ __all__ = [
     'CTMGroup',
 ]
 
-from meeteval.io.seglst import SegLstSegment, SegLST, SegLSTMixin
+
 
 
 @dataclass(frozen=True)
@@ -117,18 +118,18 @@ class CTM(Base):
         raise NotImplementedError()
 
     @classmethod
-    def from_seglst(cls, s: 'SegLST', **defaults) -> 'Self':
+    def new(cls, s, **defaults) -> 'Self':
         # CTM only supports a single speaker. Use CTMGroup to represent multiple speakers with this format.
         if len(s.unique('speaker')) > 1:
             raise ValueError(
                 f'CTM only supports a single speaker, but found {len(s.unique("speaker"))} speakers '
                 f'({s.unique("speaker")}). Use CTMGroup to represent multiple speakers with this format.'
             )
-        return super().from_seglst(s, **defaults)
+        return super().new(s, **defaults)
 
 
 @dataclass(frozen=True)
-class CTMGroup(SegLSTMixin):
+class CTMGroup(BaseABC):
     ctms: 'Dict[str, CTM]'
 
     @classmethod
@@ -172,10 +173,12 @@ class CTMGroup(SegLSTMixin):
         return self.ctms
 
     @classmethod
-    def from_seglst(cls, s: 'SegLST') -> 'Self':
-        return cls({k: CTM.from_seglst(v) for k, v in s.groupby('speaker').items()})
+    def new(cls, s: 'SegLST') -> 'Self':
+        from meeteval.io.seglst import asseglst
+        return cls({k: CTM.new(v) for k, v in asseglst(s).groupby('speaker').items()})
 
     def to_seglst(self) -> 'SegLST':
+        from meeteval.io.seglst import SegLST
         return SegLST.merge(*[ctm.to_seglst().map(lambda x: {**x, 'speaker': speaker}) for speaker, ctm in self.ctms.items()])
 
     def to_stm(self):

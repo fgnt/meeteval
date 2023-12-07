@@ -2,8 +2,14 @@ import dataclasses
 import functools
 from typing import List, TypedDict, Callable
 
-from cached_property import cached_property
+try:
+    from functools import cached_property
+except ImportError:
+    # Fallback for Python 3.7 and lower, since cached_property was added in
+    # Python 3.8.
+    from cached_property import cached_property  # Python 3.7
 
+from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
 
 
@@ -27,22 +33,8 @@ class SegLstSegment(TypedDict, total=False):
     confidence: float
 
 
-class SegLSTMixin:
-    @classmethod
-    def new(cls, d, **defaults):
-        return cls.from_seglst(asseglst(d, **defaults))
-
-    @classmethod
-    def from_seglst(cls, d: 'SegLST', **defaults):
-        raise NotImplementedError()
-
-    def to_seglst(self):
-        raise NotImplementedError()
-
-
-
 @dataclasses.dataclass(frozen=True)
-class SegLST:
+class SegLST(BaseABC):
     """
     A collection of segments in SegLST format. This the input type to most
     functions in MeetEval that process transcript segments.
@@ -134,16 +126,17 @@ class SegLST:
         return self
 
     @classmethod
-    def from_seglst(cls, d: 'SegLST', **defaults):
+    def new(cls, d, **defaults):
+        d = asseglst(d)
         if defaults:
-            d = SegLST([{**defaults, **s} for s in d])
+            d = d.map(lambda s: {**defaults, **s})
         return d
 
 
 def asseglistconvertible(d, *, py_convert=NestedStructure):
     """
     Converts `d` into a structure that is convertible to the SegLST format, i.e., that
-    has `to_seglst` (and often `from_seglst`) defined.
+    has `to_seglst` (and often `new`) defined.
     """
     # Already convertible
     if hasattr(d, 'to_seglst'):
@@ -187,14 +180,14 @@ def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
     [{'session_id': 'ex', 'channel': 1, 'speaker': 'A', 'start_time': 0, 'end_time': 1, 'words': 'a b c'}]
 
     The SegLST representation can be converted back to its original representation
-    >>> print(stm.from_seglst(asseglst(stm)).dumps())
+    >>> print(stm.new(stm).dumps())
     ex 1 A 0 1 a b c
     <BLANKLINE>
 
     And modified before inversion
     >>> s = asseglst(stm)
     >>> s.segments[0]['words'] = 'x y z'
-    >>> print(stm.from_seglst(s).dumps())
+    >>> print(stm.new(s).dumps())
     ex 1 A 0 1 x y z
     <BLANKLINE>
     """
@@ -304,7 +297,7 @@ def seglst_map(*, required_keys=(), py_convert=NestedStructure):
             c = asseglistconvertible(arg, py_convert=py_convert)
             arg = asseglst(c, required_keys=required_keys)
             arg = fn(arg, *args, **kwargs)
-            return c.from_seglst(arg)
+            return c.new(arg)
 
         return _seglst_map
 
@@ -328,9 +321,7 @@ def apply_multi_file(
     >>> ref = [['a b c', 'd e f'], ['g h i']]
     >>> hyp = [['a b c'], ['d e f', 'g h i']]
     >>> er = apply_multi_file(cp_word_error_rate, ref, hyp)
-    >>> er
-    CombinedErrorRate(error_rate=0.6666666666666666, errors=6, length=9, insertions=3, deletions=3, substitutions=0, details=...)
-    >>> pprint(er.details)
+    >>> pprint(er)
     {0: CPErrorRate(error_rate=0.5, errors=3, length=6, insertions=0, deletions=3, substitutions=0, missed_speaker=1, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, None))),
      1: CPErrorRate(error_rate=1.0, errors=3, length=3, insertions=3, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=((0, 1), (None, 0)))}
     """
