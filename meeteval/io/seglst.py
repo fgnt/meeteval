@@ -1,7 +1,7 @@
 import dataclasses
 import functools
 import typing
-from typing import List, TypedDict, Callable
+from typing import List, Callable
 
 try:
     from functools import cached_property
@@ -16,24 +16,30 @@ if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
 
 
-class SegLstSegment(TypedDict, total=False):
-    """
-    A segment.
+try:
+    import TypedDict
 
-    Note:
-        We do not define an enum with all these keys for speed reasons
-    """
-    session_id: str
-    start_time: float
-    end_time: float
-    words: str
-    speaker: str
-    segment_index: int
+    class SegLstSegment(TypedDict, total=False):
+        """
+        A segment.
 
-    # Unused but by MeetEval but present in some file formats. They are defined here for compatibility and
-    # conversion in both directions
-    channel: int
-    confidence: float
+        Note:
+            We do not define an enum with all these keys for speed reasons
+        """
+        session_id: str
+        start_time: float
+        end_time: float
+        words: str
+        speaker: str
+        segment_index: int
+
+        # Unused but by MeetEval but present in some file formats. They are defined here for compatibility and
+        # conversion in both directions
+        channel: int
+        confidence: float
+except ImportError:
+    # Python <3.8 doesn't have TypedDict
+    SegLstSegment = typing.Dict[str, typing.Any]
 
 
 @dataclasses.dataclass(frozen=True)
