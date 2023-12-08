@@ -29,7 +29,7 @@ class BaseABC:
     def new(cls, d, **defaults):
         # Example code:
         # from meeteval.io.seglst import asseglst
-        # seglst = asseglst(d).map(lambda s: {**s, **defaults})
+        # seglst = asseglst(d).map(lambda s: {**defaults, **s})
         # ... (conert seglst to cls)
         raise NotImplementedError()
 

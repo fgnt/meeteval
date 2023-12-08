@@ -175,9 +175,9 @@ class CTMGroup(BaseABC):
         return self.ctms
 
     @classmethod
-    def new(cls, s: 'SegLST') -> 'Self':
+    def new(cls, s: 'SegLST', **defaults) -> 'Self':
         from meeteval.io.seglst import asseglst
-        return cls({k: CTM.new(v) for k, v in asseglst(s).groupby('speaker').items()})
+        return cls({k: CTM.new(v) for k, v in asseglst(s).map(lambda s: {**defaults, **s}).groupby('speaker').items()})
 
     def to_seglst(self) -> 'SegLST':
         from meeteval.io.seglst import SegLST
