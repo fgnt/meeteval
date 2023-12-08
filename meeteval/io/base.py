@@ -9,6 +9,7 @@ from typing import Dict, List
 import dataclasses
 from dataclasses import dataclass
 from itertools import groupby
+import decimal
 
 if typing.TYPE_CHECKING:
     from typing import Self
@@ -143,23 +144,22 @@ class Base(BaseABC):
         self.lines = data
 
     @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[Self.line_cls]':
-        raise NotImplementedError()
-
-    @classmethod
-    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=float) -> 'Self':
+    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=decimal.Decimal) -> 'Self':
         files = file if isinstance(file, (tuple, list)) else [file]
 
         parsed_lines = []
         for f in files:
             with _open(f, 'r') as fd:
-                parsed_lines.extend(cls._load(fd, parse_float=parse_float))
+                parsed_lines.extend(cls.parse(fd.read(), parse_float=parse_float))
 
         return cls(parsed_lines)
 
     @classmethod
-    def parse(cls, s: str) -> 'Self':
-        return cls([cls.line_cls.parse(line) for line in s.splitlines() if line.strip()])
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        # Many of the supported file-formats have different conventions for comments.
+        # Below is an example for a file that doesn't have comments.
+        # return cls([cls.line_cls.parse(line) for line in s.splitlines() if line.strip()])
+        raise NotImplementedError
 
     def _repr_pretty_(self, p, cycle):
         name = self.__class__.__name__
@@ -367,7 +367,7 @@ def _open(f, mode='r'):
         raise TypeError(type(f), f)
 
 
-def load(file, parse_float=float):
+def load(file, parse_float=decimal.Decimal):
     import meeteval
     file = Path(file)
     if file.suffix == '.stm':

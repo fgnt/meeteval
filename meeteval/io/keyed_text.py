@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from meeteval.io.base import BaseLine, Base
 from meeteval.io.seglst import SegLstSegment
+import decimal
 
 
 if typing.TYPE_CHECKING:
@@ -15,7 +16,7 @@ class KeyedTextLine(BaseLine):
     transcript: str
 
     @classmethod
-    def parse(cls, line: str, parse_float=float) -> 'KeyedTextLine':
+    def parse(cls, line: str, parse_float=decimal.Decimal) -> 'KeyedTextLine':
         """
         >>> KeyedTextLine.parse("key a transcript")
         KeyedTextLine(filename='key', transcript='a transcript')
@@ -33,6 +34,9 @@ class KeyedTextLine(BaseLine):
             filename = line
             transcript = ''
         return cls(filename, transcript)
+
+    def serialize(self):
+        return f'{self.filename} {self.transcript}'
 
     @classmethod
     def from_seglst(cls, segment: 'SegLstSegment') -> 'Self':
@@ -54,13 +58,13 @@ class KeyedText(Base):
     line_cls = KeyedTextLine
 
     @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[KeyedTextLine]':
-        return [
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        return cls([
             KeyedTextLine.parse(line, parse_float=parse_float)
-            for line in map(str.strip, file_descriptor)
+            for line in map(str.strip, s.split('\n'))
             if len(line) > 0
             # if not line.startswith(';;')
-        ]
+        ])
 
     def merged_transcripts(self) -> str:
         raise NotImplementedError()

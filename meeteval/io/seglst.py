@@ -289,7 +289,7 @@ def seglst_map(*, required_keys=(), py_convert=NestedStructure):
     STM(lines=[STMLine(filename='X', channel=1, speaker_id='X', begin_time=0, end_time=1, transcript='a b c')])
     >>> from meeteval.io.rttm import RTTM
     >>> fn(RTTM.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>'))
-    RTTM(lines=[RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration=2.3499999999999943, othography='<NA>', speaker_type='<NA>', speaker_id='X', confidence='<NA>', signal_look_ahead_time='<NA>')])
+    RTTM(lines=[RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350000'), othography='<NA>', speaker_type='<NA>', speaker_id='X', confidence='<NA>', signal_look_ahead_time='<NA>')])
     >>> fn(['abc', 'def']).structure
     ['abc def']
     """

@@ -1,6 +1,5 @@
-import typing
 from dataclasses import dataclass
-from typing import List
+from typing import List, Self
 from meeteval.io.base import Base, BaseLine
 import decimal
 
@@ -36,7 +35,7 @@ class STMLine(BaseLine):
     transcript: str
 
     @classmethod
-    def parse(cls, line: str, parse_float=float) -> 'STMLine':
+    def parse(cls, line: str, parse_float=decimal.Decimal) -> 'STMLine':
         filename, channel, speaker_id, begin_time, end_time, *transcript = line.strip().split(maxsplit=5)
 
         if len(transcript) == 1:
@@ -98,12 +97,12 @@ class STM(Base):
     line_cls = STMLine
 
     @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[STMLine]':
-        return [
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        return cls([
             STMLine.parse(line, parse_float)
-            for line in file_descriptor
+            for line in s.split('\n')
             if len(line.strip()) > 0 and not line.strip().startswith(';')
-        ]
+        ])
 
     @classmethod
     def merge(cls, *stms) -> 'STM':

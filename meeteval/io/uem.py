@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List, Self
 import decimal
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
@@ -38,10 +38,10 @@ class UEMLine(BaseLine):
     end_time: 'float | int | decimal.Decimal' = 0
 
     @classmethod
-    def parse(cls, line: str, parse_float=float) -> 'UEMLine':
+    def parse(cls, line: str, parse_float=decimal.Decimal) -> 'UEMLine':
         """
         >>> UEMLine.parse('S01 1 60.001 79.003')
-        UEMLine(filename='S01', channel='1', begin_time=60.001, end_time=79.003)
+        UEMLine(filename='S01', channel='1', begin_time=Decimal('60.001'), end_time=Decimal('79.003'))
         """
         filename, channel, begin_time, end_time = line.split()
 
@@ -74,12 +74,12 @@ class UEM(Base):
         return {k: v for v, k in enumerate(keys)}
 
     @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[UEMLine]':
-        return [
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        return cls([
             UEMLine.parse(line, parse_float)
-            for line in file_descriptor
+            for line in s.spilt('\n')
             if len(line.strip()) > 0  # and not line.strip().startswith(';')  # Does uem allow comments?
-        ]
+        ])
 
     def __getitem__(self, item):
         if isinstance(item, str):

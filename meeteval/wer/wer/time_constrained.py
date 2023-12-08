@@ -56,7 +56,7 @@ def equidistant_points(interval, words):
         return [((interval[0] + interval[1]) / 2,) * 2]
     interval_length = (interval[1] - interval[0]) / count
 
-    return [(interval[0] + (i + 0.5) * interval_length,) * 2 for i in range(count)]
+    return [(interval[0] + i * interval_length + interval_length / 2,) * 2 for i in range(count)]
 
 
 def character_based(interval, words):
