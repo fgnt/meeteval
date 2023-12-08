@@ -129,7 +129,7 @@ i {
 
 .tooltip .tooltiptext {
     visibility: hidden;
-    width: 400px;
+    width: 800px;
     white-space: pre-wrap;
     background-color: #555;
     color: #fff;
@@ -183,6 +183,12 @@ i {
     /* background-color: #ffffff; */
     color: #ffffff;
     text-align: left;
+}
+
+.wer-table thead tr th {
+    font-weight: bold;
+    padding: 12px 15px;
+    text-align: center !important;
 }
 
 .wer-table th,

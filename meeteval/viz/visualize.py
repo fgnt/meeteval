@@ -1,5 +1,7 @@
 import logging
 
+from meeteval.wer import ErrorRate
+
 logging.basicConfig(level=logging.ERROR)
 import collections
 import contextlib
@@ -12,12 +14,17 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Mapping
 
-from cached_property import cached_property
+try:
+    from functools import cached_property
+except ImportError:
+    # Fallback for Python 3.7 and lower, since cached_property was added in
+    # Python 3.8.
+    from cached_property import cached_property  # Python 3.7
 
-from meeteval.io.stm import STM, STMLine
-from meeteval.wer.wer.time_constrained import TimeMarkedTranscript, get_pseudo_word_level_timings
+from meeteval.io.stm import STM
+from meeteval.wer.wer.time_constrained import  get_pseudo_word_level_timings
 
-from meeteval.io.tidy import keys, Tidy, tidy_args
+from meeteval.io.seglst import asseglst, SegLST
 
 
 def dumps_json(
@@ -88,9 +95,9 @@ html_template = """
 """
 
 
-def get_wer(t: Tidy, assignment_type, collar=5):
+def get_wer(t: SegLST, assignment_type, collar=5, hypothesis_key='hypothesis'):
     ref = t.filter(lambda s: s['source'] == 'reference')
-    hyp = t.filter(lambda s: s['source'] == 'hypothesis')
+    hyp = t.filter(lambda s: s['source'] == hypothesis_key)
     if assignment_type == 'cp':
         from meeteval.wer.wer.cp import cp_word_error_rate
         wer = cp_word_error_rate(ref, hyp)
@@ -110,7 +117,7 @@ def get_wer(t: Tidy, assignment_type, collar=5):
     return wer
 
 
-def apply_assignment(assignment, d: Tidy):
+def apply_assignment(assignment, d: SegLST, source_key='hypothesis'):
     # Both ref and hyp key can be missing or None
     # This can happen when the filter function excludes a speaker completely
     # TODO: Find a good way to name these and adjust apply_cp_assignment accordingly
@@ -122,42 +129,43 @@ def apply_assignment(assignment, d: Tidy):
     # apply this function to the full set of words
     return d.map(
         lambda w:
-        {**w, keys.SPEAKER: assignment.get(w[keys.SPEAKER], f'[{w[keys.SPEAKER]}]')}
-        if w.get('source', 'hypothesis') == 'hypothesis'
+        {**w, 'speaker': assignment.get(w['speaker'], f"[{w['speaker']}]")}
+        if w.get('source', None) == source_key
         else w
     )
 
 
-def get_diarization_invariant_alignment(ref: Tidy, hyp: Tidy, collar=5):
-    from meet_eval.dicpwer.dicp import greedy_di_tcp_error_rate
-    words, _ = get_words_and_alignment(ref, hyp, 'tcp', collar=collar)
+# def get_diarization_invariant_alignment(ref: SegLST, hyp: SegLST, collar=5):
+#     from meet_eval.dicpwer.dicp import greedy_di_tcp_error_rate
+#     words, _ = get_alignment(ref, hyp, 'tcp', collar=collar)
+#
+#     wer = greedy_di_tcp_error_rate(
+#         list(ref.groupby('speaker').values()),
+#         [[[vv] for vv in v] for v in (ref.groupby('speaker')).values()],
+#         collar=collar
+#     )
+#
+#     hyp = wer.apply_assignment(sorted(hyp, key=lambda x: x['start_time']))
+#     hyp = [
+#         {**l, 'speaker2': k, }
+#         for k, v in hyp.items()
+#         for l in v
+#     ]
+#
+#     _, alignment = get_alignment(ref, hyp, 'tcp', collar=collar)
+#     return words, alignment
 
-    wer = greedy_di_tcp_error_rate(
-        list(ref.groupby('speaker').values()),
-        [[[vv] for vv in v] for v in (ref.groupby('speaker')).values()],
-        collar=collar
-    )
 
-    hyp = wer.apply_assignment(sorted(hyp, key=lambda x: x['start_time']))
-    hyp = [
-        {**l, 'speaker2': k, }
-        for k, v in hyp.items()
-        for l in v
-    ]
-
-    _, alignment = get_words_and_alignment(ref, hyp, 'tcp', collar=collar)
-    return words, alignment
-
-
-def get_words_and_alignment(data, alignment_type, collar=5, ignore='<CC>'):
+def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
+    # Extract hyps and ref from data. They have been merged earlier for easier processing
+    hyp = data.filter(lambda s: s['source'] == hypothesis_key)
     ref = data.filter(lambda s: s['source'] == 'reference')
-    hyp = data.filter(lambda s: s['source'] == 'hypothesis')
 
     if alignment_type == 'cp':
         from meeteval.wer.wer.time_constrained import align
         # Set the collar large enough that all words overlap with all other words
-        min_time = min(map(lambda x: x['start_time'], ref + hyp))
-        max_time = max(map(lambda x: x['end_time'], ref + hyp))
+        min_time = min(map(lambda x: x['start_time'], data))
+        max_time = max(map(lambda x: x['end_time'], data))
         align = functools.partial(
             align, collar=max_time - min_time + 1, style='index',
             reference_pseudo_word_level_timing='none',
@@ -177,103 +185,156 @@ def get_words_and_alignment(data, alignment_type, collar=5, ignore='<CC>'):
             hypothesis_sort=False,
         )
     elif alignment_type == 'ditcp':
-        return get_diarization_invariant_alignment(ref, hyp, collar=collar)
+        raise NotImplementedError()
+        # return get_diarization_invariant_alignment(ref, hyp, collar=collar)
     else:
         raise ValueError(alignment_type)
 
     # Compute alignment and extract words
-    words = []
-
-    ref = ref.sorted(keys.START_TIME).groupby(keys.SPEAKER)
-    hyp = hyp.sorted(keys.START_TIME).groupby(keys.SPEAKER)
+    ref = ref.sorted('start_time').groupby('speaker')
+    hyp = hyp.sorted('start_time').groupby('speaker')
 
     for k in set(ref.keys()) | set(hyp.keys()):
         a = align(
             ref.get(k, []), hyp.get(k, []),
             reference_pseudo_word_level_timing='none',
             hypothesis_pseudo_word_level_timing='none',
-            style='tidy',
+            style='seglst',
             collar=collar
         )
 
         for r, h in a:
             assert r is not None or h is not None
-            if r is not None:
-                r['word_index'] = len(words)
-                if r[keys.WORDS] != '':
-                    match_type = 'deletion' if h is None or h[keys.WORDS] == '' else (
-                        'correct' if r[keys.WORDS] == h[keys.WORDS] else 'substitution'
-                    )
-                    r['match_type'] = match_type
-                    if h is not None:
-                        h['match_index'] = r['word_index']
-                words.append(r)
-            if h is not None:
-                h['word_index'] = len(words)
-                if h[keys.WORDS] != '':
-                    match_type = 'insertion' if r is None or r[keys.WORDS] == '' else (
-                        'correct' if r[keys.WORDS] == h[keys.WORDS] else 'substitution'
-                    )
-                    h['match_type'] = match_type
-                    if r is not None:
-                        r['match_index'] = h['word_index']
-                words.append(h)
-            if r is not None and h is not None:
-                assert r[keys.START_TIME] <= h[keys.END_TIME] + collar, (r, h)
-                assert h[keys.START_TIME] <= r[keys.END_TIME] + collar, (r, h)
 
-    words = [{**w, 'center_time': (w[keys.START_TIME] + w[keys.END_TIME]) / 2} for w in words]
-    return words
+            # Get the original words so that inplace updates have an effect
+            r = data[r['word_index']] if r else None
+            h = data[h['word_index']] if h else None
+
+            # Find match type
+            # Add matching: The reference can match with multiple hypothesis streams,
+            # so r has a list of indices while h has a list of only a single index
+            if r is None:   # Insertion
+                h['matches'] = [(None, 'insertion')]
+            elif h is None: # Deletion
+                r.setdefault('matches', []).append((None, 'deletion'))
+            elif r['words'] == h['words']:  # Correct
+                h.setdefault('matches', []).append((r['word_index'], 'correct'))
+                r.setdefault('matches', []).append((h['word_index'], 'correct'))
+            else:   # Substitution
+                h.setdefault('matches', []).append((r['word_index'], 'substitution'))
+                r.setdefault('matches', []).append((h['word_index'], 'substitution'))
 
 
-@tidy_args(((), ()))
-def get_visualization_data(ref: Tidy, hyp: Tidy, *, assignment='tcp', alignment_transform=None):
+def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignment_transform=None):
+    ref = asseglst(ref)
+    hyp = [asseglst(h) for h in hyp]
+
+    assert len(hyp) > 0, hyp
     if alignment_transform is None:
         alignment_transform = lambda x: x
+
+    # Add information about ref/hyp to each utterance
+    ref = ref.map(lambda s: {**s, 'source': 'reference'})
+    # TODO: how to encode hypothesis correctly? I want to be able to name them from outside.
+    #  Use a new key, "system_name"?
+    if len(hyp) > 1:
+        hypothesis_keys = [f'hypothesis-{i}' for i in range(len(hyp))]
+    else:
+        hypothesis_keys = ['hypothesis']
+    hyp = SegLST.merge(*[
+        h.map(lambda s: {**s, 'source': hypothesis_keys[i]})
+        for i, h in enumerate(hyp)
+    ])
+
+    u = ref + hyp
 
     data = {
         'info': {
             'filename': ref[0]['session_id'],
-            'speakers': list(set(map(lambda x: x['speaker'], ref))),
+            'speakers': list(ref.unique('speaker')),
             'alignment_type': assignment,
-            'length': max([e['end_time'] for e in ref + hyp]) - min([e['start_time'] for e in ref + hyp])
+            'length': max([e['end_time'] for e in u]) - min([e['start_time'] for e in u]),
+            'num_hypotheses': len(hyp),
         }
     }
 
-    # Add information about ref/hyp to each utterance
-    ref = ref.map(lambda s: {**s, 'source': 'reference'})
-    hyp = hyp.map(lambda s: {**s, 'source': 'hypothesis'})
-    u = ref + hyp
-
     # Sort by begin time. Otherwise, the alignment will be unintuitive and likely not what the user wanted
-    u = u.sorted(keys.START_TIME)
+    u = u.sorted('start_time')
 
     # Convert to words so that the transformation can be applied
     w = get_pseudo_word_level_timings(u, 'character_based')
-    w = w.map(lambda w: {**w, keys.WORDS: call_with_args(alignment_transform, w), 'original_words': w[keys.WORDS]})
+    w = w.map(lambda w: {**w, 'words': call_with_args(alignment_transform, w), 'original_words': w['words']})
 
     # Remove any words that are now empty
-    ignored_words = w.filter(lambda s: not s[keys.WORDS]).map(lambda s: {**s, 'match_type': 'ignored'})
-    w = w.filter(lambda s: s[keys.WORDS])
+    ignored_words = w.filter(lambda s: not s['words'])#.map(lambda s: {**s, 'match_type': 'ignored'})
+    w = w.filter(lambda s: s['words'])
 
     # Get assignment using the word-level timestamps and filtered data
-    wer = get_wer(w, assignment, collar=5)
-    u = apply_assignment(wer.assignment, u)
-    w = apply_assignment(wer.assignment, w)
-    ignored_words = apply_assignment(wer.assignment, ignored_words)
+    wers = {}
+    for k in hypothesis_keys:
+        wer = wers[k] = get_wer(w, assignment, collar=5, hypothesis_key=k)
+        u = apply_assignment(wer.assignment, u, source_key=k)
+        w = apply_assignment(wer.assignment, w, source_key=k)
+        ignored_words = apply_assignment(wer.assignment, ignored_words, source_key=k)
 
     # Get the alignment using the filtered data. Add ignored words for visualization
-    words = get_words_and_alignment(w, assignment)
-    words = words + ignored_words.segments
+    # Add running word index used by the alignment to refer to different words
+    for i, word in enumerate(w):
+        word['word_index'] = i
+    for k in hypothesis_keys:
+        get_alignment(w, assignment, collar=5, hypothesis_key=k)
+    words = w + ignored_words
 
     # Map back to original_words TODO: remove "original_words" key
-    words = [{**w, keys.WORDS: w['original_words'], 'transformed_words': w[keys.WORDS]} for w in words]
-    data['words'] = words
+    # and pre-compute things that are required in the visualization
+    words = words.map(lambda w: {
+        **w,
+        'words': w['original_words'],
+        'transformed_words': w['words'],
+        'center_time': (w['start_time'] + w['end_time']) / 2,   # Point where the stitches attach
+    })
+    data['words'] = words.segments
 
     # Add utterances to data. Add total number of words to each utterance
-    data['utterances'] = [{**l, 'total': len(l[keys.WORDS].split())} for l in u]
+    data['utterances'] = [{**l, 'total': len(l['words'].split())} for l in u]
 
-    data['info']['wer'] = dataclasses.asdict(wer)
+    data['info']['wer'] = {k: dataclasses.asdict(wer) for k, wer in wers.items()}
+
+    def wer_by_speaker(hypothesis_key, speaker):
+        # Get all words from this speaker
+        words_ = words.filter(lambda s: s['speaker'] == speaker)
+
+        # Get all hypothesis words. From this we can find the number of insertions, substitutions and correct matches.
+        # Ignore any words that are not matched (i.e., don't have a "matches" key)
+        hyp_words = words_.filter(lambda s: s['source'] == k and 'matches' in s)
+        insertions = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'insertion'))
+        substitutions = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'substitution'))
+        # correct = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'correct'))
+
+        # Get all reference words that match with the current hypothesis_key. From this we can find the number of
+        # deletions, substitutions and correct matches.
+        # The number of deletions is the number of reference words that are not matched with a hypothesis word.
+        ref_words = words_.filter(lambda s: s['source'] == 'reference' and 'matches' in s)
+        deletions = len(ref_words.filter(lambda s: not [w for w, _ in s['matches'] if w is not None and words[w]['source'] == hypothesis_key]))
+
+        return dataclasses.asdict(ErrorRate(
+            errors=insertions + deletions + substitutions,
+            length=len(ref_words),
+            insertions=insertions,
+            deletions=deletions,
+            substitutions=substitutions,
+            reference_self_overlap=None,
+            hypothesis_self_overlap=None,
+        ))
+
+    data['info']['wer_by_speakers'] = {
+        k: {
+            speaker: wer_by_speaker(k, speaker)
+            for speaker in data['info']['speakers']
+        }
+        for k in hypothesis_keys
+    }
+    print(data['info']['wer_by_speakers'])
     return data
 
 
@@ -289,7 +350,7 @@ def call_with_args(fn, d):
             for name, p in list(parameters.items())[1:]
             if p.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY]
         }
-    return fn(d[keys.WORDS], **kwargs)
+    return fn(d['words'], **kwargs)
 
 
 class AlignmentVisualization:
@@ -341,7 +402,7 @@ class AlignmentVisualization:
 
     @cached_property
     def data(self):
-        d = get_visualization_data(self.ref, self.hyp, self.alignment, alignment_transform=self.alignment_transform)
+        d = get_visualization_data(self.ref, self.hyp, assignment=self.alignment, alignment_transform=self.alignment_transform)
         d['markers'] = self.markers
         return d
 
