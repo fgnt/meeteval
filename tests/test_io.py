@@ -82,11 +82,11 @@ def test_stm_load():
 
 # Generate files
 # The generated files don't contain comments since they cannot be reconstructed
-filenames = st.text(st.characters(exclude_categories=['Z', 'C'], exclude_characters=';'), min_size=1)  # (no space, no control char, no comment char)
-speaker_ids = st.text(st.characters(exclude_categories=['Z', 'C']), min_size=1)  # (no space, no control char)
+filenames = st.text(st.characters(blacklist_categories=['Z', 'C'], blacklist_characters=';'), min_size=1)  # (no space, no control char, no comment char)
+speaker_ids = st.text(st.characters(blacklist_categories=['Z', 'C']), min_size=1)  # (no space, no control char)
 timestamps = st.decimals(allow_nan=False, allow_infinity=False)
 durations = st.decimals(min_value=0, allow_nan=False, allow_infinity=False)
-words = st.text(st.characters(exclude_categories=['C', 'Z']), min_size=1)  # (no space, no control char)
+words = st.text(st.characters(blacklist_categories=['C', 'Z']), min_size=1)  # (no space, no control char)
 transcripts = st.builds(' '.join, st.lists(words))
 
 keyed_text_line = st.builds('{} {}\n'.format, filenames, transcripts)
