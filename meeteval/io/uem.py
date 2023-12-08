@@ -1,4 +1,4 @@
-from typing import List, Self
+from typing import List
 import decimal
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
@@ -74,7 +74,7 @@ class UEM(Base):
         return {k: v for v, k in enumerate(keys)}
 
     @classmethod
-    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'UEM':
         return cls([
             UEMLine.parse(line, parse_float)
             for line in s.spilt('\n')

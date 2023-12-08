@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Self
+from typing import List
 from meeteval.io.base import Base, BaseLine
 import decimal
 
@@ -97,7 +97,7 @@ class STM(Base):
     line_cls = STMLine
 
     @classmethod
-    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'STM':
         return cls([
             STMLine.parse(line, parse_float)
             for line in s.split('\n')

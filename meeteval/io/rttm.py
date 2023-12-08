@@ -1,5 +1,5 @@
 import typing
-from typing import List, Self
+from typing import List
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
 from meeteval.io.seglst import SegLstSegment
@@ -118,7 +118,7 @@ class RTTM(Base):
     line_cls = RTTMLine
 
     @classmethod
-    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'RTTM':
         return cls([
             RTTMLine.parse(line, parse_float)
             for line in s.split('\n')
