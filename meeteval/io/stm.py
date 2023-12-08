@@ -61,7 +61,7 @@ class STMLine(BaseLine):
         return stm_line
 
     @classmethod
-    def from_seglst(cls, segment: 'SegLstSegment'):
+    def from_dict(cls, segment: 'SegLstSegment'):
         return cls(
             filename=segment['session_id'],
             channel=segment.get('channel', 1),

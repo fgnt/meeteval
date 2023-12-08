@@ -44,7 +44,7 @@ class BaseLine:
         raise NotImplementedError(cls)
 
     @classmethod
-    def from_seglst(cls, segment: 'SegLstSegment') -> 'Self':
+    def from_dict(cls, segment: 'SegLstSegment') -> 'Self':
         raise NotImplementedError(cls)
 
     def to_seglst(self) -> 'SegLstSegment':
@@ -354,7 +354,7 @@ class Base(BaseABC):
     @classmethod
     def new(cls, s, **defaults) -> 'Self':
         from meeteval.io.seglst import asseglst
-        return cls([cls.line_cls.from_seglst({**defaults, **segment}) for segment in asseglst(s)])
+        return cls([cls.line_cls.from_dict({**defaults, **segment}) for segment in asseglst(s)])
 
 
 

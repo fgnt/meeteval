@@ -39,7 +39,7 @@ class KeyedTextLine(BaseLine):
         return f'{self.filename} {self.transcript}'
 
     @classmethod
-    def from_seglst(cls, segment: 'SegLstSegment') -> 'Self':
+    def from_dict(cls, segment: 'SegLstSegment') -> 'Self':
         return cls(
             filename=segment['session_id'],
             transcript=segment['words'],

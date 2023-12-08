@@ -72,7 +72,7 @@ class CTMLine(BaseLine):
         return s
 
     @classmethod
-    def from_seglst(cls, segment: 'SegLstSegment') -> 'Self':
+    def from_dict(cls, segment: 'SegLstSegment') -> 'Self':
         # CTM only supports words as segments.
         # If this check fails, the input data was not converted to words before.
         assert ' ' not in segment['words'], segment

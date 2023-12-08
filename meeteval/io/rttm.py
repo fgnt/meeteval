@@ -76,7 +76,7 @@ class RTTMLine(BaseLine):
         )
 
     @classmethod
-    def from_seglst(cls, segment: 'SegLstSegment') -> 'RTTMLine':
+    def from_dict(cls, segment: 'SegLstSegment') -> 'RTTMLine':
         # TODO: read spec and handle speech segments with transcripts
         return RTTMLine(
             filename=segment['session_id'],
