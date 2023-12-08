@@ -654,8 +654,8 @@ def time_constrained_minimum_permutation_word_error_rate(
 
     # Compute self-overlap for ref and hyp before converting to words and applying the collar.
     # This is required later
-    reference_self_overlap = sum([get_self_overlap(v) for v in reference.values()], start=SelfOverlap(0, 0))
-    hypothesis_self_overlap = sum([get_self_overlap(v) for v in hypothesis.values()], start=SelfOverlap(0, 0))
+    reference_self_overlap = sum([get_self_overlap(v) for v in reference.values()])
+    hypothesis_self_overlap = sum([get_self_overlap(v) for v in hypothesis.values()])
 
     # Convert segments into lists of words and word-level timings
     reference = {

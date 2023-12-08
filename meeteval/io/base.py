@@ -30,8 +30,8 @@ class BaseABC:
         # Example code:
         # from meeteval.io.seglst import asseglst
         # seglst = asseglst(d).map(lambda s: {**defaults, **s})
-        # ... (conert seglst to cls)
-        raise NotImplementedError()
+        # ... (convert seglst to cls)
+        raise NotImplementedError(cls)
 
     def to_seglst(self):
         raise NotImplementedError()

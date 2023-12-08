@@ -38,6 +38,12 @@ class SelfOverlap:
             self.total_time + other.total_time,
         )
 
+    def __radd__(self, other: 'int') -> 'SelfOverlap':
+        if isinstance(other, int) and other == 0:
+            # Special case to support sum.
+            return self
+        return NotImplemented
+
     @classmethod
     def from_dict(cls, d: dict):
         return cls(d['overlap_time'], d['total_time'])
