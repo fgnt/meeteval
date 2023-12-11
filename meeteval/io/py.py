@@ -1,6 +1,6 @@
 import dataclasses
 import typing
-from typing import Any, List, Tuple
+from typing import Any
 
 from meeteval.io.base import BaseABC
 
@@ -116,7 +116,7 @@ def _invert_python_structure(t: 'SegLST', types, keys):
         return types[0](t.segments[0][keys[0]])
     groups = {k: _invert_python_structure(v, types[1:], keys[1:]) for k, v in t.groupby(keys[0]).items()}
     if types[0] in (list, tuple):
-        groups = types[0](groups.values())
+        groups = types[0](v for _, v in sorted(groups.items()))
     return groups
 
 
@@ -135,9 +135,9 @@ class NestedStructure(BaseABC):
         ```
     """
     structure: Any
-    level_keys: 'List[str, ...] | Tuple[str, ...]' = ('speaker', 'segment_index')
+    level_keys: 'list[str, ...] | tuple[str, ...]' = ('speaker', 'segment_index')
     final_key: 'str' = 'words'
-    final_types: 'type | List[type] | Tuple[type]' = str
+    final_types: 'type | list[type] | tuple[type]' = str
 
     # Cache variables
     _types = None

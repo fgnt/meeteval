@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Tuple, List, Dict, Iterable, Any
+from typing import Iterable, Any
 
 from meeteval.io.seglst import asseglst
 from meeteval.wer.wer.error_rate import ErrorRate
@@ -19,12 +19,12 @@ class MimoErrorRate(ErrorRate):
     >>> MimoErrorRate(0, 10, 0, 0, 0, None, None, [(0, 0)]) + MimoErrorRate(10, 10, 0, 0, 10, None, None, [(0, 0)])
     ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
-    assignment: Tuple[int, ...]
+    assignment: 'tuple[int, ...]'
 
 
 def mimo_error_rate(
-        reference: 'List[List[Iterable]] | Dict[Any, List[Iterable]]',
-        hypothesis: 'List[Iterable] | Dict[Iterable]',
+        reference: 'list[list[Iterable]] | dict[Any, list[Iterable]]',
+        hypothesis: 'list[Iterable] | dict[Iterable]',
 ):
     if max(len(hypothesis), len(reference)) > 10:
         num_speakers = max(len(hypothesis), len(reference))
@@ -116,7 +116,7 @@ def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
     return mimo_error_rate(reference, hypothesis)
 
 
-def mimo_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'Dict[str, MimoErrorRate]':
+def mimo_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'dict[str, MimoErrorRate]':
     """
     Computes the MIMO WER for each example in the reference and hypothesis STM files.
 
@@ -127,9 +127,9 @@ def mimo_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'Dict[str, 
 
 
 def apply_mimo_assignment(
-        assignment: 'List[tuple]',
-        reference: 'List[List[Any]] | Dict[List[Any]]',
-        hypothesis: 'List[Any] | Dict[Any, Any]',
+        assignment: 'list[tuple]',
+        reference: 'list[list[Any]] | dict[list[Any]]',
+        hypothesis: 'list[Any] | dict[Any, Any]',
 ):
     """
     >>> assignment = [('A', 'O2'), ('B', 'O2'), ('A', 'O1')]

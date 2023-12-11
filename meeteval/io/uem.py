@@ -1,4 +1,3 @@
-from typing import List
 import decimal
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
@@ -64,7 +63,7 @@ class UEMLine(BaseLine):
 
 @dataclass(frozen=True)
 class UEM(Base):
-    lines: List[UEMLine]
+    lines: 'list[UEMLine]'
     line_cls = UEMLine
 
     @cached_property

@@ -5,7 +5,6 @@ import sys
 import typing
 from pathlib import Path
 import contextlib
-from typing import Dict, List
 import dataclasses
 from dataclasses import dataclass
 from itertools import groupby
@@ -137,7 +136,7 @@ class BaseLine:
 
 
 class Base(BaseABC):
-    lines: 'List[LineSubclasses]'
+    lines: 'list[LineSubclasses]'
     line_cls = 'LineSubclasses'
 
     def __init__(self, data):
@@ -196,7 +195,7 @@ class Base(BaseABC):
             return NotImplemented
         return self.__class__(self.lines + other.lines)
 
-    def groupby(self, key) -> Dict[str, 'Self']:
+    def groupby(self, key) -> 'dict[str, Self]':
         """
         >>> from meeteval.io.stm import STM, STMLine
         >>> stm = STM([STMLine.parse('rec1 0 A 10 20 Hello World')])
@@ -220,7 +219,7 @@ class Base(BaseABC):
             )
         }
 
-    def grouped_by_filename(self) -> Dict[str, 'Self']:
+    def grouped_by_filename(self) -> 'dict[str, Self]':
         return self.groupby(lambda x: x.filename)
 
     def grouped_by_speaker_id(self):

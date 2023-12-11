@@ -7,7 +7,6 @@ import os
 import re
 import decimal
 from pathlib import Path
-from typing import List, Tuple
 
 import meeteval.io
 from meeteval.io.ctm import CTMGroup
@@ -94,12 +93,12 @@ def _load(path: Path):
             raise NotImplementedError(f'Unknown file ext: {path.suffix}')
 
 
-def _load_reference(reference: 'Path | List[Path]'):
+def _load_reference(reference: 'Path | list[Path]'):
     """Loads a reference transcription file. Currently only STM supported"""
     return STM.load(reference)
 
 
-def _load_hypothesis(hypothesis: List[Path]):
+def _load_hypothesis(hypothesis: 'list[Path]'):
     """Loads the hypothesis. Supports one STM file or multiple CTM files
     (one per channel)"""
     if len(hypothesis) > 1:
@@ -126,7 +125,7 @@ def _load_hypothesis(hypothesis: List[Path]):
         raise RuntimeError(hypothesis, filename)
 
 
-def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex) -> Tuple[STM, List[Path], STM, List[Path]]:
+def _load_texts(reference_paths: 'list[str]', hypothesis_paths: 'list[str]', regex) -> 'tuple[STM, list[Path], STM, list[Path]]':
     """Load and validate reference and hypothesis texts.
 
     Validation checks that reference and hypothesis have the same example IDs.
@@ -164,7 +163,7 @@ def _load_texts(reference_paths: List[str], hypothesis_paths: List[str], regex) 
     return reference, reference_paths, hypothesis, hypothesis_paths
 
 
-def _get_parent_stem(hypothesis_paths: List[Path]):
+def _get_parent_stem(hypothesis_paths: 'list[Path]'):
     hypothesis_paths = [p.resolve() for p in hypothesis_paths]
 
     if len(hypothesis_paths) == 1:
@@ -184,7 +183,7 @@ def _get_parent_stem(hypothesis_paths: List[Path]):
 
 def _save_results(
         per_reco,
-        hypothesis_paths: List[Path],
+        hypothesis_paths: 'list[Path]',
         per_reco_out: str,
         average_out: str,
 ):
@@ -301,7 +300,7 @@ def tcpwer(
 
 
 def _merge(
-        files: List[str],
+        files: 'list[str]',
         out: str = None,
         average: bool = None
 ):

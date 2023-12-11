@@ -7,7 +7,7 @@ import decimal
 
 
 if typing.TYPE_CHECKING:
-    from typing import Self, List
+    from typing import Self
 
 
 @dataclass(frozen=True)
@@ -54,7 +54,7 @@ class KeyedTextLine(BaseLine):
 
 @dataclass(frozen=True)
 class KeyedText(Base):
-    lines: 'List[KeyedTextLine]'
+    lines: 'list[KeyedTextLine]'
     line_cls = KeyedTextLine
 
     @classmethod
@@ -69,6 +69,6 @@ class KeyedText(Base):
     def merged_transcripts(self) -> str:
         raise NotImplementedError()
 
-    def utterance_transcripts(self) -> 'List[str]':
+    def utterance_transcripts(self) -> 'list[str]':
         """There is no notion of an "utterance" in CTM files."""
         raise NotImplementedError()

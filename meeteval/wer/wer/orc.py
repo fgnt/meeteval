@@ -1,6 +1,6 @@
 import collections
 import dataclasses
-from typing import Tuple, List, Dict, Iterable, Any
+from typing import Iterable, Any
 
 from meeteval.io.seglst import asseglst, SegLST
 from meeteval.wer.wer.error_rate import ErrorRate
@@ -19,7 +19,7 @@ class OrcErrorRate(ErrorRate):
     >>> OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1)) + OrcErrorRate(10, 10, 0, 0, 10, None, None, (1, 0, 1))
     ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
-    assignment: Tuple[int, ...]
+    assignment: 'tuple[int, ...]'
 
     def apply_assignment(self, reference, hypothesis):
         ref = collections.defaultdict(list)
@@ -40,7 +40,7 @@ class OrcErrorRate(ErrorRate):
         return ref, hypothesis
 
 
-def orc_word_error_rate_multifile(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, OrcErrorRate]':
+def orc_word_error_rate_multifile(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'dict[str, OrcErrorRate]':
     """
     Computes the ORC WER for each example in the reference and hypothesis STM files.
 
@@ -51,8 +51,8 @@ def orc_word_error_rate_multifile(reference_stm: 'STM', hypothesis_stm: 'STM') -
 
 
 def orc_error_rate(
-        reference: 'List[Iterable]',
-        hypothesis: 'List[Iterable] | Dict[Any, Iterable]',
+        reference: 'list[Iterable]',
+        hypothesis: 'list[Iterable] | dict[Any, Iterable]',
 ):
     # Safety check: The complexity explodes for large numbers of speakers
     if len(hypothesis) > 10:
@@ -153,9 +153,9 @@ def orc_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> OrcErrorRa
 
 
 def apply_orc_assignment(
-        assignment: 'List[tuple]',
-        reference: 'List[str]',
-        hypothesis: 'List[str] | dict[str]',
+        assignment: 'list[tuple]',
+        reference: 'list[str]',
+        hypothesis: 'list[str] | dict[str]',
 ):
     """
     >>> assignment = ('A', 'A', 'B')

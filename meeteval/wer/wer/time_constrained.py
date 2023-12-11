@@ -9,7 +9,6 @@ from meeteval.io.stm import STM
 from meeteval.io.seglst import SegLST, seglst_map, asseglst
 from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
-from typing import List, Dict
 import logging
 
 from meeteval.wer.utils import _values, _map, _keys
@@ -162,8 +161,8 @@ def _time_constrained_siso_error_rate(
 
 @dataclass
 class TimeMarkedTranscript:
-    transcript: List[str]
-    timings: List[typing.Tuple[float, float]]
+    transcript: 'list[str]'
+    timings: 'list[tuple[float, float]]'
 
     def to_seglst(self):
         return SegLST([{
@@ -263,7 +262,7 @@ class TimeMarkedTranscript:
         return time_marked_transcript
 
     @classmethod
-    def from_segment_dicts(cls, data: 'List[Segment]') -> 'TimeMarkedTranscript':
+    def from_segment_dicts(cls, data: 'list[Segment]') -> 'TimeMarkedTranscript':
         if len(data) == 0:
             return cls([], [])
         if 'speaker' in data[0]:
@@ -307,7 +306,7 @@ class TimeMarkedTranscript:
 
 
 # Annotation for input
-TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | List[Segment]'
+TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | list[Segment]'
 
 
 @seglst_map()
@@ -705,7 +704,7 @@ def tcp_word_error_rate_multifile(
         collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
-) -> 'Dict[str, CPErrorRate]':
+) -> 'dict[str, CPErrorRate]':
     """
     Computes the tcpWER for each example in the reference and hypothesis STM files.
     See `time_constrained_minimum_permutation_word_error_rate` for details.

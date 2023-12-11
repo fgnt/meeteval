@@ -1,5 +1,4 @@
 import typing
-from typing import List
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
 from meeteval.io.seglst import SegLstSegment
@@ -114,7 +113,7 @@ class RTTMLine(BaseLine):
 
 @dataclass(frozen=True)
 class RTTM(Base):
-    lines: List[RTTMLine]
+    lines: 'list[RTTMLine]'
     line_cls = RTTMLine
 
     @classmethod

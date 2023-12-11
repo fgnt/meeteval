@@ -2,7 +2,7 @@ import dataclasses
 
 __all__ = ['ErrorRate', 'combine_error_rates']
 
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 import logging
 
 logger = logging.getLogger('error_rate')
@@ -246,10 +246,10 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
 
 @dataclasses.dataclass(frozen=True)
 class CombinedErrorRate(ErrorRate):
-    details: 'Dict[Any, ErrorRate]'
+    details: 'dict[Any, ErrorRate]'
 
     @classmethod
-    def from_error_rates(cls, error_rates: 'Dict[Any, ErrorRate]'):
+    def from_error_rates(cls, error_rates: 'dict[Any, ErrorRate]'):
         from meeteval.wer.utils import _values
         er = sum(_values(error_rates))
         return cls(

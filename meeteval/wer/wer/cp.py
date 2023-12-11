@@ -1,7 +1,7 @@
 import dataclasses
 import itertools
 import string
-from typing import Optional, Tuple, List, Dict, Any, Iterable
+from typing import Optional, Any, Iterable
 
 from meeteval._typing import Literal
 from meeteval.io.seglst import SegLST, asseglst
@@ -26,8 +26,8 @@ class CPErrorRate(ErrorRate):
     missed_speaker: int
     falarm_speaker: int
     scored_speaker: int
-    # assignment: Optional[Tuple[int, ...]] = None
-    assignment: Optional[Tuple['int | str | Any', ...]] = None
+    # assignment: 'Optional[tuple[int, ...]]' = None
+    assignment: 'Optional[tuple[int | str | Any, ...]]' = None
 
     @classmethod
     def zero(cls):
@@ -155,7 +155,7 @@ def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate
     return cp_error_rate(split_words(reference), split_words(hypothesis))
 
 
-def cp_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'Dict[str, CPErrorRate]':
+def cp_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
 
@@ -256,7 +256,7 @@ def _cp_error_rate(
 
 
 def apply_cp_assignment(
-        assignment: 'List[Tuple[Any, ...]] | Tuple[Tuple[Any, ...], ...]',
+        assignment: 'list[tuple[Any, ...]] | tuple[tuple[Any, ...], ...]',
         reference: dict,
         hypothesis: dict,
         style: 'Literal["hyp", "ref"]' = 'ref',

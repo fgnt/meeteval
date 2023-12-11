@@ -11,14 +11,14 @@ hashables)
 import typing
 
 Utterance = typing.Iterable[typing.Hashable]
-Assignment = typing.Tuple[int, ...]
+Assignment = 'tuple[int, ...]'
 
 
 def _get_channel_transcription_from_assignment(
-        utterances: typing.List[Utterance],
+        utterances: 'list[Utterance]',
         assignment: Assignment,
         num_channels: int
-) -> typing.List[typing.List[typing.Hashable]]:
+) -> 'list[list[typing.Hashable]]':
     import itertools
     c = [[] for _ in range(num_channels)]
 
@@ -150,8 +150,8 @@ def orc_matching_v2(ref, hyps):
 
 
 def orc_matching_v3(
-        ref: typing.List[Utterance],
-        hyps: typing.List[typing.List[typing.Hashable]]
+        ref: 'list[Utterance]',
+        hyps: 'list[list[typing.Hashable]]'
 ):
     """
     A Cython implementation of the ORC matching algorithm

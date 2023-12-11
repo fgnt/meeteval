@@ -1,7 +1,7 @@
 import dataclasses
 import functools
 import typing
-from typing import List, Callable
+from typing import Callable
 
 try:
     from functools import cached_property
@@ -16,30 +16,25 @@ if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
 
 
-try:
-    import TypedDict
+from meeteval._typing import TypedDict
+class SegLstSegment(TypedDict, total=False):
+    """
+    A segment.
 
-    class SegLstSegment(TypedDict, total=False):
-        """
-        A segment.
+    Note:
+        We do not define an enum with all these keys for speed reasons
+    """
+    session_id: str
+    start_time: float
+    end_time: float
+    words: str
+    speaker: str
+    segment_index: int
 
-        Note:
-            We do not define an enum with all these keys for speed reasons
-        """
-        session_id: str
-        start_time: float
-        end_time: float
-        words: str
-        speaker: str
-        segment_index: int
-
-        # Unused but by MeetEval but present in some file formats. They are defined here for compatibility and
-        # conversion in both directions
-        channel: int
-        confidence: float
-except ImportError:
-    # Python <3.8 doesn't have TypedDict
-    SegLstSegment = typing.Dict[str, typing.Any]
+    # Unused but by MeetEval but present in some file formats. They are defined here for compatibility and
+    # conversion in both directions
+    channel: int
+    confidence: float
 
 
 @dataclasses.dataclass(frozen=True)
@@ -48,7 +43,7 @@ class SegLST(BaseABC):
     A collection of segments in SegLST format. This the input type to most
     functions in MeetEval that process transcript segments.
     """
-    segments: 'List[SegLstSegment]'
+    segments: 'list[SegLstSegment]'
 
     # Caches
     _unique = None

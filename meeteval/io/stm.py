@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 from meeteval.io.base import Base, BaseLine
 import decimal
 
@@ -93,7 +92,7 @@ class STMLine(BaseLine):
 
 @dataclass(frozen=True)
 class STM(Base):
-    lines: List[STMLine]
+    lines: 'list[STMLine]'
     line_cls = STMLine
 
     @classmethod
@@ -131,7 +130,7 @@ class STM(Base):
                 (round(line.begin_time * sample_rate), round(line.end_time * sample_rate))
                 for line in self.lines])
 
-    def utterance_transcripts(self) -> List[str]:
+    def utterance_transcripts(self) -> 'list[str]':
         return [x.transcript for x in sorted(self.lines, key=lambda x: x.begin_time)]
 
     def merged_transcripts(self) -> str:

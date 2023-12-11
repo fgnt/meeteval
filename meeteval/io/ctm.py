@@ -1,7 +1,7 @@
 import typing
 import warnings
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Optional
 from meeteval.io.base import Base, BaseLine, BaseABC
 import decimal
 
@@ -100,8 +100,8 @@ class CTMLine(BaseLine):
 
 @dataclass(frozen=True)
 class CTM(Base):
-    lines: List[CTMLine]
-    line_cls = CTMLine
+    lines: 'list[CTMLine]'
+    line_cls = 'CTMLine'
 
     @classmethod
     def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
@@ -115,7 +115,7 @@ class CTM(Base):
     def merged_transcripts(self) -> str:
         return ' '.join([x.word for x in sorted(self.lines, key=lambda x: x.begin_time)])
 
-    def utterance_transcripts(self) -> List[str]:
+    def utterance_transcripts(self) -> 'list[str]':
         """There is no notion of an "utterance" in CTM files."""
         raise NotImplementedError()
 
@@ -132,14 +132,14 @@ class CTM(Base):
 
 @dataclass(frozen=True)
 class CTMGroup(BaseABC):
-    ctms: 'Dict[str, CTM]'
+    ctms: 'dict[str, CTM]'
 
     @classmethod
     def load(cls, ctm_files, parse_float=decimal.Decimal):
         return cls({str(ctm_file): CTM.load(ctm_file, parse_float=parse_float)
                     for ctm_file in ctm_files})
 
-    def grouped_by_filename(self) -> Dict[str, 'CTMGroup']:
+    def grouped_by_filename(self) -> 'dict[str, CTMGroup]':
         groups = {
             k: ctm.grouped_by_filename() for k, ctm in self.ctms.items()
         }
@@ -171,7 +171,7 @@ class CTMGroup(BaseABC):
             for key in keys
         }
 
-    def grouped_by_speaker_id(self) -> Dict[str, CTM]:
+    def grouped_by_speaker_id(self) -> 'dict[str, CTM]':
         return self.ctms
 
     @classmethod

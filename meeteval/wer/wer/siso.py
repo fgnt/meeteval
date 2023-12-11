@@ -1,5 +1,5 @@
 import typing
-from typing import List, Hashable, Dict
+from typing import Hashable
 
 from meeteval.io.py import NestedStructure
 from meeteval.wer.wer.error_rate import ErrorRate
@@ -27,7 +27,7 @@ def siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
     return levenshtein_distance(reference, hypothesis)
 
 
-def _siso_error_rate(reference: 'List[Hashable]', hypothesis: 'List[Hashable]') -> ErrorRate:
+def _siso_error_rate(reference: 'list[Hashable]', hypothesis: 'list[Hashable]') -> ErrorRate:
     import kaldialign
 
     try:
@@ -101,7 +101,7 @@ def siso_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate
     return siso_error_rate(split_words(reference), split_words(hypothesis))
 
 
-def siso_word_error_rate_multifile(reference, hypothesis) -> 'Dict[str, ErrorRate]':
+def siso_word_error_rate_multifile(reference, hypothesis) -> 'dict[str, ErrorRate]':
     """
     Computes the standard WER for each example in the reference and hypothesis files.
 
