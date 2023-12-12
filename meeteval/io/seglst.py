@@ -3,13 +3,6 @@ import functools
 import typing
 from typing import Callable
 
-try:
-    from functools import cached_property
-except ImportError:
-    # Fallback for Python 3.7 and lower, since cached_property was added in
-    # Python 3.8.
-    from cached_property import cached_property  # Python 3.7
-
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
 if typing.TYPE_CHECKING:
@@ -48,7 +41,7 @@ class SegLST(BaseABC):
     # Caches
     _unique = None
 
-    @cached_property
+    @property
     def keys(self):
         """
         Keys that are common among all segments
