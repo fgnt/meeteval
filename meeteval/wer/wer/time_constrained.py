@@ -6,7 +6,7 @@ import typing
 from dataclasses import dataclass, replace
 
 from meeteval.io.stm import STM
-from meeteval.io.seglst import SegLST, seglst_map, asseglst
+from meeteval.io.seglst import SegLST, seglst_map, asseglst, SegLstSegment
 from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
 import logging
@@ -400,7 +400,7 @@ def get_pseudo_word_level_timings(t: SegLST, strategy: str) -> SegLST:
     return t.flatmap(get_words)
 
 
-@seglst_map()
+@seglst_map(required_keys=('start_time', 'end_time'))
 def remove_overlaps(
         t: SegLST,
         max_overlap: float = 0.4,
@@ -409,13 +409,15 @@ def remove_overlaps(
     """
     Remove overlaps between words or segments in a transcript.
 
+    Note: Sorts the segments by begin time.
+
     Args:
-        s: TimeMarkedTranscript
+        t: SegLST object to remove overlaps from
         max_overlap: maximum allowed relative overlap between words or segments.
             Raises a `ValueError` when more overlap is found.
         warn_message: if not None, a warning is printed when overlaps are corrected.
     """
-    last = None
+    last: 'typing.Optional[SegLstSegment]' = None
 
     def correct(s):
         nonlocal last
@@ -440,7 +442,7 @@ def remove_overlaps(
         last = s
         return s
 
-    return t.map(correct)
+    return t.sorted('start_time').map(correct)
 
 
 def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
@@ -482,7 +484,6 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
 
     # Check whether words are sorted by start time
     words_sorted = words.sorted('start_time')
-    # TODO: only check relevant keys? That would speed things up if the user provides a lot of custom keys
     if words_sorted != words:
         contradictions = [a != b for a, b in zip(words_sorted, words)]
         msg = (
