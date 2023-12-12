@@ -1,15 +1,17 @@
 import dataclasses
 import functools
 import typing
-from typing import Callable
 
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
+from meeteval._typing import TypedDict
+
 if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
+    from typing import Callable, Iterable, Any
 
 
-from meeteval._typing import TypedDict
+
 class SegLstSegment(TypedDict, total=False):
     """
     A segment.
@@ -42,7 +44,7 @@ class SegLST(BaseABC):
     _unique = None
 
     @property
-    def keys(self):
+    def keys(self) -> 'set[Any]':
         """
         Keys that are common among all segments
         """
@@ -50,7 +52,7 @@ class SegLST(BaseABC):
             return set()
         return set.intersection(*[set(s.keys()) for s in self])
 
-    def unique(self, key):
+    def unique(self, key) -> 'set[Any]':
         """
         Returns the unique values for `key` among all segments.
         """
@@ -70,7 +72,7 @@ class SegLST(BaseABC):
             return SegLST(self.segments + other.segments)
         return NotImplemented
 
-    def groupby(self, key):
+    def groupby(self, key) -> 'dict[Any, SegLST]':
         """
         >>> t = asseglst(['a b c', 'd e f', 'g h i'])
         >>> t.segments
@@ -84,46 +86,51 @@ class SegLST(BaseABC):
         """
         return {k: SegLST(g) for k, g in groupby(self.segments, key=key).items()}
 
-    def sorted(self, key):
+    def sorted(self, key) -> 'SegLST':
         """
         Returns a copy of this object with the segments sorted by `key`.
         """
         return SegLST(sorted(self.segments, key=_get_key(key)))
 
-    def map(self, fn):
+    def map(self, fn: 'Callable[[SegLstSegment], SegLstSegment]') -> 'SegLST':
         """
         Applies `fn` to all segments and returns a new `SegLST` object with the results.
         """
         return SegLST([fn(s) for s in self.segments])
 
-    def flatmap(self, fn):
+    def flatmap(self, fn: 'Callable[[list[SegLstSegment]], Iterable[SegLstSegment]]') -> 'SegLST':
         """
-        Applies `fn` to all segments, flattens the output and returns a new `SegLST` object with the results.
+        Returns a new `SegLST` by applying `fn`, which is exptected to return an iterable of `SegLstSegment`s,
+        to all segments and flattening the output.
 
-        Example:
+        The name is inspired by other programming languages (e.g., JavaScript, Rust, Java, Scala) where
+        flatmap is a common operation on lists / arrays / iterators. In data loading frameworks,
+        this operation is known as map followed by unbatch.
+
+        Example: Split utterances into words
             >>> SegLST([{'words': 'a b c'}]).flatmap(lambda x: [{'words': w} for w in x['words'].split()])
             SegLST(segments=[{'words': 'a'}, {'words': 'b'}, {'words': 'c'}])
         """
         return SegLST([s for t in self.segments for s in fn(t)])
 
-    def filter(self, fn):
+    def filter(self, fn: 'Callable[[SegLstSegment], bool]') -> 'SegLST':
         """
         Applies `fn` to all segments and returns a new `SegLST` object with the segments for which `fn` returns true.
         """
         return SegLST([s for s in self.segments if fn(s)])
 
     @classmethod
-    def merge(cls, *t):
+    def merge(cls, *t) -> 'SegLST':
         """
         Merges multiple `SegLST` objects into one by concatenating all segments.
         """
         return SegLST([s for t_ in t for s in t_.segments])
 
-    def to_seglst(self):
+    def to_seglst(self) -> 'SegLST':
         return self
 
     @classmethod
-    def new(cls, d, **defaults):
+    def new(cls, d, **defaults) -> 'SegLST':
         d = asseglst(d)
         if defaults:
             d = d.map(lambda s: {**defaults, **s})
