@@ -9,7 +9,7 @@ if typing.TYPE_CHECKING:
     from meeteval.io.seglst import SegLST
 
 
-def _convert_python_structure(structure, *, keys=(), final_key='words', final_types=str):
+def _convert_python_structure(structure, *, keys=(), final_key='words', _final_types=str):
     from meeteval.io.seglst import SegLST
     from meeteval.wer.utils import _keys
 
@@ -39,11 +39,11 @@ def _convert_python_structure(structure, *, keys=(), final_key='words', final_ty
             # Check if we have a key for this level. If not, raise an exception
             if index >= len(keys):
                 # Only raise the exception if the final key doesn't match the `final_types`
-                if final_types is not None and not isinstance(d, final_types):
+                if _final_types is not None and not isinstance(d, _final_types):
                     raise ValueError(
                         f'{structure} cannot be converted because it contains more nested levels than keys given! '
                         f'keys={keys!r}, '
-                        f'final_key={final_key!r}, final_types={final_types!r}'
+                        f'final_key={final_key!r}, final_types={_final_types!r}'
                     )
                 return [{final_key: d}], (type(d),)
 
@@ -146,7 +146,10 @@ class NestedStructure(BaseABC):
     structure: Any
     level_keys: 'list[str, ...] | tuple[str, ...]' = ('speaker', 'segment_index')
     final_key: 'str' = 'words'
-    final_types: 'type | list[type] | tuple[type]' = str
+
+    # Private attributes. Intended for use in a generalized apply_assignment function.
+    # Use with care! It can lead to unexpected behavior!
+    _final_types: 'type | list[type] | tuple[type]' = str
 
     # Cache variables
     _types = None
@@ -194,7 +197,7 @@ class NestedStructure(BaseABC):
         from meeteval.io.seglst import asseglst
         t = asseglst(t).map(lambda x: {**defaults, **x})
         return NestedStructure(_invert_python_structure(t, self.types, self.level_keys + (self.final_key,)),
-                               self.level_keys, self.final_key, self.final_types)
+                               self.level_keys, self.final_key, self._final_types)
 
     @property
     def types(self):
@@ -244,11 +247,11 @@ class NestedStructure(BaseABC):
 
         Nested structures beyond the specified groups are by default not allowed. With `ensure_word_is_string=False`,
         you can have nested structures. But be careful, this can lead to unexpected results!
-        >>> NestedStructure({'A': ['abc', 'def']}, level_keys=(), final_types=None).to_seglst()
+        >>> NestedStructure({'A': ['abc', 'def']}, level_keys=(), _final_types=None).to_seglst()
         SegLST(segments=[{'words': {'A': ['abc', 'def']}}])
-        >>> NestedStructure({'A': ['abc', 'def']}, level_keys=('speaker',), final_types=None).to_seglst()
+        >>> NestedStructure({'A': ['abc', 'def']}, level_keys=('speaker',), _final_types=None).to_seglst()
         SegLST(segments=[{'words': ['abc', 'def'], 'speaker': 'A'}])
-        >>> NestedStructure({'A': [{'x': 'abc'}, {'y': 'def'}]}, level_keys=(), final_types=None).to_seglst()
+        >>> NestedStructure({'A': [{'x': 'abc'}, {'y': 'def'}]}, level_keys=(), _final_types=None).to_seglst()
         SegLST(segments=[{'words': {'A': [{'x': 'abc'}, {'y': 'def'}]}}])
         """
         if self._seglst is None:
@@ -256,6 +259,6 @@ class NestedStructure(BaseABC):
                 self.structure,
                 keys=self.level_keys,
                 final_key=self.final_key,
-                final_types=self.final_types,
+                _final_types=self._final_types,
             )
         return self._seglst
