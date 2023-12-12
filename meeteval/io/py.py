@@ -87,8 +87,9 @@ def _invert_python_structure(t: 'SegLST', types, keys):
             for k in keys[len(types) - 1:-1]:
                 if len(t.unique(k)) != 1:
                     raise ValueError(
-                        f'Cannot convert SegLST to Tidy with t.keys={t.keys!r}, types={types!r} and keys={keys!r}. '
-                        f'Each non-unique key must have a type, otherwise the structure is not convertible.'
+                        f'Cannot convert SegLST to Python structure with t.keys={t.keys!r}, types={types!r} and '
+                        f'keys={keys!r}. Each non-unique key must have a type, otherwise the structure is not '
+                        f'convertible.'
                     )
             keys = keys[:len(types) - 1] + (keys[-1],)
         else:
@@ -116,6 +117,14 @@ def _invert_python_structure(t: 'SegLST', types, keys):
         return types[0](t.segments[0][keys[0]])
     groups = {k: _invert_python_structure(v, types[1:], keys[1:]) for k, v in t.groupby(keys[0]).items()}
     if types[0] in (list, tuple):
+        if any([not isinstance(k, int) for k in groups.keys()]):
+            # The behavior is not well-defined for non-integer keys. It is unclear whether keys should be sorted
+            # with Python's sort or natsort or whether they should be sorted at all. Hence, we only allow integer keys
+            # for conversion to list/tuple, where sorting is reasonable.
+            raise ValueError(
+                f'Cannot convert SegLST to Python sequence structures (list or tuple) with non-int keys. '
+                f'Expected integer keys, but found {groups.keys()}.'
+            )
         groups = types[0](v for _, v in sorted(groups.items()))
     return groups
 
@@ -128,8 +137,8 @@ class NestedStructure(BaseABC):
     Example structure for cpWER:
         ```python
         structure = {
-            'Alice': ['segment1', 'segment2'],   # Speaker 1: Alice
-            'Bob': ['segment1', 'segment2'],   # Speaker 2: Bob
+            'Alice': ['Transcript of segment 1', 'Transcript of segment 2'],   # Speaker 1: Alice
+            'Bob': ['Utterance 1', 'Utterance 2'],   # Speaker 2: Bob
         }
         NestedStructure(structure, ('speaker', 'segment'))
         ```
@@ -165,8 +174,6 @@ class NestedStructure(BaseABC):
         >>> s2 = NestedStructure(['a b c', 'd e f'], level_keys=('speaker',))
         >>> s.new(s2.to_seglst()).structure
         {0: 'a b c', 1: 'd e f'}
-        >>> s2.new(s.to_seglst()).structure   # Keys are sorted when converting to list (TODO: is this expected behavior?)
-        ['d e f', 'a b c']
 
         Empty structures are only invertible if all keys can be inferred and empty nesting levels get lost (TODO)
         >>> convert_cycle([], keys=())
