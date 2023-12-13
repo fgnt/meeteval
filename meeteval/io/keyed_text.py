@@ -45,7 +45,7 @@ class KeyedTextLine(BaseLine):
             transcript=segment['words'],
         )
 
-    def to_seglst(self) -> 'SegLstSegment':
+    def to_seglst_segment(self) -> 'SegLstSegment':
         return {
             'session_id': self.filename,
             'words': self.transcript,

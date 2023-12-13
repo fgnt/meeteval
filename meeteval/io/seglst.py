@@ -50,7 +50,7 @@ class SegLST(BaseABC):
         """
         if not self.segments:
             return set()
-        return set.intersection(*[set(s.keys()) for s in self])
+        return set.intersection(*[set(s.keys()) for s in self.segments])
 
     def unique(self, key) -> 'set[Any]':
         """

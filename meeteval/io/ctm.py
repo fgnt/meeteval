@@ -85,7 +85,7 @@ class CTMLine(BaseLine):
             confidence=segment.get('confidence', None),
         )
 
-    def to_seglst(self) -> 'SegLstSegment':
+    def to_seglst_segment(self) -> 'SegLstSegment':
         d = {
             'session_id': self.filename,
             'channel': self.channel,

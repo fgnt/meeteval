@@ -46,7 +46,7 @@ class BaseLine:
     def from_dict(cls, segment: 'SegLstSegment') -> 'Self':
         raise NotImplementedError(cls)
 
-    def to_seglst(self) -> 'SegLstSegment':
+    def to_seglst_segment(self) -> 'SegLstSegment':
         raise NotImplementedError(self)
 
     def serialize(self):
@@ -348,7 +348,7 @@ class Base(BaseABC):
 
     def to_seglst(self) -> 'SegLST':
         from meeteval.io.seglst import SegLST
-        return SegLST([l.to_seglst() for l in self.lines])
+        return SegLST([l.to_seglst_segment() for l in self.lines])
 
     @classmethod
     def new(cls, s, **defaults) -> 'Self':

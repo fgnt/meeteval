@@ -485,6 +485,8 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
     # Check whether words are sorted by start time
     words_sorted = words.sorted('start_time')
     if words_sorted != words:
+        # This check should be fast because `sorted` doesn't change the identity of the contained objects
+        # (so `words_sorted[0] is words[0] == True` when they are sorted).
         contradictions = [a != b for a, b in zip(words_sorted, words)]
         msg = (
             f'The order of word-level timings contradicts the segment-level order in {name}: '

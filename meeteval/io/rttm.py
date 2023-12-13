@@ -85,7 +85,7 @@ class RTTMLine(BaseLine):
             duration=segment['end_time'] - segment['start_time'],
         )
 
-    def to_seglst(self) -> 'SegLstSegment':
+    def to_seglst_segment(self) -> 'SegLstSegment':
         # TODO: read spec and handle speech segments with transcripts and other types
         d = {
             'session_id': self.filename,
