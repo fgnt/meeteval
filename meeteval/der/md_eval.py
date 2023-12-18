@@ -42,13 +42,21 @@ class DiaErrorRate:
         assert self.falarm_speaker_time >= 0
         assert self.speaker_error_time >= 0
         errors = self.speaker_error_time + self.falarm_speaker_time + self.missed_speaker_time
-        error_rate = decimal.Decimal(errors / self.scored_speaker_time)
+        error_rate = errors / self.scored_speaker_time
         if self.error_rate is None:
             object.__setattr__(self, 'error_rate', error_rate)
         else:
-            # decimal.Decimal.quantize rounds to the same number of digits as self.error_rate has.
-            error_rate = error_rate.quantize(self.error_rate)
-            assert self.error_rate == error_rate, (error_rate, self)
+            # Since md-eval uses float internally, and the printed numbers are
+            # rounded, it is in corner cases not possible to reproduce the
+            # exact error rate, that is calculated internally by md-eval.
+            # Therefore, the last digit may change. Here, an example, where it
+            # happened:
+            #   md-eval on all data:
+            #       0.1813
+            #   md-eval on each recording and then calculated:
+            #       0.1812499845344880915558304980
+            # Hence, we allow a small difference.
+            assert abs(self.error_rate - error_rate) < 0.00007, (error_rate, self)
 
     def __radd__(self, other: 'int') -> 'ErrorRate':
         if isinstance(other, int) and other == 0:
