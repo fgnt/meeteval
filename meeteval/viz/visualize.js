@@ -419,7 +419,7 @@ class CanvasPlot {
             if (icon) l.append("i").classed("fas " + icon, true);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
-            if (tooltip) tooltip(l.append("div").classed("tooltiptext", true));
+            if (tooltip) tooltip(l.append("div").classed("tooltipcontent", true));
             return l;
         }
 
@@ -479,7 +479,7 @@ class CanvasPlot {
             }
         });
         label("Alignment:", info.alignment_type, null,
-            c => c.text("The alignment algorithm used to generate this visualization. Available are:\n" +
+            c => c.append('div').classed('wrap-40', true).text("The alignment algorithm used to generate this visualization. Available are:\n" +
             "cp: concatenated minimum-permutation\n" +
             "tcp: time-constrained minimum permutation\n\n" +
             "(This setting cannot be changed interactively, but has to be selected when generating the visualization)\n" + 
@@ -489,7 +489,7 @@ class CanvasPlot {
             "Reference self-overlap:", 
             (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%", 
             "fa-triangle-exclamation",
-            c => c.text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            c => c.append('div').classed('wrap-40').text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "On the reference, this is usually an indication for annotation errors.\n" +
             "Extreme self-overlap can lead to unexpected WERs!")
         ).classed("warn", true);
@@ -497,7 +497,7 @@ class CanvasPlot {
             "Hypothesis self-overlap:", 
             (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%",
             "fa-triangle-exclamation",
-            c => c.text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            c => c.append('div').classed('wrap-40').text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "Extreme self-overlap can lead to unexpected WERs!")
         ).classed("warn", true);
     }
@@ -509,7 +509,7 @@ class CanvasPlot {
         constructor(container, words, initial_query) {
             this.words = words;
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
-            this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Search...");
+            this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
             if (initial_query) this.text_input.node().value = initial_query;
             this.on_search_callbacks = [];
 
@@ -928,9 +928,9 @@ class CanvasPlot {
 
             // Precompute alignment / stitches for insertions/substitutions
             this.matches = words.flatMap((w) => {
-                if (!w.matches) return;
-                w.matches
-                    .filter(m => m[0])  // Only loot at matches between words
+                if (!w.matches) return [];
+                return w.matches
+                    .filter(m => m[0])  // Only look at matches between words
                     .map(m => {
                         const other = words[m[0]];
                         const [left, right] = w.source === "hypothesis" ? [other, w] : [w, other];
@@ -1128,19 +1128,19 @@ class CanvasPlot {
             if (draw_utterance_markers) {
                 context.strokeStyle = "black";
                 context.lineWidth = .1;
-                context.beginPath();
-                const [minX, maxX] = this.plot.x.range();
-                filtered_utterances.forEach(d => {
-                    var y = this.plot.y(d.start_time) - 1;
-                    context.moveTo(minX, y);
-                    context.lineTo(maxX, y);
-                    y = this.plot.y(d.end_time) + 1;
-                    context.moveTo(minX, y);
-                    context.lineTo(maxX, y);
-                });
-                context.stroke();
-
+                // context.beginPath();
+                // filtered_utterances.forEach(d => {
+                    //     var y = this.plot.y(d.start_time) - 1;
+                    //     context.moveTo(minX, y);
+                    //     context.lineTo(maxX, y);
+                    //     y = this.plot.y(d.end_time) + 1;
+                    //     context.moveTo(minX, y);
+                    //     context.lineTo(maxX, y);
+                    // });
+                    // context.stroke();
+                    
                 if (this.selected_utterance) {
+                    const [minX, maxX] = this.plot.x.range();
                     context.lineWidth = .5;
                     context.strokeStyle = 'red';
                     var y = this.plot.y(this.selected_utterance.start_time) - 1;
@@ -1198,14 +1198,16 @@ class CanvasPlot {
                         this.plot.y(d.start_time),
                         rectwidth,
                         this.plot.y(d.end_time) - this.plot.y(d.start_time));
-                    context.strokeStyle = 'gray';
+                    
                     if (d.highlight) context.fillStyle = settings.colors.highlight;
                     else context.fillStyle = settings.colors[d.matches[0][1]];
                 }
 
                 context.fill();
+                context.strokeStyle = "gray";
+                context.lineWidth = 2;
                 if (draw_boxes) context.stroke();
-
+                
                 // Stitches for insertion / deletion
                 if (d.matches?.length > 0) {
                     // TODO: support multiple matches
@@ -1230,12 +1232,15 @@ class CanvasPlot {
             // TODO: precompute and draw ins/del matches here as well
             this.filtered_matches.forEach(m => {
                 // Substitution or correct
+                context.beginPath();
                 const bandleft = this.plot.x(m.speaker);
+                // console.log("draw match", m)
                 context.strokeStyle = settings.colors[m.match_type];
                 context.moveTo(bandleft + rectwidth, this.plot.y(m.left_center_time));
                 context.lineTo(bandleft + rectwidth + this.ref_hyp_gap / 2, this.plot.y(m.left_center_time));
                 context.lineTo(bandleft + rectwidth + 3 * this.ref_hyp_gap / 2, this.plot.y(m.right_center_time));
                 context.lineTo(bandleft + rectwidth + 2 * this.ref_hyp_gap, this.plot.y(m.right_center_time));
+                context.stroke();
             });
 
             // Draw word text
@@ -1302,12 +1307,13 @@ class CanvasPlot {
 
             // Draw boundary around the selected utterance
             if (this.selected_utterance) {
+                console.log(this.selected_utterance)
                 const d = this.selected_utterance;
-                const x = this.plot.x(d.speaker);
+                const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + this.ref_hyp_gap : 0);
                 context.beginPath();
                 context.strokeStyle = "red";
                 context.lineWidth = 3;
-                context.rect(x, this.plot.y(d.start_time), bandwidth, this.plot.y(d.end_time) - this.plot.y(d.start_time));
+                context.rect(x, this.plot.y(d.start_time), rectwidth, this.plot.y(d.end_time) - this.plot.y(d.start_time));
                 context.stroke();
 
                 // Write begin time above begin marker
@@ -1315,11 +1321,11 @@ class CanvasPlot {
                 context.fillStyle = "gray";
                 context.textAlign = "center";
                 context.textBaseline = "bottom";
-                context.fillText(`begin time: ${d.start_time.toFixed(2)}`, x + bandwidth / 2, this.plot.y(d.start_time) - 3);
+                context.fillText(`begin time: ${d.start_time.toFixed(2)}`, x + rectwidth / 2, this.plot.y(d.start_time) - 3);
 
                 // Write end time below end marker
                 context.textBaseline = "top";
-                context.fillText(`end time: ${d.end_time.toFixed(2)}`, x + bandwidth / 2, this.plot.y(d.end_time) + 3);
+                context.fillText(`end time: ${d.end_time.toFixed(2)}`, x + rectwidth / 2, this.plot.y(d.end_time) + 3);
             }
         }
 
@@ -1336,7 +1342,7 @@ class CanvasPlot {
             this.filtered_words = this.words.filter(w => w.start_time < x1 && w.end_time > x0);
             this.filtered_utterances = this.utterances.filter(w => w.start_time < x1 && w.end_time > x0);
             this.filtered_markers = this.markers ? this.markers.filter(m => m.start_time < x1 && m.end_time > x0) : null;
-            this.filtered_matches = this.matches.filter(m => m.start_time <= x2 && m.end_time > x1);
+            this.filtered_matches = this.matches.filter(m => m.start_time <= x1 && m.end_time > x0);
 
             call_throttled(this.draw.bind(this));
         }
@@ -1365,7 +1371,7 @@ class CanvasPlot {
                     e.append("div").classed("info-value", true).text(d => d[1]);
                 })
 
-                const tooltip = this.container.append("div").classed("tooltiptext", true).classed("tooltip-details", true);
+                const tooltip = this.container.append("div").classed("tooltipcontent", true).classed("tooltip-details", true);
 
                 const tooltipTable = tooltip.append("table").classed("details-table", true);
                 tooltipTable.selectAll(".utterance-details")

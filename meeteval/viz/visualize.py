@@ -56,10 +56,10 @@ def dump_json(
 
     """
     import io
-    import json
+    import simplejson
 
     if isinstance(path, io.IOBase):
-        json.dump(obj, path, indent=indent,
+        simplejson.dump(obj, path, indent=indent,
                   sort_keys=sort_keys, **kwargs)
     elif isinstance(path, (str, Path)):
         path = Path(path).expanduser()
@@ -68,7 +68,7 @@ def dump_json(
             path.parent.mkdir(parents=True, exist_ok=True)
 
         with path.open('w') as f:
-            json.dump(obj, f, indent=indent,
+            simplejson.dump(obj, f, indent=indent,
                       sort_keys=sort_keys, **kwargs)
     else:
         raise TypeError(path)
@@ -334,7 +334,6 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         }
         for k in hypothesis_keys
     }
-    print(data['info']['wer_by_speakers'])
     return data
 
 

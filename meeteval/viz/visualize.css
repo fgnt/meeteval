@@ -127,9 +127,18 @@ i {
     position: relative;
 }
 
-.tooltip .tooltiptext {
+/* Wraps text at about 40 characters. Used in text-only tooltips */
+.wrap-40 {
+    inline-size: max-content;
+    max-inline-size: 40ch;
+}
+
+/*
+Class for the tooltip content.
+*/
+.tooltip .tooltipcontent {
     visibility: hidden;
-    width: 800px;
+    
     white-space: pre-wrap;
     background-color: #555;
     color: #fff;
@@ -143,10 +152,17 @@ i {
     opacity: 0;
     transition: opacity 0.3s;
     transition-delay: 2s;
+
+    /* Width: fit content size, but not larger than 30 characters */
+    inline-size: fit-content;
+
+    /* Center the tooltip below the element */
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
 }
 
 /* Show the tooltip text when you mouse over the tooltip container */
-.tooltip:hover .tooltiptext {
+.tooltip:hover > .tooltipcontent {
     visibility: visible;
     opacity: 1;
     transition: opacity 0.1s;
@@ -173,10 +189,11 @@ i {
     opacity: 0.5;
 }
 
-.wer-table {
+table.wer-table {
     border-collapse: collapse;
     margin: auto;
     width: 100%;
+    table-layout: auto;
 }
 
 .wer-table thead tr {
