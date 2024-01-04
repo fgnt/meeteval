@@ -90,8 +90,6 @@ def siso_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate
         raise ValueError(f'Hypothesis must contain exactly one line, but found {len(hypothesis)} lines.')
 
     def split_words(d):
-        # TODO: only keep relevant keys?
-        # TODO: move into seglst file?
         return [
             {**s, 'words': w}
             for s in d
@@ -124,8 +122,6 @@ def siso_character_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> Erro
         raise ValueError(f'Hypothesis must contain exactly one line, but found {len(hypothesis)} lines.')
 
     def split_characters(s):
-        # TODO: only keep relevant keys?
-        # TODO: move into seglst file?
         return [
             {**s, 'words': c}
             for c in s['words'].strip()

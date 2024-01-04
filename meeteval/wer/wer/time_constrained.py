@@ -11,8 +11,6 @@ from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
 import logging
 
-from meeteval.wer.utils import _values, _map, _keys
-
 logger = logging.getLogger('time_constrained')
 
 if typing.TYPE_CHECKING:
@@ -29,6 +27,8 @@ __all__ = [
     'time_constrained_minimum_permutation_word_error_rate',
     'time_constrained_siso_word_error_rate',
     'tcp_word_error_rate_multifile',
+    'apply_collar',
+    'get_pseudo_word_level_timings',
     'align',
 ]
 
@@ -312,79 +312,88 @@ TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | list[Segment]'
 @seglst_map()
 def apply_collar(s: SegLST, collar: float):
     """
+    Adds a collar to begin and end times.
+
+    Works with any format that is convertible to SegLST and back, such as `STM` and `RTTM`.
+
     >>> apply_collar(SegLST([{'start_time': 0, 'end_time': 1}]), 1)
     SegLST(segments=[{'start_time': -1, 'end_time': 2}])
     >>> print(apply_collar(STM.parse('X 1 A 0 1 a b'), 1).dumps())
     X 1 A -1 2 a b
     <BLANKLINE>
     """
-    return s.map(
-        lambda s: {**s, 'start_time': s['start_time'] - collar, 'end_time': s['end_time'] + collar})
+    return s.map(lambda s: {**s, 'start_time': s['start_time'] - collar, 'end_time': s['end_time'] + collar})
 
 
 @seglst_map()
 def get_pseudo_word_level_timings(t: SegLST, strategy: str) -> SegLST:
     """
-    TODO: Remove TimeMarkedTranscript from testcases
+    Takes a transcript with segment-level annotations and outputs a transcript with estimated word-level annotations.
 
-    >>> from IPython.lib.pretty import pprint
-    >>> s = TimeMarkedTranscript(['abc b', 'c d e f'], [(0, 4), (4, 8)])
+    Choices for `strategy`:
+        - `'equidistant_intervals`': Divide segment-level timing into equally sized intervals
+        - `'equidistant_points`': Place time points equally spaded int the segment-level intervals
+        - `'full_segment`': Use the full segment for each word that belongs to that segment
+        - `'character_based`': Estimate the word length based on the number of characters
+        - `'character_based_points`': Estimates the word length based on the number of characters and creates a point in the center of each word
+        - `'none`' or `None`: Do not estimate word-level timings but assume that the provided timings are already given on a word level.
+
+    >>> from pprint import pprint
+    >>> from meeteval.io.seglst import SegLST
+    >>> s = SegLST([{'words': 'abc b', 'start_time': 0, 'end_time': 4}, {'words': 'c d e f', 'start_time': 4, 'end_time': 8}])
     >>> pprint(get_pseudo_word_level_timings(s, 'full_segment'))
-    TimeMarkedTranscript(
-        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
-        timings=[(0, 4), (0, 4), (4, 8), (4, 8), (4, 8), (4, 8)]
-    )
+    SegLST(segments=[{'end_time': 4, 'start_time': 0, 'words': 'abc'},
+                     {'end_time': 4, 'start_time': 0, 'words': 'b'},
+                     {'end_time': 8, 'start_time': 4, 'words': 'c'},
+                     {'end_time': 8, 'start_time': 4, 'words': 'd'},
+                     {'end_time': 8, 'start_time': 4, 'words': 'e'},
+                     {'end_time': 8, 'start_time': 4, 'words': 'f'}])
     >>> pprint(get_pseudo_word_level_timings(s, 'equidistant_points'))
-    TimeMarkedTranscript(
-        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
-        timings=[(1.0, 1.0),
-         (3.0, 3.0),
-         (4.5, 4.5),
-         (5.5, 5.5),
-         (6.5, 6.5),
-         (7.5, 7.5)]
-    )
+    SegLST(segments=[{'end_time': 1.0, 'start_time': 1.0, 'words': 'abc'},
+                     {'end_time': 3.0, 'start_time': 3.0, 'words': 'b'},
+                     {'end_time': 4.5, 'start_time': 4.5, 'words': 'c'},
+                     {'end_time': 5.5, 'start_time': 5.5, 'words': 'd'},
+                     {'end_time': 6.5, 'start_time': 6.5, 'words': 'e'},
+                     {'end_time': 7.5, 'start_time': 7.5, 'words': 'f'}])
     >>> pprint(get_pseudo_word_level_timings(s, 'equidistant_intervals'))
-    TimeMarkedTranscript(
-        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
-        timings=[(0.0, 2.0),
-         (2.0, 4.0),
-         (4.0, 5.0),
-         (5.0, 6.0),
-         (6.0, 7.0),
-         (7.0, 8.0)]
-    )
+    SegLST(segments=[{'end_time': 2.0, 'start_time': 0.0, 'words': 'abc'},
+                     {'end_time': 4.0, 'start_time': 2.0, 'words': 'b'},
+                     {'end_time': 5.0, 'start_time': 4.0, 'words': 'c'},
+                     {'end_time': 6.0, 'start_time': 5.0, 'words': 'd'},
+                     {'end_time': 7.0, 'start_time': 6.0, 'words': 'e'},
+                     {'end_time': 8.0, 'start_time': 7.0, 'words': 'f'}])
     >>> word_level = get_pseudo_word_level_timings(s, 'character_based')
     >>> pprint(word_level)
-    TimeMarkedTranscript(
-        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
-        timings=[(0.0, 3.0),
-         (3.0, 4.0),
-         (4.0, 5.0),
-         (5.0, 6.0),
-         (6.0, 7.0),
-         (7.0, 8.0)]
-    )
+    SegLST(segments=[{'end_time': 3.0, 'start_time': 0.0, 'words': 'abc'},
+                     {'end_time': 4.0, 'start_time': 3.0, 'words': 'b'},
+                     {'end_time': 5.0, 'start_time': 4.0, 'words': 'c'},
+                     {'end_time': 6.0, 'start_time': 5.0, 'words': 'd'},
+                     {'end_time': 7.0, 'start_time': 6.0, 'words': 'e'},
+                     {'end_time': 8.0, 'start_time': 7.0, 'words': 'f'}])
     >>> pprint(get_pseudo_word_level_timings(word_level, 'none'))   # Copies over the timings since word-level timings are already assumed
-    TimeMarkedTranscript(
-        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
-        timings=[(0.0, 3.0),
-         (3.0, 4.0),
-         (4.0, 5.0),
-         (5.0, 6.0),
-         (6.0, 7.0),
-         (7.0, 8.0)]
-    )
+    SegLST(segments=[{'end_time': 3.0, 'start_time': 0.0, 'words': 'abc'},
+                     {'end_time': 4.0, 'start_time': 3.0, 'words': 'b'},
+                     {'end_time': 5.0, 'start_time': 4.0, 'words': 'c'},
+                     {'end_time': 6.0, 'start_time': 5.0, 'words': 'd'},
+                     {'end_time': 7.0, 'start_time': 6.0, 'words': 'e'},
+                     {'end_time': 8.0, 'start_time': 7.0, 'words': 'f'}])
     >>> pprint(get_pseudo_word_level_timings(s, 'character_based_points'))
-    TimeMarkedTranscript(
-        transcript=['abc', 'b', 'c', 'd', 'e', 'f'],
-        timings=[(1.5, 1.5),
-         (3.5, 3.5),
-         (4.5, 4.5),
-         (5.5, 5.5),
-         (6.5, 6.5),
-         (7.5, 7.5)]
-    )
+    SegLST(segments=[{'end_time': 1.5, 'start_time': 1.5, 'words': 'abc'},
+                     {'end_time': 3.5, 'start_time': 3.5, 'words': 'b'},
+                     {'end_time': 4.5, 'start_time': 4.5, 'words': 'c'},
+                     {'end_time': 5.5, 'start_time': 5.5, 'words': 'd'},
+                     {'end_time': 6.5, 'start_time': 6.5, 'words': 'e'},
+                     {'end_time': 7.5, 'start_time': 7.5, 'words': 'f'}])
+
+    Works with any format that is convertible to SegLST and back, for example STM:
+    >>> print(get_pseudo_word_level_timings(STM.new(s, session_id='dummy', speaker='dummy'), 'character_based_points').dumps())
+    dummy 1 dummy 1.5 1.5 abc
+    dummy 1 dummy 3.5 3.5 b
+    dummy 1 dummy 4.5 4.5 c
+    dummy 1 dummy 5.5 5.5 d
+    dummy 1 dummy 6.5 6.5 e
+    dummy 1 dummy 7.5 7.5 f
+    <BLANKLINE>
     """
     pseudo_word_level_strategy = pseudo_word_level_strategies[strategy]
 
@@ -510,33 +519,33 @@ def get_self_overlap(d: SegLST):
     ▇
      ▇
       ▇
-    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0, 1), (1, 2), (2, 3)]))
+    >>> get_self_overlap([{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}])
     SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=3)
 
     ▇
     ▇
-    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b'], [(0,1), (0,1)]))
+    >>> get_self_overlap([{'words': 'a', 'start_time': 0, 'end_time': 1}] * 2)
     SelfOverlap(overlap_rate=1.0, overlap_time=1, total_time=1)
 
     ▇
     ▇
     ▇
-    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0,1), (0,1), (0,1)]))
+    >>> get_self_overlap([{'words': 'a', 'start_time': 0, 'end_time': 1}] * 3)
     SelfOverlap(overlap_rate=2.0, overlap_time=2, total_time=1)
 
     ▇▇▇▇▇▇▇▇▇▇
      ▇
        ▇
-    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0,10), (1,2), (3,4)]))
+    >>> get_self_overlap([{'words': 'a', 'start_time': 0, 'end_time': 10}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}])
     SelfOverlap(overlap_rate=0.2, overlap_time=2, total_time=10)
 
     ▇▇▇▇
      ▇▇
       ▇▇▇
-    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0,4), (1,3), (2,5)]))
+    >>> get_self_overlap([{'words': 'a', 'start_time': 0, 'end_time': 4}, {'words': 'b', 'start_time': 1, 'end_time': 3}, {'words': 'c', 'start_time': 2, 'end_time': 5}])
     SelfOverlap(overlap_rate=0.8, overlap_time=4, total_time=5)
 
-    >>> get_self_overlap(TimeMarkedTranscript(['a', 'b', 'c'], [(0, 1), (0.5, 1.5), (1, 2)]))
+    >>> get_self_overlap([{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 0.5, 'end_time': 1.5}, {'words': 'c', 'start_time': 1, 'end_time': 2}])
     SelfOverlap(overlap_rate=0.5, overlap_time=1.0, total_time=2.0)
     """
     d = asseglst(d, required_keys=('start_time', 'end_time'), py_convert=None)
@@ -589,7 +598,9 @@ def time_constrained_siso_word_error_rate(
     - 'segment': sort by segment start time and don't check word order
     - 'word': sort by word start time
 
-    >>> time_constrained_siso_word_error_rate(TimeMarkedTranscript(['a b', 'c d'], [(0,2), (0,2)]), TimeMarkedTranscript(['a'], [(0,1)]))
+    >>> time_constrained_siso_word_error_rate(
+    ... [{'words': 'a b', 'start_time': 0, 'end_time': 2},  {'words': 'c d', 'start_time': 0, 'end_time': 2}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}])
     ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=1.0, overlap_time=2, total_time=2), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1))
     """
     # Convert to SegLST. Disallow Python conversions since there is currently no way to get the timings from a
@@ -709,7 +720,7 @@ def tcp_word_error_rate_multifile(
         hypothesis_sort='segment',
 ) -> 'dict[str, CPErrorRate]':
     """
-    Computes the tcpWER for each example in the reference and hypothesis STM files.
+    Computes the tcpWER for each example in the reference and hypothesis files.
     See `time_constrained_minimum_permutation_word_error_rate` for details.
     
     To compute the overall WER, use `sum(tcp_word_error_rate_multifile(r, h).values())`.
@@ -744,7 +755,7 @@ def align(
         hypothesis_sort='segment',
 ):
     """
-    Align two time-marked transcripts, similar to `kaldialign.align`, but with time constriant.
+    Align two transcripts, similar to `kaldialign.align`, but with time constraint.
 
     Args:
         reference: reference transcript
@@ -766,15 +777,27 @@ def align(
     - 'word': sort by word start time
 
     >>> from pprint import pprint
-    >>> align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]))
+    >>> align(
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}])
     [('a', 'a'), ('b', 'b'), ('c', '*'), ('*', 'c')]
-    >>> align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]), collar=1)
+    >>> align(
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
+    ... collar=1)
     [('a', 'a'), ('b', 'b'), ('c', 'c')]
-    >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1)
+    >>> align(
+    ... [{'words': 'a b', 'start_time': 0, 'end_time': 1}, {'words': 'c', 'start_time': 1, 'end_time': 2}, {'words': 'd e', 'start_time': 2, 'end_time': 3}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b c', 'start_time': 1, 'end_time': 2}, {'words': 'e f', 'start_time': 3, 'end_time': 4}], collar=1)
     [('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', '*'), ('e', 'e'), ('*', 'f')]
-    >>> align(TimeMarkedTranscript(['a b', 'c', 'd e'], [(0,1), (1,2), (2,3)]), TimeMarkedTranscript(['a', 'b c', 'e f'], [(0,1), (1,2), (3,4)]), collar=1, style='index')
+    >>> align(
+    ... [{'words': 'a b', 'start_time': 0, 'end_time': 1}, {'words': 'c', 'start_time': 1, 'end_time': 2}, {'words': 'd e', 'start_time': 2, 'end_time': 3}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b c', 'start_time': 1, 'end_time': 2}, {'words': 'e f', 'start_time': 3, 'end_time': 4}],
+    ... collar=1, style='index')
     [(0, 0), (1, 1), (2, 2), (3, None), (4, 3), (None, 4)]
-    >>> pprint(align(TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (2,3)]), TimeMarkedTranscript('a b c'.split(), [(0,1), (1,2), (3,4)]), style='seglst'))
+    >>> pprint(align(
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}], style='seglst'))
     [({'end_time': 1, 'start_time': 0, 'words': 'a'},
       {'end_time': 0.5, 'start_time': 0.5, 'words': 'a'}),
      ({'end_time': 2, 'start_time': 1, 'words': 'b'},
@@ -806,7 +829,6 @@ def align(
     hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
     hypothesis_ = apply_collar(hypothesis, collar=collar)
 
-    # TODO: Handle empty segments correctly
     reference_words = [s['words'] for s in reference]
     reference_timing = [(s['start_time'], s['end_time']) for s in reference]
     hypothesis_words = [s['words'] for s in hypothesis_]

@@ -19,9 +19,11 @@ def _convert_python_structure(structure, *, keys=(), final_key='words', _final_t
         if isinstance(d, str):
             segment = {final_key: d}
 
-            # TODO: Allow multiple levels of defaults?
             if len(keys) > index + 1:
-                raise ValueError("Key mismatch")
+                raise ValueError(
+                    f"The structure contains fewer levels than keys provided. "
+                    f"keys: {keys}, structure depth: {index}"
+                )
 
             if index < len(keys):
                 segment[keys[-1]] = 0
@@ -32,8 +34,6 @@ def _convert_python_structure(structure, *, keys=(), final_key='words', _final_t
             if len(d) == 0:
                 # Special case where no structure information is available
                 # This case is not invertible!
-                # TODO: represent this by `None` or `''` as to make it (at least partially) invertible?
-                #  Problem: how to get the keys of further nesting levels?
                 return [], None if len(keys) > index else (type(d),)
 
             # Check if we have a key for this level. If not, raise an exception
@@ -104,9 +104,6 @@ def _invert_python_structure(t: 'SegLST', types, keys):
         #
         # Note: This inversion gives back the original when the SegLST representation is not modified,
         # but it can give a different representation when it was modified.
-        # TODO: Would it be better to keep a list? That would make the above statement true, but it would
-        #  change the format, e.g., from str to List[str] and is not guaranteed to do the same at
-        #  all nesting levels
         if keys[0] == 'words':
             words = [s['words'] for s in t]
             if types[0] == str:
@@ -178,7 +175,7 @@ class NestedStructure(BaseABC):
         >>> s.new(s2.to_seglst()).structure
         {0: 'a b c', 1: 'd e f'}
 
-        Empty structures are only invertible if all keys can be inferred and empty nesting levels get lost (TODO)
+        Empty structures are only invertible if all keys can be inferred and empty nesting levels get lost
         >>> convert_cycle([], keys=())
         []
         >>> convert_cycle([], keys=('speaker',))
@@ -225,7 +222,7 @@ class NestedStructure(BaseABC):
         >>> NestedStructure('a b c', level_keys=('speaker', 'channel')).to_seglst()
         Traceback (most recent call last):
           ...
-        ValueError: Key mismatch
+        ValueError: The structure contains fewer levels than keys provided. keys: ('speaker', 'channel'), structure depth: 0
 
         Empty structures
 
@@ -237,7 +234,7 @@ class NestedStructure(BaseABC):
         >>> NestedStructure([{}], level_keys=('speaker',)).to_seglst()
         SegLST(segments=[])
 
-        Empty nested structures are allowed but not represented in the `SegLST` format (TODO)
+        Empty nested structures are allowed but not represented in the `SegLST` format
         >>> NestedStructure([['ab'], []], level_keys=('speaker', 'segment_index')).to_seglst()
         SegLST(segments=[{'words': 'ab', 'segment_index': 0, 'speaker': 0}])
 
