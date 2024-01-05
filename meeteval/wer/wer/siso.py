@@ -21,8 +21,8 @@ def siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
 
     from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
-    reference = [s['words'] for s in reference if s['words']]
-    hypothesis = [s['words'] for s in hypothesis if s['words']]
+    reference = [w for w in reference.T['words'] if w]
+    hypothesis = [w for w in hypothesis.T['words'] if w]
 
     return levenshtein_distance(reference, hypothesis)
 
@@ -48,8 +48,8 @@ def _siso_error_rate(reference: 'list[Hashable]', hypothesis: 'list[Hashable]') 
 
 
 def _seglst_siso_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate:
-    reference = [s['words'] for s in reference if s['words']]
-    hypothesis = [s['words'] for s in hypothesis if s['words']]
+    reference = [w for w in reference.T['words'] if w]
+    hypothesis = [w for w in hypothesis.T['words'] if w]
     return _siso_error_rate(reference, hypothesis)
 
 

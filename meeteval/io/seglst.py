@@ -44,13 +44,26 @@ class SegLST(BaseABC):
     _unique = None
 
     @property
-    def keys(self) -> 'set[Any]':
+    class T:
         """
-        Keys that are common among all segments
+        The "transpose" of the segments, i.e., a mapping that maps keys to lists of values.
+
+        The name `T` is inspired by the `T` in `pandas.DataFrame.T` and `numpy.ndarray.T`.
         """
-        if not self.segments:
-            return set()
-        return set.intersection(*[set(s.keys()) for s in self.segments])
+        def __init__(self, outer):
+            self._outer = outer
+
+        def keys(self):
+            """
+            The keys that are common among all segments
+            """
+            return set.intersection(*[set(s.keys()) for s in self._outer.segments])
+
+        def __getitem__(self, key):
+            """
+            Returns the values for `key` of all segments as a list.
+            """
+            return [s[key] for s in self._outer.segments]
 
     def unique(self, key) -> 'set[Any]':
         """
@@ -207,11 +220,11 @@ def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
     t = d.to_seglst()
 
     # Check that `t` has all required keys
-    if len(t) and not set(required_keys).issubset(t.keys):
+    if len(t) and not set(required_keys).issubset(t.T.keys()):
         required_keys = set(required_keys)
         raise ValueError(
             f'Some required keys are not present in the converted data structure!\n'
-            f'Required: {required_keys}, found: {t.keys}, missing: {required_keys - t.keys}'
+            f'Required: {required_keys}, found: {t.T.keys()}, missing: {required_keys - t.T.keys()}'
         )
     return t
 

@@ -127,12 +127,12 @@ def orc_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> OrcErrorRa
     reference = asseglst(reference, required_keys=('words',))
     hypothesis = asseglst(hypothesis, required_keys=('words', 'speaker'))
 
-    if 'start_time' in reference.keys:
+    if 'start_time' in reference.T.keys():
         reference = reference.sorted('start_time')
-    if 'start_time' in hypothesis.keys:
+    if 'start_time' in hypothesis.T.keys():
         hypothesis = hypothesis.sorted('start_time')
 
-    reference = [s['words'].split() for s in reference if s['words']]
+    reference = [w.split() for w in reference.T['words'] if w]
     hypothesis = {
         speaker: [w for s in seglst if s['words'] for w in s['words'].split()]
         for speaker, seglst in hypothesis.groupby('speaker').items()

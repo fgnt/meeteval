@@ -97,9 +97,9 @@ def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
 
     # Sort by start time if the start time is available
     # TODO: implement something like reference_sort from time_constrained.py?
-    if 'start_time' in reference.keys:
+    if 'start_time' in reference.T.keys():
         reference = reference.sorted('start_time')
-    if 'start_time' in hypothesis.keys:
+    if 'start_time' in hypothesis.T.keys():
         hypothesis = hypothesis.sorted('start_time')
 
     # Convert to dict of lists of words

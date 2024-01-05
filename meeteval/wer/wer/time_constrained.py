@@ -139,10 +139,12 @@ def _time_constrained_siso_error_rate(
 ):
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
 
-    reference_words = [s['words'] for s in reference if s['words']]
-    reference_timing = [(s['start_time'], s['end_time']) for s in reference if s['words']]
-    hypothesis_words = [s['words'] for s in hypothesis if s['words']]
-    hypothesis_timing = [(s['start_time'], s['end_time']) for s in hypothesis if s['words']]
+    reference = reference.filter(lambda s: s['words'])
+    hypothesis = hypothesis.filter(lambda s: s['words'])
+    reference_words = reference.T['words']
+    reference_timing = list(zip(reference.T['start_time'], reference.T['end_time']))
+    hypothesis_words = hypothesis.T['words']
+    hypothesis_timing = list(zip(hypothesis.T['start_time'], hypothesis.T['end_time']))
 
     result = time_constrained_levenshtein_distance_with_alignment(
         reference_words, hypothesis_words, reference_timing, hypothesis_timing, prune=prune
@@ -563,12 +565,16 @@ def get_self_overlap(d: SegLST):
 def time_constrained_siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
 
-    reference_words = [s['words'] for s in reference if s['words']]
-    reference_timing = [(s['start_time'], s['end_time']) for s in reference if s['words']]
-    hypothesis_words = [s['words'] for s in hypothesis if s['words']]
-    hypothesis_timing = [(s['start_time'], s['end_time']) for s in hypothesis if s['words']]
+    # Ignore empty segments
+    reference = reference.filter(lambda s: s['words'])
+    hypothesis = hypothesis.filter(lambda s: s['words'])
 
-    return time_constrained_levenshtein_distance(reference_words, hypothesis_words, reference_timing, hypothesis_timing)
+    return time_constrained_levenshtein_distance(
+        reference=reference.T['words'],
+        hypothesis=hypothesis.T['words'],
+        reference_timing=list(zip(reference.T['start_time'], reference.T['end_time'])),
+        hypothesis_timing=list(zip(hypothesis.T['start_time'], hypothesis.T['end_time'])),
+    )
 
 
 def time_constrained_siso_word_error_rate(
@@ -610,8 +616,8 @@ def time_constrained_siso_word_error_rate(
 
     # Only single-speaker transcripts are supported, but we can here have multiple segments, e.g., for word-level
     # transcripts
-    assert 'speaker' not in reference.keys or len(reference.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
-    assert 'speaker' not in hypothesis.keys or len(hypothesis.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
+    assert 'speaker' not in reference.T.keys() or len(reference.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
+    assert 'speaker' not in hypothesis.T.keys() or len(hypothesis.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
 
     _reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
     _hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')

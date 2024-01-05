@@ -87,7 +87,7 @@ def _invert_python_structure(t: 'SegLST', types, keys):
             for k in keys[len(types) - 1:-1]:
                 if len(t.unique(k)) != 1:
                     raise ValueError(
-                        f'Cannot convert SegLST to Python structure with t.keys={t.keys!r}, types={types!r} and '
+                        f'Cannot convert SegLST to Python structure with t.keys={t.T.keys()!r}, types={types!r} and '
                         f'keys={keys!r}. Each non-unique key must have a type, otherwise the structure is not '
                         f'convertible.'
                     )

@@ -198,13 +198,13 @@ def _cp_error_rate(
             for et, _ in itertools.zip_longest(
             hypothesis.values(),
             reference.values(),  # ignored, "padding" for underestimation
-            fillvalue=[],
+            fillvalue=SegLST([]),
         )
         ]
         for tt, _ in itertools.zip_longest(
             reference.values(),
             hypothesis.values(),  # ignored, "padding" for overestimation
-            fillvalue=[],
+            fillvalue=SegLST([]),
         )
     ])
 
@@ -231,7 +231,7 @@ def _cp_error_rate(
         assignment,
         reference=reference,
         hypothesis=hypothesis,
-        missing=[],
+        missing=SegLST([]),
     )
 
     er = sum([
