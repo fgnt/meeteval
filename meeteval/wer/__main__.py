@@ -95,7 +95,7 @@ def _load(path: Path):
 
 def _load_reference(reference: 'Path | list[Path]'):
     """Loads a reference transcription file. Currently only STM supported"""
-    return STM.load(reference)
+    return meeteval.io.load(reference)
 
 
 def _load_hypothesis(hypothesis: 'list[Path]'):
@@ -115,14 +115,12 @@ def _load_hypothesis(hypothesis: 'list[Path]'):
             return CTMGroup.load(hypothesis).to_stm()
         else:
             return CTMGroup.load([hypothesis]).to_stm()
-    elif filename.endswith('.stm'):
-        return STM.load(hypothesis)
     elif filename.startswith('/dev/fd/') or filename.startswith('/proc/self/fd/'):
         # This is a pipe, i.e. python -m ... <(cat ...)
         # For now, assume it is an STM file
         return STM.load(hypothesis)
     else:
-        raise RuntimeError(hypothesis, filename)
+        return meeteval.io.load(hypothesis)
 
 
 def _load_texts(reference_paths: 'list[str]', hypothesis_paths: 'list[str]', regex) -> 'tuple[STM, list[Path], STM, list[Path]]':
