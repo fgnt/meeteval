@@ -763,6 +763,8 @@ def align(
     """
     Align two transcripts, similar to `kaldialign.align`, but with time constraint.
 
+    Note that empty segments are ignored / skipped for the alignment.
+
     Args:
         reference: reference transcript
         hypothesis: hypothesis transcript
@@ -771,8 +773,13 @@ def align(
         collar: collar applied to hypothesis pseudo-word level timings
         style: Alignment output style. Can be one of
             - 'words' or 'kaldi': Output in the style of `kaldialign.align`
-            - 'index': Output indices of the reference and hypothesis words instead of the words
-            - 'seglst': Output the (seglst) segments for each word
+            - 'index': Output indices of the reference and hypothesis words instead of the words. Empty segments are
+                included in the index, so aligning `('', 'a')` would give index `1` for `'a'`. Note that the
+                indices index words, not segments, and that word indices do not necessarily correspond to the index
+                of the segment in the input. If you want the indices to be valid for your input, make sure to pass
+                word-level timings and set `reference_pseudo_word_level_timing=None` and/or
+                `hypothesis_pseudo_word_level_timing=None`.
+            - 'seglst': Output the (seglst) segments for each word. Note: Empty segments are ignored
         reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
         hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
         
@@ -811,6 +818,18 @@ def align(
      ({'end_time': 3, 'start_time': 2, 'words': 'c'}, None),
      (None, {'end_time': 3.5, 'start_time': 3.5, 'words': 'c'})]
 
+    Empty segments / words are ignored
+     >>> pprint(align(
+     ... [{'words': '', 'start_time': 0, 'end_time': 1}, {'words': 'a', 'start_time': 1, 'end_time': 2}],
+     ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}]
+     ... ))
+     [('a', 'a')]
+    >>> pprint(align(
+    ... [{'words': '', 'start_time': 0, 'end_time': 1}, {'words': 'a', 'start_time': 1, 'end_time': 2}],
+    ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}],
+    ... style='index'))
+    [(1, 0)]
+
     Any additional attributes are passed through when style='seglst'
     >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='seglst')
     [({'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}, None)]
@@ -833,26 +852,53 @@ def align(
     hypothesis = asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
     reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
     hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
+
+    # Add index for tracking across filtering operations. This is only required for the index style since all other
+    # styles can be constructed from seglst without the index. Especially for `style = 'seglst'` we want to keep
+    # identity
+    if style == 'index':
+        reference = SegLST([{**s, '__align_index': i} for i, s in enumerate(reference)])
+        hypothesis = SegLST([{**s, '__align_index': i} for i, s in enumerate(hypothesis)])
+
+    # Ignore empty segments
+    reference = reference.filter(lambda s: s['words'])
+    hypothesis = hypothesis.filter(lambda s: s['words'])
+
     hypothesis_ = apply_collar(hypothesis, collar=collar)
 
-    reference_words = [s['words'] for s in reference]
-    reference_timing = [(s['start_time'], s['end_time']) for s in reference]
-    hypothesis_words = [s['words'] for s in hypothesis_]
-    hypothesis_timing = [(s['start_time'], s['end_time']) for s in hypothesis_]
+    # Compute the alignment with Cython code
+    reference_words = reference.T['words']
+    reference_timing = list(zip(reference.T['start_time'], reference.T['end_time']))
+    hypothesis_words = hypothesis_.T['words']
+    hypothesis_timing = list(zip(hypothesis_.T['start_time'], hypothesis_.T['end_time']))
 
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
     alignment = time_constrained_levenshtein_distance_with_alignment(
         reference_words, hypothesis_words, reference_timing, hypothesis_timing
     )['alignment']
 
-    if style in ('kaldi', 'words'):
-        alignment = index_alignment_to_kaldi_alignment(alignment, reference_words, hypothesis_words)
-    elif style == 'seglst':
+    # Convert "local" (relative to filtered words) indices to segments
+    alignment = [
+        (None if a is None else reference[a], None if b is None else hypothesis[b])
+        for a, b in alignment
+    ]
+
+    if style == 'index':
+        # Use the "global" (before filtering) index so that it corresponds to the input when the input
+        # already consists of words
         alignment = [
-            (None if a is None else reference[a],
-             None if b is None else hypothesis[b])
+            (None if a is None else a['__align_index'],
+             None if b is None else b['__align_index'])
             for a, b in alignment
         ]
+    elif style in ('kaldi', 'words'):
+        alignment = [
+            ('*' if a is None else a['words'],
+             '*' if b is None else b['words'])
+            for a, b in alignment
+        ]
+    elif style == 'seglst':
+        pass    # Already in correct format
     elif style != 'index':
         raise ValueError(f'Unknown alignment style: {style}')
 
