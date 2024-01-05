@@ -1,11 +1,12 @@
 import dataclasses
-from typing import Tuple, List, Dict, Iterable, Any
+from typing import Iterable, Any
 
+from meeteval.io.seglst import asseglst
 from meeteval.wer.wer.error_rate import ErrorRate
-from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
-from meeteval.wer.utils import _keys, _items, _values, _map
+from meeteval.wer.wer.siso import _siso_error_rate
+from meeteval.wer.utils import _keys, _items, _values
 
-__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mimo_word_error_rate_stm']
+__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mimo_word_error_rate_multifile']
 
 from meeteval.io import STM
 
@@ -18,12 +19,12 @@ class MimoErrorRate(ErrorRate):
     >>> MimoErrorRate(0, 10, 0, 0, 0, None, None, [(0, 0)]) + MimoErrorRate(10, 10, 0, 0, 10, None, None, [(0, 0)])
     ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
-    assignment: Tuple[int, ...]
+    assignment: 'tuple[int, ...]'
 
 
 def mimo_error_rate(
-    reference: 'List[List[Iterable]] | Dict[Any, List[Iterable]]',
-    hypothesis: 'List[Iterable] | Dict[Iterable]',
+        reference: 'list[list[Iterable]] | dict[Any, list[Iterable]]',
+        hypothesis: 'list[Iterable] | dict[Iterable]',
 ):
     if max(len(hypothesis), len(reference)) > 10:
         num_speakers = max(len(hypothesis), len(reference))
@@ -69,13 +70,7 @@ def mimo_error_rate(
     )
 
 
-
-
-
-def mimo_word_error_rate(
-        reference: 'List[List[str] | Dict[Any, str]] | Dict[List[str], Dict[Any, str]] | STM',
-        hypothesis: 'List[str] | Dict[str] | STM',
-) -> MimoErrorRate:
+def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
     """
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
 
@@ -94,38 +89,47 @@ def mimo_word_error_rate(
     ...                      {'O1': 'c d', 'O2': 'a b e f'})
     MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
+    >>> mimo_word_error_rate(STM.parse('X 1 A 0.0 1.0 a b\\nX 1 A 1.0 2.0 c d\\nX 1 B 0.0 2.0 e f\\n'), STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n'))
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', '0'), ('B', '0'), ('A', '1')])
     """
-    if isinstance(reference, STM) or isinstance(hypothesis, STM):
-        from meeteval.wer.wer.utils import _check_valid_input_files
-        _check_valid_input_files(reference, hypothesis)
-        reference = {
-            speaker_id: r.utterance_transcripts()
-            for speaker_id, r in reference.grouped_by_speaker_id().items()
-        }
-        hypothesis = {
-            speaker_id: h.merged_transcripts()
-            for speaker_id, h in hypothesis.grouped_by_speaker_id().items()
-        }
+    reference = asseglst(reference)
+    hypothesis = asseglst(hypothesis)
 
-    reference = _map(lambda x: _map(str.split, x), reference)
-    hypothesis = _map(str.split, hypothesis)
+    # Sort by start time if the start time is available
+    # TODO: implement something like reference_sort from time_constrained.py?
+    if 'start_time' in reference.T.keys():
+        reference = reference.sorted('start_time')
+    if 'start_time' in hypothesis.T.keys():
+        hypothesis = hypothesis.sorted('start_time')
+
+    # Convert to dict of lists of words
+    reference = {
+        k: [s['words'].split() for s in v if s['words'] != '']
+        for k, v in reference.groupby('speaker').items()
+    }
+    hypothesis = {
+        k: [w for s in v if s['words'] != '' for w in s['words'].split()]
+        for k, v in hypothesis.groupby('speaker').items()
+    }
+
+    # Call core function
     return mimo_error_rate(reference, hypothesis)
 
 
-def mimo_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, MimoErrorRate]':
+def mimo_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'dict[str, MimoErrorRate]':
     """
     Computes the MIMO WER for each example in the reference and hypothesis STM files.
 
-    To compute the overall WER, use `sum(mimo_word_error_rate_stm(r, h).values())`.
+    To compute the overall WER, use `sum(mimo_word_error_rate_multifile(r, h).values())`.
     """
-    from meeteval.io.stm import apply_stm_multi_file
-    return apply_stm_multi_file(mimo_word_error_rate, reference_stm, hypothesis_stm)
+    from meeteval.io.seglst import apply_multi_file
+    return apply_multi_file(mimo_word_error_rate, reference_stm, hypothesis_stm)
 
 
 def apply_mimo_assignment(
-        assignment: 'List[tuple]',
-        reference: 'List[List[Any]] | Dict[List[Any]]',
-        hypothesis: 'List[Any] | Dict[Any, Any]',
+        assignment: 'list[tuple]',
+        reference: 'list[list[Any]] | dict[list[Any]]',
+        hypothesis: 'list[Any] | dict[Any, Any]',
 ):
     """
     >>> assignment = [('A', 'O2'), ('B', 'O2'), ('A', 'O1')]

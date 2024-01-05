@@ -1,6 +1,9 @@
 import pytest
 from hypothesis import settings, given, strategies as st
 
+from meeteval.io.ctm import CTMGroup, CTM
+from meeteval.io.seglst import SegLST
+
 # Limit alphabet to ensure a few correct matches
 string = st.text(alphabet='abcdefg', min_size=0, max_size=100)
 
@@ -113,32 +116,24 @@ def test_time_constrained_levenshtein_distance_with_alignment_against_kaldialign
 
 
 @given(
-    st.composite(lambda draw: [
-        [
-            draw(st.text(alphabet='abcdefg', min_size=1, max_size=3))
-            for _ in range(draw(st.integers(min_value=2, max_value=10)))
-        ]
-        for _ in range(draw(st.integers(min_value=2, max_value=10)))
-    ])(),
-    st.composite(lambda draw: [
-        [
-            draw(st.text(alphabet='abcdefg', min_size=1, max_size=3))
-            for _ in range(draw(st.integers(min_value=2, max_value=10)))
-        ]
-        for _ in range(draw(st.integers(min_value=2, max_value=10)))
-    ])(),
+    st.lists(st.lists(string, min_size=2, max_size=10), min_size=2, max_size=10),
+    st.lists(st.lists(string, min_size=2, max_size=10), min_size=2, max_size=10),
 )
 @settings(deadline=None)
-def test_tcpwer_vs_cpwer(
-        a, b
-):
+def test_tcpwer_vs_cpwer(a, b):
     from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
     from meeteval.wer.wer.cp import cp_word_error_rate
 
     cp_statistics = cp_word_error_rate([' '.join(speaker) for speaker in a], [' '.join(speaker) for speaker in b])
     tcp_statistics = time_constrained_minimum_permutation_word_error_rate(
-        [[{'words': word, 'start_time': 0, 'end_time': 1} for word in speaker] for speaker in a],
-        [[{'words': word, 'start_time': 0, 'end_time': 1} for word in speaker] for speaker in b],
+        SegLST([
+            {'words': word, 'start_time': 0, 'end_time': 1, 'speaker': speaker_id}
+            for speaker_id, speaker in enumerate(a) for word in speaker
+        ]),
+        SegLST([
+            {'words': word, 'start_time': 0, 'end_time': 1, 'speaker': speaker_id}
+            for speaker_id, speaker in enumerate(b) for word in speaker
+        ]),
     )
     from dataclasses import replace
     tcp_statistics = replace(tcp_statistics, reference_self_overlap=None, hypothesis_self_overlap=None)
@@ -146,95 +141,94 @@ def test_tcpwer_vs_cpwer(
 
 
 def test_tcpwer_input_formats():
-    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate, \
-        TimeMarkedTranscript
-    from meeteval.io.stm import STM, STMLine
+    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
+    from meeteval.io.stm import STM
 
     r1 = time_constrained_minimum_permutation_word_error_rate(
-        [TimeMarkedTranscript(['a'], [(0, 1)]), TimeMarkedTranscript(['b c'], [(1, 2)])],
-        [TimeMarkedTranscript(['a b'], [(0, 1)]), TimeMarkedTranscript(['c'], [(1, 2)])],
+        SegLST([
+            {'words': 'a', 'start_time': 0, 'end_time': 1, 'speaker': 'A'},
+            {'words': 'b c', 'start_time': 1, 'end_time': 2, 'speaker': 'B'}
+        ]),
+        SegLST([
+            {'words': 'a b', 'start_time': 0, 'end_time': 1, 'speaker': 'A'},
+            {'words': 'c', 'start_time': 1, 'end_time': 2, 'speaker': 'B'}
+        ]),
     )
     r2 = time_constrained_minimum_permutation_word_error_rate(
-        [[{'words': 'a', 'start_time': 0, 'end_time': 1}], [{'words': 'b c', 'start_time': 1, 'end_time': 2}]],
-        [[{'words': 'a b', 'start_time': 0, 'end_time': 1}], [{'words': 'c', 'start_time': 1, 'end_time': 2}]],
+        STM.parse('dummy 1 A 0 1 a\ndummy 1 A 1 2 b c'),
+        STM.parse('dummy 1 A 0 1 a b\ndummy 1 A 1 2 c'),
     )
     r3 = time_constrained_minimum_permutation_word_error_rate(
-        [
-            STM([STMLine('dummy', 0, 'A', 0, 1, 'a')]),
-            STM([STMLine('dummy', 1, 'A', 1, 2, 'b c')])
-        ],
-        [
-            STM([STMLine('dummy', 0, 'A', 0, 1, 'a b')]),
-            STM([STMLine('dummy', 1, 'A', 1, 2, 'c')])
-        ]
-    )
-    r4 = time_constrained_minimum_permutation_word_error_rate(
-        {'A': TimeMarkedTranscript(['a'], [(0, 1)]), 'B': TimeMarkedTranscript(['b c'], [(1, 2)])},
-        {'A': TimeMarkedTranscript(['a b'], [(0, 1)]), 'B': TimeMarkedTranscript(['c'], [(1, 2)])},
-    )
-    r5 = time_constrained_minimum_permutation_word_error_rate(
-        {'A': [{'words': 'a', 'start_time': 0, 'end_time': 1}],
-         'B': [{'words': 'b c', 'start_time': 1, 'end_time': 2}]},
-        {'A': [{'words': 'a b', 'start_time': 0, 'end_time': 1}],
-         'B': [{'words': 'c', 'start_time': 1, 'end_time': 2}]},
+        CTMGroup({'A': CTM.parse("dummy 1 0 1 a\ndummy 1 1 0.5 b\ndummy 1 1.5 0.5 c")}),
+        CTMGroup({0: CTM.parse("dummy 1 0 0.5 a\ndummy 1 0.5 0.5 b\ndummy 1 1 1 c")})
     )
     assert r1.error_rate == r2.error_rate
     assert r1.error_rate == r3.error_rate
-    assert r1.error_rate == r4.error_rate
-    assert r1.error_rate == r5.error_rate
 
 
 def test_time_constrained_sorting_options():
-    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate, \
-        TimeMarkedTranscript
+    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
 
-    r1 = TimeMarkedTranscript(['a b', 'c d'], [(0, 1), (0, 1)])
+    r1 = SegLST([
+        {'words': 'a b', 'start_time': 0, 'end_time': 1, 'speaker': 'A'},
+        {'words': 'b c', 'start_time': 0, 'end_time': 1, 'speaker': 'A'}
+    ])
 
     # "True" checks whether word order matches the word-level timestamps.
     # Here, it doesn't match, so ValueError is raised.
     with pytest.raises(ValueError):
         time_constrained_minimum_permutation_word_error_rate(
-            [r1], [r1], reference_sort=True, hypothesis_sort=True
+            r1, r1, reference_sort=True, hypothesis_sort=True
         )
 
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r1], reference_sort='word', hypothesis_sort='word'
+        r1, r1, reference_sort='word', hypothesis_sort='word'
     )
     assert er.error_rate == 0
 
-    r1 = TimeMarkedTranscript(['a b c d', 'e f g h'], [(0, 4), (2, 6)])
-    r2 = TimeMarkedTranscript(['a b c d e f g h'], [(0, 6)])
+    r1 = SegLST([
+        {'words': 'a b c d', 'start_time': 0, 'end_time': 4, 'speaker': 'A'},
+        {'words': 'e f g h', 'start_time': 2, 'end_time': 6, 'speaker': 'A'},
+    ])
+    r2 = SegLST([
+        {'words': 'a b c d e f g h', 'start_time': 0, 'end_time': 6, 'speaker': 'A'},
+    ])
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort='word',
+        r1, r2, reference_sort='word'
     )
     assert er.error_rate == 0.75
 
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort='segment',
+        r1, r2, reference_sort='segment'
     )
     assert er.error_rate == 0.75
 
     # With collar: "segment" keeps word order, so the error becomes 0
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort='segment', collar=1
+        r1, r2, reference_sort='segment', collar=1
     )
     assert er.error_rate == 0
 
     # With collar: "word" does not keep word order, so the overlap gets penalized
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort='word', collar=1
+        r1, r2, reference_sort='word', collar=1
     )
     assert er.error_rate == 0.25
 
     # False means the user provides the sorting, so we can pass anything
-    r1 = TimeMarkedTranscript(['e f g h', 'a b c d'], [(4, 8), (0, 4)])
-    r2 = TimeMarkedTranscript(['a b c d e f g h'], [(0, 8)])
+    r1 = SegLST([
+        {'words': 'e f g h', 'start_time': 4, 'end_time': 8, 'speaker': 'A'},
+        {'words': 'a b c d', 'start_time': 0, 'end_time': 4, 'speaker': 'A'},
+    ])
+    r2 = SegLST([
+        {'words': 'a b c d e f g h', 'start_time': 0, 'end_time': 8, 'speaker': 'A'},
+    ])
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort='segment',
+        r1, r2, reference_sort='segment',
     )
     assert er.error_rate == 0
 
     er = time_constrained_minimum_permutation_word_error_rate(
-        [r1], [r2], reference_sort=False, hypothesis_sort=False,
+        r1, r2, reference_sort=False, hypothesis_sort=False,
     )
     assert er.error_rate == 1

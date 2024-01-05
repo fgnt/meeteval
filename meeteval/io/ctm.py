@@ -1,15 +1,21 @@
+import typing
 import warnings
 from dataclasses import dataclass
-from typing import Dict, List, Optional
-from typing import NamedTuple
-from meeteval.io.base import Base, BaseLine
+from typing import Optional
+from meeteval.io.base import Base, BaseLine, BaseABC
+import decimal
 
+if typing.TYPE_CHECKING:
+    from typing import Self
+    from meeteval.io.seglst import SegLstSegment, SegLST
 
 __all__ = [
     'CTMLine',
     'CTM',
     'CTMGroup',
 ]
+
+
 
 
 @dataclass(frozen=True)
@@ -30,13 +36,13 @@ class CTMLine(BaseLine):
     """
     filename: str
     channel: 'str | int'
-    begin_time: float
-    duration: float
+    begin_time: 'decimal.Decimal | float'
+    duration: 'decimal.Decimal | float'
     word: str
     confidence: Optional[int] = None
 
     @classmethod
-    def parse(cls, line: str, parse_float=float) -> 'CTMLine':
+    def parse(cls, line: str, parse_float=decimal.Decimal) -> 'CTMLine':
         try:
             # CB: Should we disable the support for missing confidence?
             filename, channel, begin_time, duration, word, *confidence = line.strip().split()
@@ -49,7 +55,6 @@ class CTMLine(BaseLine):
                 word,
                 confidence[0] if confidence else None
             )
-            assert ctm_line.begin_time >= 0, ctm_line
             assert ctm_line.duration >= 0, ctm_line
         except Exception as e:
             raise ValueError(f'Unable to parse CTM line: {line}') from e
@@ -61,42 +66,80 @@ class CTMLine(BaseLine):
         >>> line.serialize()
         'rec1 0 10 2 Hello 1'
         """
-        return (f'{self.filename} {self.channel} {self.begin_time} '
-                f'{self.duration} {self.word} {self.confidence}')
+        s = f'{self.filename} {self.channel} {self.begin_time} {self.duration} {self.word}'
+        if self.confidence is not None:
+            s += f' {self.confidence}'
+        return s
+
+    @classmethod
+    def from_dict(cls, segment: 'SegLstSegment') -> 'Self':
+        # CTM only supports words as segments.
+        # If this check fails, the input data was not converted to words before.
+        assert ' ' not in segment['words'], segment
+        return cls(
+            filename=segment['session_id'],
+            channel=segment['channel'],
+            begin_time=segment['start_time'],
+            duration=segment['end_time'] - segment['start_time'],
+            word=segment['words'],
+            confidence=segment.get('confidence', None),
+        )
+
+    def to_seglst_segment(self) -> 'SegLstSegment':
+        d = {
+            'session_id': self.filename,
+            'channel': self.channel,
+            'start_time': self.begin_time,
+            'end_time': self.begin_time + self.duration,
+            'words': self.word,
+        }
+        if self.confidence is not None:
+            d['confidence'] = self.confidence
+        return d
 
 
 @dataclass(frozen=True)
 class CTM(Base):
-    lines: List[CTMLine]
-    line_cls = CTMLine
+    lines: 'list[CTMLine]'
+    line_cls = 'CTMLine'
 
     @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[CTMLine]':
-        return [
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        return cls([
             CTMLine.parse(line, parse_float=parse_float)
-            for line in map(str.strip, file_descriptor)
+            for line in map(str.strip, s.split('\n'))
             if len(line) > 0
             if not line.startswith(';;')
-        ]
+        ])
 
     def merged_transcripts(self) -> str:
         return ' '.join([x.word for x in sorted(self.lines, key=lambda x: x.begin_time)])
 
-    def utterance_transcripts(self) -> List[str]:
+    def utterance_transcripts(self) -> 'list[str]':
         """There is no notion of an "utterance" in CTM files."""
         raise NotImplementedError()
 
+    @classmethod
+    def new(cls, s, **defaults) -> 'Self':
+        # CTM only supports a single speaker. Use CTMGroup to represent multiple speakers with this format.
+        if len(s.unique('speaker')) > 1:
+            raise ValueError(
+                f'CTM only supports a single speaker, but found {len(s.unique("speaker"))} speakers '
+                f'({s.unique("speaker")}). Use CTMGroup to represent multiple speakers with this format.'
+            )
+        return super().new(s, **defaults)
+
 
 @dataclass(frozen=True)
-class CTMGroup:
-    ctms: 'Dict[str, CTM]'
+class CTMGroup(BaseABC):
+    ctms: 'dict[str, CTM]'
 
     @classmethod
-    def load(cls, ctm_files, parse_float=float):
+    def load(cls, ctm_files, parse_float=decimal.Decimal):
         return cls({str(ctm_file): CTM.load(ctm_file, parse_float=parse_float)
                     for ctm_file in ctm_files})
 
-    def grouped_by_filename(self) -> Dict[str, 'CTMGroup']:
+    def grouped_by_filename(self) -> 'dict[str, CTMGroup]':
         groups = {
             k: ctm.grouped_by_filename() for k, ctm in self.ctms.items()
         }
@@ -128,8 +171,17 @@ class CTMGroup:
             for key in keys
         }
 
-    def grouped_by_speaker_id(self) -> Dict[str, CTM]:
+    def grouped_by_speaker_id(self) -> 'dict[str, CTM]':
         return self.ctms
+
+    @classmethod
+    def new(cls, s: 'SegLST', **defaults) -> 'Self':
+        from meeteval.io.seglst import asseglst
+        return cls({k: CTM.new(v) for k, v in asseglst(s).map(lambda s: {**defaults, **s}).groupby('speaker').items()})
+
+    def to_seglst(self) -> 'SegLST':
+        from meeteval.io.seglst import SegLST
+        return SegLST.merge(*[ctm.to_seglst().map(lambda x: {**x, 'speaker': speaker}) for speaker, ctm in self.ctms.items()])
 
     def to_stm(self):
         from meeteval.io import STM, STMLine

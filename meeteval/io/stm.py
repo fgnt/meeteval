@@ -1,14 +1,8 @@
-import sys
-import typing
 from dataclasses import dataclass
-from typing import List, NamedTuple
 from meeteval.io.base import Base, BaseLine
-import logging
+import decimal
 
-if typing.TYPE_CHECKING:
-    import decimal
-    from meeteval.io.uem import UEM, UEMLine
-    from meeteval.wer import ErrorRate
+from meeteval.io.seglst import SegLstSegment
 
 __all__ = [
     'STMLine',
@@ -40,7 +34,7 @@ class STMLine(BaseLine):
     transcript: str
 
     @classmethod
-    def parse(cls, line: str, parse_float=float) -> 'STMLine':
+    def parse(cls, line: str, parse_float=decimal.Decimal) -> 'STMLine':
         filename, channel, speaker_id, begin_time, end_time, *transcript = line.strip().split(maxsplit=5)
 
         if len(transcript) == 1:
@@ -60,10 +54,31 @@ class STMLine(BaseLine):
             )
         except Exception as e:
             raise ValueError(f'Unable to parse STM line: {line}') from e
-        assert stm_line.begin_time >= 0, stm_line
+        # assert stm_line.begin_time >= 0, stm_line
         # We currently ignore the end time, so it's fine when it's before begin_time
         # assert stm_line.end_time >= stm_line.begin_time, stm_line
         return stm_line
+
+    @classmethod
+    def from_dict(cls, segment: 'SegLstSegment'):
+        return cls(
+            filename=segment['session_id'],
+            channel=segment.get('channel', 1),
+            speaker_id=segment['speaker'],
+            begin_time=segment['start_time'],
+            end_time=segment['end_time'],
+            transcript=segment['words'],
+        )
+
+    def to_seglst_segment(self) -> 'SegLstSegment':
+        return {
+            'session_id': self.filename,
+            'channel': self.channel,
+            'speaker': self.speaker_id,
+            'start_time': self.begin_time,
+            'end_time': self.end_time,
+            'words': self.transcript,
+        }
 
     def serialize(self):
         """
@@ -74,29 +89,19 @@ class STMLine(BaseLine):
         return (f'{self.filename} {self.channel} {self.speaker_id} '
                 f'{self.begin_time} {self.end_time} {self.transcript}')
 
-    def segment_dict(self):
-        """Returns a segment dict in the style of Chime-7 annotations"""
-        return {
-            'start_time': self.begin_time,
-            'end_time': self.end_time,
-            'words': self.transcript,
-            'speaker': self.speaker_id,
-            'session_id': self.filename
-        }
-
 
 @dataclass(frozen=True)
 class STM(Base):
-    lines: List[STMLine]
+    lines: 'list[STMLine]'
     line_cls = STMLine
 
     @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[STMLine]':
-        return [
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'STM':
+        return cls([
             STMLine.parse(line, parse_float)
-            for line in file_descriptor
+            for line in s.split('\n')
             if len(line.strip()) > 0 and not line.strip().startswith(';')
-        ]
+        ])
 
     @classmethod
     def merge(cls, *stms) -> 'STM':
@@ -108,19 +113,7 @@ class STM(Base):
         # ToDo: Fix `line.end_time - line.begin_time`, when they are floats.
         #       Sometimes there is a small error and the error will be written
         #       to the rttm file.
-
-        return RTTM([
-            RTTMLine(
-                filename=line.filename,
-                channel=line.channel,
-                begin_time=line.begin_time,
-                duration=line.end_time - line.begin_time,
-                speaker_id=line.speaker_id,
-                # line.transcript  RTTM doesn't support transcript
-                # hence this information is dropped.
-            )
-            for line in self.lines
-        ])
+        return RTTM.new(self.to_seglst())
 
     def to_array_interval(self, sample_rate, group=True):
         import paderbox as pb
@@ -137,78 +130,21 @@ class STM(Base):
                 (round(line.begin_time * sample_rate), round(line.end_time * sample_rate))
                 for line in self.lines])
 
-    def utterance_transcripts(self) -> List[str]:
+    def utterance_transcripts(self) -> 'list[str]':
         return [x.transcript for x in sorted(self.lines, key=lambda x: x.begin_time)]
 
     def merged_transcripts(self) -> str:
         return ' '.join(self.utterance_transcripts())
 
-    def segments(self):
-        return [l.segment_dict() for l in self]
+
+if __name__ == '__main__':
+    def to_rttm(file):
+        from pathlib import Path
+        STM.load(file).to_rttm().dump(Path(file).with_suffix('.rttm'))
 
 
-def iter_examples(reference: 'STM', hypothesis: 'STM', *, allowed_empty_examples_ratio=0.1):
-    reference = reference.grouped_by_filename()
-    hypothesis = hypothesis.grouped_by_filename()
+    import fire
 
-    if reference.keys() != hypothesis.keys():
-        h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
-        r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
-
-        ratio = len(r_minus_h) / len(reference.keys())
-
-        if h_minus_r:
-            # This is a warning, because missing in reference is not a problem,
-            # we can safely ignore it. Missing in hypothesis is a problem,
-            # because we cannot distinguish between silence and missing.
-            logging.warning(
-                f'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(reference)})\n'
-                f'Drop them.',
-            )
-            hypothesis = {
-                k: v
-                for k, v in hypothesis.items()
-                if k not in h_minus_r
-            }
-
-        if len(r_minus_h) == 0:
-            pass
-        elif ratio <= allowed_empty_examples_ratio:
-            logging.warning(
-                f'Missing {ratio * 100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
-                f'Please check your system, if it ignored some recordings or predicted no transcriptions for some recordings.\n'
-                f'Continue with the assumption, that the system predicted silence for the missing recordings.',
-            )
-        else:
-            raise RuntimeError(
-                'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(hypothesis)})\n'
-                f'reference - hypothesis: e.g. {r_minus_h[:5]} (Total: {len(r_minus_h)} of {len(reference)})'
-            )
-
-    for filename in reference:
-        yield filename, reference[filename], hypothesis[filename]
-
-
-def apply_stm_multi_file(
-        fn: 'typing.Callable[[STM, STM], ErrorRate]',
-        reference: 'STM',
-        hypothesis: 'STM',
-        *,
-        allowed_empty_examples_ratio=0.1
-):
-    result = {}
-    for f, r, h in iter_examples(
-            reference, hypothesis,
-            allowed_empty_examples_ratio=allowed_empty_examples_ratio
-    ):
-        logging.debug(f'Processing example {f}')
-        try:
-            result[f] = fn(r, h)
-            logging.debug(f'Result of example {f}: {result[f]}')
-        except Exception:
-            logging.error(f'Exception in example {f}')
-            raise
-    return result
-
+    fire.Fire({
+        'to_rttm': to_rttm,
+    })

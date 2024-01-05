@@ -1,9 +1,9 @@
 import typing
 
 Utterance = typing.Sequence[typing.Hashable]
-Hypothesis = typing.List[Utterance]
-Reference = typing.List[typing.List[Utterance]]
-Assignment = typing.List[typing.Tuple[int, int]]
+Hypothesis = 'list[Utterance]'
+Reference = 'list[list[Utterance]]'
+Assignment = 'list[tuple[int, int]]'
 
 
 def levenshtein_distance(ref, hyp):

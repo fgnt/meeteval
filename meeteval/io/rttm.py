@@ -1,11 +1,10 @@
 import typing
-from typing import List, NamedTuple
 from dataclasses import dataclass
 from meeteval.io.base import Base, BaseLine
-
+from meeteval.io.seglst import SegLstSegment
+import decimal
 
 if typing.TYPE_CHECKING:
-    import decimal
     from meeteval.io.uem import UEM, UEMLine
 
 
@@ -53,10 +52,10 @@ class RTTMLine(BaseLine):
     signal_look_ahead_time: str = '<NA>'
 
     @classmethod
-    def parse(cls, line: str, parse_float=float) -> 'RTTMLine':
+    def parse(cls, line: str, parse_float=decimal.Decimal) -> 'RTTMLine':
         """
         >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
-        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=130.43, duration=2.35, othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
+        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
         """
         type_, filename, channel, begin_time, duration, othography, \
         speaker_type, speaker_id, confidence, signal_look_ahead_time, \
@@ -75,11 +74,36 @@ class RTTMLine(BaseLine):
             signal_look_ahead_time=signal_look_ahead_time,
         )
 
+    @classmethod
+    def from_dict(cls, segment: 'SegLstSegment') -> 'RTTMLine':
+        # TODO: read spec and handle speech segments with transcripts
+        return RTTMLine(
+            filename=segment['session_id'],
+            channel=segment.get('channel', cls.channel),
+            speaker_id=segment['speaker'],
+            begin_time=segment['start_time'],
+            duration=segment['end_time'] - segment['start_time'],
+        )
+
+    def to_seglst_segment(self) -> 'SegLstSegment':
+        # TODO: read spec and handle speech segments with transcripts and other types
+        d = {
+            'session_id': self.filename,
+            'speaker': self.speaker_id,
+            'start_time': self.begin_time,
+            'end_time': self.begin_time + self.duration,
+        }
+
+        if self.channel != self.__class__.channel:
+            d['channel'] = self.channel
+
+        return d
+
     def serialize(self):
         """
         >>> line = RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
         >>> line.serialize()
-        'SPEAKER CMU_20020319-1400_d01_NONE 1 130.43 2.35 <NA> <NA> juliet <NA> <NA>'
+        'SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>'
         """
         return (f'{self.type} {self.filename} {self.channel} '
                 f'{self.begin_time} {self.duration} {self.othography} '
@@ -89,13 +113,13 @@ class RTTMLine(BaseLine):
 
 @dataclass(frozen=True)
 class RTTM(Base):
-    lines: List[RTTMLine]
+    lines: 'list[RTTMLine]'
     line_cls = RTTMLine
 
     @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[RTTMLine]':
-        return [
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'RTTM':
+        return cls([
             RTTMLine.parse(line, parse_float)
-            for line in file_descriptor
+            for line in s.split('\n')
             if len(line.strip()) > 0 and not line.strip().startswith(';')
-        ]
+        ])

@@ -1,16 +1,18 @@
+import abc
 import io
 import os
 import sys
 import typing
 from pathlib import Path
 import contextlib
-from typing import Dict, List, NamedTuple
 import dataclasses
 from dataclasses import dataclass
 from itertools import groupby
+import decimal
 
 if typing.TYPE_CHECKING:
     from typing import Self
+    from meeteval.io.seglst import SegLstSegment, SegLST
     from meeteval.io.uem import UEM, UEMLine
     from meeteval.io.stm import STM, STMLine
     from meeteval.io.ctm import CTM, CTMLine
@@ -20,11 +22,32 @@ if typing.TYPE_CHECKING:
     Subclasses = 'UEM | STM | CTM | RTTM'
 
 
+
+class BaseABC:
+    @classmethod
+    def new(cls, d, **defaults):
+        # Example code:
+        # from meeteval.io.seglst import asseglst
+        # seglst = asseglst(d).map(lambda s: {**defaults, **s})
+        # ... (convert seglst to cls)
+        raise NotImplementedError(cls)
+
+    def to_seglst(self):
+        raise NotImplementedError()
+
+
 @dataclass(frozen=True)
 class BaseLine:
     @classmethod
     def parse(cls, line: str) -> 'Self':
         raise NotImplementedError(cls)
+
+    @classmethod
+    def from_dict(cls, segment: 'SegLstSegment') -> 'Self':
+        raise NotImplementedError(cls)
+
+    def to_seglst_segment(self) -> 'SegLstSegment':
+        raise NotImplementedError(self)
 
     def serialize(self):
         raise NotImplementedError(type(self))
@@ -112,25 +135,30 @@ class BaseLine:
         return dataclasses.replace(self, **kwargs)
 
 
-@dataclass(frozen=True)
-class Base:
-    lines: 'List[LineSubclasses]'
+class Base(BaseABC):
+    lines: 'list[LineSubclasses]'
     line_cls = 'LineSubclasses'
 
-    @classmethod
-    def _load(cls, file_descriptor, parse_float) -> 'List[Self.line_cls]':
-        raise NotImplementedError()
+    def __init__(self, data):
+        self.lines = data
 
     @classmethod
-    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=float) -> 'Self':
+    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=decimal.Decimal) -> 'Self':
         files = file if isinstance(file, (tuple, list)) else [file]
 
         parsed_lines = []
         for f in files:
             with _open(f, 'r') as fd:
-                parsed_lines.extend(cls._load(fd, parse_float=parse_float))
+                parsed_lines.extend(cls.parse(fd.read(), parse_float=parse_float))
 
         return cls(parsed_lines)
+
+    @classmethod
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        # Many of the supported file-formats have different conventions for comments.
+        # Below is an example for a file that doesn't have comments.
+        # return cls([cls.line_cls.parse(line) for line in s.splitlines() if line.strip()])
+        raise NotImplementedError
 
     def _repr_pretty_(self, p, cycle):
         name = self.__class__.__name__
@@ -167,7 +195,7 @@ class Base:
             return NotImplemented
         return self.__class__(self.lines + other.lines)
 
-    def groupby(self, key) -> Dict[str, 'Self']:
+    def groupby(self, key) -> 'dict[str, Self]':
         """
         >>> from meeteval.io.stm import STM, STMLine
         >>> stm = STM([STMLine.parse('rec1 0 A 10 20 Hello World')])
@@ -191,7 +219,7 @@ class Base:
             )
         }
 
-    def grouped_by_filename(self) -> Dict[str, 'Self']:
+    def grouped_by_filename(self) -> 'dict[str, Self]':
         return self.groupby(lambda x: x.filename)
 
     def grouped_by_speaker_id(self):
@@ -318,6 +346,16 @@ class Base:
     def filenames(self):
         return {x.filename for x in self.lines}
 
+    def to_seglst(self) -> 'SegLST':
+        from meeteval.io.seglst import SegLST
+        return SegLST([l.to_seglst_segment() for l in self.lines])
+
+    @classmethod
+    def new(cls, s, **defaults) -> 'Self':
+        from meeteval.io.seglst import asseglst
+        return cls([cls.line_cls.from_dict({**defaults, **segment}) for segment in asseglst(s)])
+
+
 
 def _open(f, mode='r'):
     if isinstance(f, io.TextIOBase):
@@ -328,7 +366,7 @@ def _open(f, mode='r'):
         raise TypeError(type(f), f)
 
 
-def load(file, parse_float=float):
+def load(file, parse_float=decimal.Decimal):
     import meeteval
     file = Path(file)
     if file.suffix == '.stm':

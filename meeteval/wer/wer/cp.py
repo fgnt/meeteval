@@ -1,16 +1,14 @@
 import dataclasses
 import itertools
 import string
-from typing import Optional, Tuple, List, Dict, Any, Iterable
+from typing import Optional, Any, Iterable
 
 from meeteval._typing import Literal
-from meeteval.io import STM
+from meeteval.io.seglst import SegLST, asseglst
 
 from meeteval.wer.wer.error_rate import ErrorRate
-from meeteval.wer.wer.siso import siso_word_error_rate, _siso_error_rate
-from meeteval.wer.utils import _items, _values, _keys, _map
 
-__all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_stm']
+__all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_multifile']
 
 
 @dataclasses.dataclass(frozen=True, repr=False)
@@ -28,8 +26,8 @@ class CPErrorRate(ErrorRate):
     missed_speaker: int
     falarm_speaker: int
     scored_speaker: int
-    # assignment: Optional[Tuple[int, ...]] = None
-    assignment: Optional[Tuple['int | str | Any', ...]] = None
+    # assignment: 'Optional[tuple[int, ...]]' = None
+    assignment: 'Optional[tuple[int | str | Any, ...]]' = None
 
     @classmethod
     def zero(cls):
@@ -92,24 +90,17 @@ class CPErrorRate(ErrorRate):
         )
 
 
-def cp_error_rate(
-        reference: 'List[Iterable] | Dict[Any, Iterable]',
-        hypothesis: 'List[Iterable] | Dict[Any, Iterable]',
-) -> CPErrorRate:
-    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
-
+def cp_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate:
+    from meeteval.wer.wer.siso import _seglst_siso_error_rate, siso_levenshtein_distance
     return _cp_error_rate(
         reference,
         hypothesis,
-        distance_fn=levenshtein_distance,
-        siso_error_rate=_siso_error_rate,
+        distance_fn=siso_levenshtein_distance,
+        siso_error_rate=_seglst_siso_error_rate,
     )
 
 
-def cp_word_error_rate(
-    reference: 'List[str | Iterable[str]] | Dict[str | Iterable[str]] | STM',
-    hypothesis: 'List[str | Iterable[str]] | Dict[str | Iterable[str]] | STM',
-):
+def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
 
@@ -154,53 +145,31 @@ def cp_word_error_rate(
     >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
     CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
     """
-    import meeteval.io
+    reference = asseglst(reference, required_keys=('speaker', 'words'))
+    hypothesis = asseglst(hypothesis, required_keys=('speaker', 'words'))
 
-    def transcription_to_words(x):
-        def split(words):
-            if isinstance(words, str):
-                return words.split()
-            elif isinstance(words, list):
-                assert isinstance(words[0], str), (type(words[0]), words)
-                return words
-            elif isinstance(words, meeteval.io.stm.STM):
-                assert len({(line.filename, line.speaker_id) for line in words}) == 1, words
-                return [
-                    word
-                    for line in words.sorted_by_begin_time()
-                    for word in line.transcript.split()
-                ]
-            else:
-                raise TypeError(type(words), words)
+    def split_words(d: 'SegLST'):
+        return d.flatmap(
+            lambda s: [{**s, 'words': w} for w in (s['words'].split() if s['words'].strip() else [''])])
 
-        if isinstance(x, meeteval.io.stm.STM):
-            assert len(x.filenames()) <= 1, (len(x.filenames()), x.filenames(), x)
-            return transcription_to_words(x.grouped_by_speaker_id())
-        else:
-            return _map(split, x)
-
-    return cp_error_rate(
-        transcription_to_words(reference),
-        transcription_to_words(hypothesis),
-    )
+    return cp_error_rate(split_words(reference), split_words(hypothesis))
 
 
-def cp_word_error_rate_stm(reference_stm: 'STM', hypothesis_stm: 'STM') -> 'Dict[str, CPErrorRate]':
+def cp_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
 
-    To compute the overall WER, use `sum(cp_word_error_rate_stm(r, h).values())`.
+    To compute the overall WER, use `sum(cp_word_error_rate_multifile(r, h).values())`.
     """
-    from meeteval.io.stm import apply_stm_multi_file
-    return apply_stm_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
+    from meeteval.io.seglst import apply_multi_file
+    return apply_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
 
 
 def _cp_error_rate(
-        reference,
-        hypothesis,
+        reference: SegLST,
+        hypothesis: SegLST,
         distance_fn: callable,
         siso_error_rate: callable,
-        missing=(),
 ):
     # Used in
     #   cp_word_error_rate
@@ -209,6 +178,9 @@ def _cp_error_rate(
     # .
     import scipy.optimize
     import numpy as np
+
+    reference = reference.groupby('speaker')
+    hypothesis = hypothesis.groupby('speaker')
 
     if max(len(hypothesis), len(reference)) > 20:
         num_speakers = max(len(hypothesis), len(reference))
@@ -224,15 +196,15 @@ def _cp_error_rate(
         [
             distance_fn(tt, et)
             for et, _ in itertools.zip_longest(
-                _values(hypothesis),
-                reference,  # ignored, "padding" for underestimation
-                fillvalue=missing,
-            )
+            hypothesis.values(),
+            reference.values(),  # ignored, "padding" for underestimation
+            fillvalue=SegLST([]),
+        )
         ]
         for tt, _ in itertools.zip_longest(
-            _values(reference),
-            hypothesis,  # ignored, "padding" for overestimation
-            fillvalue=missing,
+            reference.values(),
+            hypothesis.values(),  # ignored, "padding" for overestimation
+            fillvalue=SegLST([]),
         )
     ])
 
@@ -244,8 +216,8 @@ def _cp_error_rate(
     # Compute WER from distance
     distance = sum(distances)
 
-    reference_keys = dict(enumerate(_keys(reference)))  # need `dict.get` of the keys for overestimation
-    hypothesis_keys = dict(enumerate(_keys(hypothesis)))  # need `dict.get` of the keys for underestimation
+    reference_keys = dict(enumerate(reference.keys()))  # need `dict.get` of the keys for overestimation
+    hypothesis_keys = dict(enumerate(hypothesis.keys()))  # need `dict.get` of the keys for underestimation
 
     assignment = tuple([
         (reference_keys.get(r), hypothesis_keys.get(c))
@@ -259,12 +231,12 @@ def _cp_error_rate(
         assignment,
         reference=reference,
         hypothesis=hypothesis,
-        missing=missing,
+        missing=SegLST([]),
     )
 
     er = sum([
         siso_error_rate(r, hypothesis_new[speaker])
-        for speaker, r in _items(reference_new)
+        for speaker, r in reference_new.items()
     ])
 
     assert distance == er.errors, (distance, er)
@@ -284,7 +256,7 @@ def _cp_error_rate(
 
 
 def apply_cp_assignment(
-        assignment: 'List[Tuple[Any, ...]] | Tuple[Tuple[Any, ...], ...]',
+        assignment: 'list[tuple[Any, ...]] | tuple[tuple[Any, ...], ...]',
         reference: dict,
         hypothesis: dict,
         style: 'Literal["hyp", "ref"]' = 'ref',

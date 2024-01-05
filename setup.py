@@ -112,7 +112,7 @@ setup(
         'Cython'
     ],
     extras_require=extras_require,
-    package_data={'meeteval': ['**/*.pyx', '**/*.h']},  # https://stackoverflow.com/a/60751886
+    package_data={'meeteval': ['**/*.pyx', '**/*.h', '**/*.js', '**/*.css']},  # https://stackoverflow.com/a/60751886
     entry_points={
         'console_scripts': [
             'meeteval-wer=meeteval.wer.__main__:cli',

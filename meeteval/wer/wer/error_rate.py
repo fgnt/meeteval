@@ -2,7 +2,7 @@ import dataclasses
 
 __all__ = ['ErrorRate', 'combine_error_rates']
 
-from typing import Optional
+from typing import Optional, Any
 import logging
 
 logger = logging.getLogger('error_rate')
@@ -37,6 +37,12 @@ class SelfOverlap:
             self.overlap_time + other.overlap_time,
             self.total_time + other.total_time,
         )
+
+    def __radd__(self, other: 'int') -> 'SelfOverlap':
+        if isinstance(other, int) and other == 0:
+            # Special case to support sum.
+            return self
+        return NotImplemented
 
     @classmethod
     def from_dict(cls, d: dict):
@@ -236,3 +242,35 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     if len(error_rates) == 1:
         return error_rates[0]
     return sum(error_rates)
+
+
+@dataclasses.dataclass(frozen=True)
+class CombinedErrorRate(ErrorRate):
+    details: 'dict[Any, ErrorRate]'
+
+    @classmethod
+    def from_error_rates(cls, error_rates: 'dict[Any, ErrorRate]'):
+        from meeteval.wer.utils import _values
+        er = sum(_values(error_rates))
+        return cls(
+            errors=er.errors,
+            length=er.length,
+            insertions=er.insertions,
+            deletions=er.deletions,
+            substitutions=er.substitutions,
+            reference_self_overlap=er.reference_self_overlap,
+            hypothesis_self_overlap=er.hypothesis_self_overlap,
+            details=error_rates,
+        )
+
+    def __repr__(self):
+        return (
+                self.__class__.__qualname__ + '(' +
+                ', '.join([
+                    f"{f.name}={getattr(self, f.name)!r}"
+                    if f.name != 'details' else 'details=...'
+                    for f in dataclasses.fields(self)
+                    if getattr(self, f.name) is not None
+                ]) + ')'
+        )
+    
