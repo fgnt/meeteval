@@ -3,6 +3,7 @@ from pathlib import Path
 
 from hypothesis import given, strategies as st, example
 import decimal
+import pytest
 
 from meeteval.io import RTTM
 from meeteval.io.keyed_text import KeyedText
@@ -129,3 +130,22 @@ def test_reconstruct_ctm(ctm_str):
 def test_reconstruct_rttm(rttm_str):
     reconstructed = RTTM.parse(rttm_str).dumps()
     assert reconstructed == rttm_str, (reconstructed, rttm_str)
+
+
+
+@pytest.mark.parametrize(
+    'filename',
+    [
+        'hyp.stm',
+        'text_hyp',
+        'hyp.rttm',
+        'hyp.ctm1.ctm',
+        'hyp.seglst.json',
+    ]
+)
+def test_load_example_files(filename):
+    """
+    This function just checks whether the load function succeeds, the file contents are not checked.
+    """
+    import meeteval
+    meeteval.io.load(f'example_files/{filename}')
