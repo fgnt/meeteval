@@ -340,52 +340,52 @@ def get_pseudo_word_level_timings(t: SegLST, strategy: str) -> SegLST:
         - `'character_based_points`': Estimates the word length based on the number of characters and creates a point in the center of each word
         - `'none`' or `None`: Do not estimate word-level timings but assume that the provided timings are already given on a word level.
 
-    >>> from pprint import pprint
+    >>> from IPython.lib.pretty import pprint
     >>> from meeteval.io.seglst import SegLST
     >>> s = SegLST([{'words': 'abc b', 'start_time': 0, 'end_time': 4}, {'words': 'c d e f', 'start_time': 4, 'end_time': 8}])
     >>> pprint(get_pseudo_word_level_timings(s, 'full_segment'))
-    SegLST(segments=[{'end_time': 4, 'start_time': 0, 'words': 'abc'},
-                     {'end_time': 4, 'start_time': 0, 'words': 'b'},
-                     {'end_time': 8, 'start_time': 4, 'words': 'c'},
-                     {'end_time': 8, 'start_time': 4, 'words': 'd'},
-                     {'end_time': 8, 'start_time': 4, 'words': 'e'},
-                     {'end_time': 8, 'start_time': 4, 'words': 'f'}])
+    SegLST([{'words': 'abc', 'start_time': 0, 'end_time': 4},
+            {'words': 'b', 'start_time': 0, 'end_time': 4},
+            {'words': 'c', 'start_time': 4, 'end_time': 8},
+            {'words': 'd', 'start_time': 4, 'end_time': 8},
+            {'words': 'e', 'start_time': 4, 'end_time': 8},
+            {'words': 'f', 'start_time': 4, 'end_time': 8}])
     >>> pprint(get_pseudo_word_level_timings(s, 'equidistant_points'))
-    SegLST(segments=[{'end_time': 1.0, 'start_time': 1.0, 'words': 'abc'},
-                     {'end_time': 3.0, 'start_time': 3.0, 'words': 'b'},
-                     {'end_time': 4.5, 'start_time': 4.5, 'words': 'c'},
-                     {'end_time': 5.5, 'start_time': 5.5, 'words': 'd'},
-                     {'end_time': 6.5, 'start_time': 6.5, 'words': 'e'},
-                     {'end_time': 7.5, 'start_time': 7.5, 'words': 'f'}])
+    SegLST([{'words': 'abc', 'start_time': 1.0, 'end_time': 1.0},
+            {'words': 'b', 'start_time': 3.0, 'end_time': 3.0},
+            {'words': 'c', 'start_time': 4.5, 'end_time': 4.5},
+            {'words': 'd', 'start_time': 5.5, 'end_time': 5.5},
+            {'words': 'e', 'start_time': 6.5, 'end_time': 6.5},
+            {'words': 'f', 'start_time': 7.5, 'end_time': 7.5}])
     >>> pprint(get_pseudo_word_level_timings(s, 'equidistant_intervals'))
-    SegLST(segments=[{'end_time': 2.0, 'start_time': 0.0, 'words': 'abc'},
-                     {'end_time': 4.0, 'start_time': 2.0, 'words': 'b'},
-                     {'end_time': 5.0, 'start_time': 4.0, 'words': 'c'},
-                     {'end_time': 6.0, 'start_time': 5.0, 'words': 'd'},
-                     {'end_time': 7.0, 'start_time': 6.0, 'words': 'e'},
-                     {'end_time': 8.0, 'start_time': 7.0, 'words': 'f'}])
+    SegLST([{'words': 'abc', 'start_time': 0.0, 'end_time': 2.0},
+            {'words': 'b', 'start_time': 2.0, 'end_time': 4.0},
+            {'words': 'c', 'start_time': 4.0, 'end_time': 5.0},
+            {'words': 'd', 'start_time': 5.0, 'end_time': 6.0},
+            {'words': 'e', 'start_time': 6.0, 'end_time': 7.0},
+            {'words': 'f', 'start_time': 7.0, 'end_time': 8.0}])
     >>> word_level = get_pseudo_word_level_timings(s, 'character_based')
     >>> pprint(word_level)
-    SegLST(segments=[{'end_time': 3.0, 'start_time': 0.0, 'words': 'abc'},
-                     {'end_time': 4.0, 'start_time': 3.0, 'words': 'b'},
-                     {'end_time': 5.0, 'start_time': 4.0, 'words': 'c'},
-                     {'end_time': 6.0, 'start_time': 5.0, 'words': 'd'},
-                     {'end_time': 7.0, 'start_time': 6.0, 'words': 'e'},
-                     {'end_time': 8.0, 'start_time': 7.0, 'words': 'f'}])
+    SegLST([{'words': 'abc', 'start_time': 0.0, 'end_time': 3.0},
+            {'words': 'b', 'start_time': 3.0, 'end_time': 4.0},
+            {'words': 'c', 'start_time': 4.0, 'end_time': 5.0},
+            {'words': 'd', 'start_time': 5.0, 'end_time': 6.0},
+            {'words': 'e', 'start_time': 6.0, 'end_time': 7.0},
+            {'words': 'f', 'start_time': 7.0, 'end_time': 8.0}])
     >>> pprint(get_pseudo_word_level_timings(word_level, 'none'))   # Copies over the timings since word-level timings are already assumed
-    SegLST(segments=[{'end_time': 3.0, 'start_time': 0.0, 'words': 'abc'},
-                     {'end_time': 4.0, 'start_time': 3.0, 'words': 'b'},
-                     {'end_time': 5.0, 'start_time': 4.0, 'words': 'c'},
-                     {'end_time': 6.0, 'start_time': 5.0, 'words': 'd'},
-                     {'end_time': 7.0, 'start_time': 6.0, 'words': 'e'},
-                     {'end_time': 8.0, 'start_time': 7.0, 'words': 'f'}])
+    SegLST([{'words': 'abc', 'start_time': 0.0, 'end_time': 3.0},
+            {'words': 'b', 'start_time': 3.0, 'end_time': 4.0},
+            {'words': 'c', 'start_time': 4.0, 'end_time': 5.0},
+            {'words': 'd', 'start_time': 5.0, 'end_time': 6.0},
+            {'words': 'e', 'start_time': 6.0, 'end_time': 7.0},
+            {'words': 'f', 'start_time': 7.0, 'end_time': 8.0}])
     >>> pprint(get_pseudo_word_level_timings(s, 'character_based_points'))
-    SegLST(segments=[{'end_time': 1.5, 'start_time': 1.5, 'words': 'abc'},
-                     {'end_time': 3.5, 'start_time': 3.5, 'words': 'b'},
-                     {'end_time': 4.5, 'start_time': 4.5, 'words': 'c'},
-                     {'end_time': 5.5, 'start_time': 5.5, 'words': 'd'},
-                     {'end_time': 6.5, 'start_time': 6.5, 'words': 'e'},
-                     {'end_time': 7.5, 'start_time': 7.5, 'words': 'f'}])
+    SegLST([{'words': 'abc', 'start_time': 1.5, 'end_time': 1.5},
+            {'words': 'b', 'start_time': 3.5, 'end_time': 3.5},
+            {'words': 'c', 'start_time': 4.5, 'end_time': 4.5},
+            {'words': 'd', 'start_time': 5.5, 'end_time': 5.5},
+            {'words': 'e', 'start_time': 6.5, 'end_time': 6.5},
+            {'words': 'f', 'start_time': 7.5, 'end_time': 7.5}])
 
     Works with any format that is convertible to SegLST and back, for example STM:
     >>> print(get_pseudo_word_level_timings(STM.new(s, session_id='dummy', speaker='dummy'), 'character_based_points').dumps())

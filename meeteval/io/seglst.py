@@ -149,6 +149,23 @@ class SegLST(BaseABC):
             d = d.map(lambda s: {**defaults, **s})
         return d
 
+    def _repr_pretty_(self, p, cycle):
+        """
+        >>> from IPython.lib.pretty import pprint
+        >>> pprint(SegLST([{'words': 'a b c', 'segment_index': 0, 'speaker': 0}]))
+        SegLST([{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+        >>> pprint(SegLST([{'words': 'a b c', 'segment_index': 0, 'speaker': 0}, {'words': 'd e f', 'segment_index': 0, 'speaker': 1}, {'words': 'g h i', 'segment_index': 0, 'speaker': 2}]))
+        SegLST([{'words': 'a b c', 'segment_index': 0, 'speaker': 0},
+                {'words': 'd e f', 'segment_index': 0, 'speaker': 1},
+                {'words': 'g h i', 'segment_index': 0, 'speaker': 2}])
+        """
+        name = self.__class__.__name__
+        with p.group(len(name) + 1, name + '(', ')'):
+            if cycle:
+                p.text('...')
+            else:
+                p.pretty(list(self.segments))
+
 
 def asseglistconvertible(d, *, py_convert=NestedStructure):
     """
