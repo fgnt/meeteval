@@ -1,6 +1,9 @@
 import dataclasses
+import decimal
 import functools
+import io
 import typing
+from pathlib import Path
 
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
@@ -8,8 +11,7 @@ from meeteval._typing import TypedDict
 
 if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
-    from typing import Callable, Iterable, Any
-
+    from typing import Callable, Iterable, Any, Self
 
 
 class SegLstSegment(TypedDict, total=False):
@@ -43,6 +45,52 @@ class SegLST(BaseABC):
     # Caches
     _unique = None
 
+    @classmethod
+    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=decimal.Decimal) -> 'Self':
+        from meeteval.io.base import _open
+        files = file if isinstance(file, (tuple, list)) else [file]
+
+        parsed = []
+        for f in files:
+            with _open(f, 'r') as fd:
+                parsed.extend(cls.parse(fd.read(), parse_float=parse_float))
+
+        return cls.merge(*parsed)
+
+    @classmethod
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        """
+        Parses a SegLST from a string.
+
+        >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0}]')
+        SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+        """
+        import simplejson
+
+        def fix_floats(s):
+            """Convert common float keys to decimal"""
+            for k in ('start_time', 'end_time', 'confidence'):
+                if k in s:
+                    s[k] = decimal.Decimal(s[k])
+            return s
+        return cls([fix_floats(s) for s in simplejson.loads(s, parse_float=parse_float)])
+
+    def dump(self, file):
+        from meeteval.io.base import _open
+        with _open(file, 'w') as fd:
+            import simplejson
+            simplejson.dump(self.segments, fd, use_decimal=True, indent='    ')
+
+    def dumps(self):
+        """
+        Dumps the data as JSON string.
+
+        >>> SegLST([{'words': 'a b c', 'session_id': 0, 'speaker': 0}]).dumps()
+        '[{"words": "a b c", "session_id": 0, "speaker": 0}]'
+        """
+        import simplejson
+        return simplejson.dumps(self.segments, use_decimal=True, indent='    ')
+
     @property
     class T:
         """
@@ -50,6 +98,7 @@ class SegLST(BaseABC):
 
         The name `T` is inspired by the `T` in `pandas.DataFrame.T` and `numpy.ndarray.T`.
         """
+
         def __init__(self, outer):
             self._outer = outer
 
