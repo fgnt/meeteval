@@ -53,7 +53,7 @@ class SegLST(BaseABC):
         parsed = []
         for f in files:
             with _open(f, 'r') as fd:
-                parsed.extend(cls.parse(fd.read(), parse_float=parse_float))
+                parsed.append(cls.parse(fd.read(), parse_float=parse_float))
 
         return cls.merge(*parsed)
 
@@ -85,8 +85,14 @@ class SegLST(BaseABC):
         """
         Dumps the data as JSON string.
 
-        >>> SegLST([{'words': 'a b c', 'session_id': 0, 'speaker': 0}]).dumps()
-        '[{"words": "a b c", "session_id": 0, "speaker": 0}]'
+        >>> print(SegLST([{'words': 'a b c', 'session_id': 0, 'speaker': 0}]).dumps())
+        [
+            {
+                "words": "a b c",
+                "session_id": 0,
+                "speaker": 0
+            }
+        ]
         """
         import simplejson
         return simplejson.dumps(self.segments, use_decimal=True, indent='    ')
