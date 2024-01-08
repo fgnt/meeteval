@@ -139,7 +139,7 @@ def test_reconstruct_rttm(rttm_str):
         'hyp.stm',
         'text_hyp',
         'hyp.rttm',
-        'hyp.ctm1.ctm',
+        'hyp1.ctm',
         'hyp.seglst.json',
     ]
 )
