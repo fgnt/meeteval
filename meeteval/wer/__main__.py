@@ -193,13 +193,13 @@ def _save_results(
     _dump({
         example_id: dataclasses.asdict(error_rate)
         for example_id, error_rate in per_reco.items()
-    }, per_reco_out.format(parent=f'{parent}/', stem=stem))
+    }, per_reco_out.format(parent=parent, stem=stem))
 
     # Compute and save average
     average = combine_error_rates(*per_reco.values())
     _dump(
         dataclasses.asdict(average),
-        average_out.format(parent=f'{parent}/', stem=stem),
+        average_out.format(parent=parent, stem=stem),
     )
     return average
 
