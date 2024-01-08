@@ -87,11 +87,11 @@ class SegLST(BaseABC):
 
         >>> print(SegLST([{'words': 'a b c', 'session_id': 0, 'speaker': 0}]).dumps())
         [
-            {
-                "words": "a b c",
-                "session_id": 0,
-                "speaker": 0
-            }
+          {
+            "words": "a b c",
+            "session_id": 0,
+            "speaker": 0
+          }
         ]
         """
         import simplejson
