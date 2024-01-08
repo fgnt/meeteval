@@ -1,5 +1,15 @@
 # created from tests
 example_files/*.json
+example_files/*.yaml
+
+# Files in this JSON format are example files and would otherwise be excluded by the rules above
+!example_files/*.seglst.json
+
+# Created by pyodide
+.pyodide-xbuildenv
+
+# Downloaded by the md_eval wrapper
+meeteval/der/md-eval-22.pl
 
 # Files created by cython
 cy_*.cpp
