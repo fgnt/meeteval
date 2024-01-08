@@ -71,7 +71,7 @@ class SegLST(BaseABC):
             """Convert common float keys to decimal"""
             for k in ('start_time', 'end_time', 'confidence'):
                 if k in s:
-                    s[k] = decimal.Decimal(s[k])
+                    s[k] = parse_float(s[k])
             return s
         return cls([fix_floats(s) for s in simplejson.loads(s, parse_float=parse_float)])
 
@@ -79,7 +79,7 @@ class SegLST(BaseABC):
         from meeteval.io.base import _open
         with _open(file, 'w') as fd:
             import simplejson
-            simplejson.dump(self.segments, fd, use_decimal=True, indent='    ')
+            simplejson.dump(self.segments, fd, use_decimal=True, indent='  ')
 
     def dumps(self):
         """
@@ -95,7 +95,7 @@ class SegLST(BaseABC):
         ]
         """
         import simplejson
-        return simplejson.dumps(self.segments, use_decimal=True, indent='    ')
+        return simplejson.dumps(self.segments, use_decimal=True, indent='  ')
 
     @property
     class T:

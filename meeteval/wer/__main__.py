@@ -94,7 +94,7 @@ def _load(path: Path):
 
 
 def _load_reference(reference: 'Path | list[Path]'):
-    """Loads a reference transcription file. Currently only STM supported"""
+    """Loads a reference transcription file."""
     return meeteval.io.load(reference)
 
 
