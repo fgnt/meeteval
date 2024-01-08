@@ -103,10 +103,6 @@ class STM(Base):
             if len(line.strip()) > 0 and not line.strip().startswith(';')
         ])
 
-    @classmethod
-    def merge(cls, *stms) -> 'STM':
-        return cls([line for stm in stms for line in stm.lines])
-
     def to_rttm(self):
         from meeteval.io.rttm import RTTM, RTTMLine
 

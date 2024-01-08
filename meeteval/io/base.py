@@ -160,6 +160,10 @@ class Base(BaseABC):
         # return cls([cls.line_cls.parse(line) for line in s.splitlines() if line.strip()])
         raise NotImplementedError
 
+    @classmethod
+    def merge(cls, *o) -> 'Self':
+        return cls([line for o_ in o for line in o_.lines])
+
     def _repr_pretty_(self, p, cycle):
         name = self.__class__.__name__
         with p.group(len(name) + 1, name + '(', ')'):
