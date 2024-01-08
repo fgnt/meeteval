@@ -86,7 +86,7 @@ def test_burn_tcp():
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
-    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
+    run(f'python -m meeteval.wer tcpwer -h hyp.seglst.json -r ref.seglst.json')
 
 
 def test_burn_md_eval_22():
