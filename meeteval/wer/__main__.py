@@ -118,6 +118,7 @@ def _load_hypothesis(hypothesis: 'list[Path]'):
     elif filename.startswith('/dev/fd/') or filename.startswith('/proc/self/fd/'):
         # This is a pipe, i.e. python -m ... <(cat ...)
         # For now, assume it is an STM file
+        # TODO: Support more formats that can be clearly distinguished just from the content, e.g., SegLST
         return STM.load(hypothesis)
     else:
         return meeteval.io.load(hypothesis)
