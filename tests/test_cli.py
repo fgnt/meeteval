@@ -66,21 +66,27 @@ def test_burn_orc():
     # mandatory.
     run(f'python -m meeteval.wer orcwer -h <(cat hypA.stm hypB.stm) -r <(cat refA.stm refB.stm) --average-out hyp_orc.json --per-reco-out hyp_orc_per_reco.json')
 
+    # Test with files in SegLST format
+    run(f'python -m meeteval.wer orcwer -h hyp.seglst.json -r ref.seglst.json')
+
 
 def test_burn_mimo():
     run(f'python -m meeteval.wer mimower -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer mimower -h 'hyp?.stm' -r 'ref?.stm'")
+    run(f'python -m meeteval.wer mimower -h hyp.seglst.json -r ref.seglst.json')
 
 
 def test_burn_cp():
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer cpwer -h 'hyp?.stm' -r 'ref?.stm'")
+    run(f'python -m meeteval.wer cpwer -h hyp.seglst.json -r ref.seglst.json')
 
 
 def test_burn_tcp():
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
+    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
 
 
 def test_burn_md_eval_22():
