@@ -283,22 +283,19 @@ def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
     assert isinstance(required_keys, tuple), required_keys
 
     # Exit early if already in the correct format
-    if isinstance(d, SegLST):
-        return d
-
-    # Get a type that is convertible to SegLST
-    d = asseglistconvertible(d, py_convert=py_convert)
-
-    t = d.to_seglst()
+    if not isinstance(d, SegLST):
+        # Get a type that is convertible to SegLST
+        d = asseglistconvertible(d, py_convert=py_convert)
+        d = d.to_seglst()
 
     # Check that `t` has all required keys
-    if len(t) and not set(required_keys).issubset(t.T.keys()):
+    if len(d) and not set(required_keys).issubset(d.T.keys()):
         required_keys = set(required_keys)
         raise ValueError(
-            f'Some required keys are not present in the converted data structure!\n'
-            f'Required: {required_keys}, found: {t.T.keys()}, missing: {required_keys - t.T.keys()}'
+            f'Some required keys are not present in the data structure!\n'
+            f'Required: {required_keys}, found: {d.T.keys()}, missing: {required_keys - d.T.keys()}'
         )
-    return t
+    return d
 
 
 def _get_key(key):

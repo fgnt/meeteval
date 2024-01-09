@@ -10,6 +10,8 @@ from meeteval.io.keyed_text import KeyedText
 from meeteval.io.stm import STM, STMLine
 from meeteval.io.ctm import CTM, CTMLine
 
+example_files = (Path(__file__).parent.parent / 'example_files').absolute()
+
 ctm_example = '''
 ;;  Example from https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm
 ;;  Comments follow ';;' 
@@ -141,11 +143,17 @@ def test_reconstruct_rttm(rttm_str):
         'hyp.rttm',
         'hyp1.ctm',
         'hyp.seglst.json',
+        ('hyp1.ctm', 'hyp2.ctm'),
+        ('hyp.stm', 'ref.stm'),
     ]
 )
 def test_load_example_files(filename):
     """
     This function just checks whether the load function succeeds, the file contents are not checked.
     """
+    if isinstance(filename, tuple):
+        filename = tuple(example_files / f for f in filename)
+    else:
+        filename = example_files / filename
     import meeteval
-    meeteval.io.load(f'example_files/{filename}')
+    meeteval.io.load(filename)

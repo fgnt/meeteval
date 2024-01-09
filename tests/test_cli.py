@@ -54,6 +54,7 @@ def test_burn_orc():
     # Test with ctm files
     run(f'python -m meeteval.wer orcwer -h hyp1.ctm -h hyp2.ctm -r ref.stm')
     run(f"python -m meeteval.wer orcwer -h 'hyp*.ctm' -r ref.stm")
+    run(f'python -m meeteval.wer orcwer -h hyp1.ctm -r ref.stm')
 
     # Test output formats
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out average-out.json")
@@ -71,6 +72,10 @@ def test_burn_orc():
 
     # Test with files in SegLST format
     run(f'python -m meeteval.wer orcwer -h hyp.seglst.json -r ref.seglst.json')
+
+    # Test with regex
+    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --regex ".*A"')
+    run('python -m meeteval.wer orcwer -h hyp.seglst.json -r ref.seglst.json --regex ".*A"')
 
 
 def test_burn_mimo():
@@ -96,6 +101,9 @@ def test_burn_md_eval_22():
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'meeteval-der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm --collar 0.25')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm --regex ".*A"')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.seglst.json -r ref.seglst.json')
     # examples for collar:
     #    0:    CHiME-6
     #    0.25: CHiME-7 DASR

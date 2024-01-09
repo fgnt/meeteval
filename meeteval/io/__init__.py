@@ -9,6 +9,6 @@ from .load_wrapper import load
 from .stm import STM, STMLine
 from .rttm import RTTM, RTTMLine
 from .uem import UEM, UEMLine
-from .ctm import CTM, CTMLine
-from .seglst import SegLST
+from .ctm import CTM, CTMLine, CTMGroup
+from .seglst import SegLST, asseglst
 from .keyed_text import KeyedText
