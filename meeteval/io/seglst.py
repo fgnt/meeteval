@@ -14,6 +14,14 @@ if typing.TYPE_CHECKING:
     from typing import Callable, Iterable, Any, Self
 
 
+__all__ = [
+    'SegLST',
+    'SegLstSegment',
+    'asseglst',
+    'apply_multi_file',
+]
+
+
 class SegLstSegment(TypedDict, total=False):
     """
     A segment.
