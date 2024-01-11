@@ -3,16 +3,11 @@ import logging
 from meeteval.wer import ErrorRate
 
 logging.basicConfig(level=logging.ERROR)
-import collections
-import contextlib
 import dataclasses
 import functools
-import itertools
-import operator
 import shutil
 import uuid
 from pathlib import Path
-from typing import Dict, List, Mapping
 
 try:
     from functools import cached_property
@@ -22,7 +17,7 @@ except ImportError:
     from cached_property import cached_property  # Python 3.7
 
 from meeteval.io.stm import STM
-from meeteval.wer.wer.time_constrained import  get_pseudo_word_level_timings
+from meeteval.wer.wer.time_constrained import get_pseudo_word_level_timings
 
 from meeteval.io.seglst import asseglst, SegLST
 
@@ -60,7 +55,7 @@ def dump_json(
 
     if isinstance(path, io.IOBase):
         simplejson.dump(obj, path, indent=indent,
-                  sort_keys=sort_keys, **kwargs)
+                        sort_keys=sort_keys, **kwargs)
     elif isinstance(path, (str, Path)):
         path = Path(path).expanduser()
 
@@ -69,7 +64,7 @@ def dump_json(
 
         with path.open('w') as f:
             simplejson.dump(obj, f, indent=indent,
-                      sort_keys=sort_keys, **kwargs)
+                            sort_keys=sort_keys, **kwargs)
     else:
         raise TypeError(path)
 
@@ -96,6 +91,10 @@ html_template = """
 
 
 def get_wer(t: SegLST, assignment_type, collar=5, hypothesis_key='hypothesis'):
+    """
+    Compute the WER with the given assignment type and collar between the segments with `s['source'] = 'reference'`
+    and `s['source'] = hypothesis_key`.
+    """
     ref = t.filter(lambda s: s['source'] == 'reference')
     hyp = t.filter(lambda s: s['source'] == hypothesis_key)
     if assignment_type == 'cp':
@@ -118,6 +117,9 @@ def get_wer(t: SegLST, assignment_type, collar=5, hypothesis_key='hypothesis'):
 
 
 def apply_assignment(assignment, d: SegLST, source_key='hypothesis'):
+    """
+    Apply the assignment to the given SegLST by replacing the "speaker" key of the hypothesis.
+    """
     # Both ref and hyp key can be missing or None
     # This can happen when the filter function excludes a speaker completely
     # TODO: Find a good way to name these and adjust apply_cp_assignment accordingly
@@ -167,22 +169,26 @@ def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
         min_time = min(map(lambda x: x['start_time'], data))
         max_time = max(map(lambda x: x['end_time'], data))
         align = functools.partial(
-            align, collar=max_time - min_time + 1, style='index',
+            align,
+            collar=max_time - min_time + 1,
             reference_pseudo_word_level_timing='none',
             hypothesis_pseudo_word_level_timing='none',
             # Disable sort: We pass words that are already ordered correctly
             reference_sort=False,
             hypothesis_sort=False,
+            style='seglst',
         )
     elif alignment_type == 'tcp':
         from meeteval.wer.wer.time_constrained import align
         align = functools.partial(
-            align, collar=collar, style='index',
+            align,
+            collar=collar,
             reference_pseudo_word_level_timing='none',
             hypothesis_pseudo_word_level_timing='none',
             # Disable sort: We pass words that are already ordered correctly
             reference_sort=False,
             hypothesis_sort=False,
+            style='seglst',
         )
     elif alignment_type == 'ditcp':
         raise NotImplementedError()
@@ -195,14 +201,10 @@ def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
     hyp = hyp.sorted('start_time').groupby('speaker')
 
     for k in set(ref.keys()) | set(hyp.keys()):
-        a = align(
-            ref.get(k, []), hyp.get(k, []),
-            reference_pseudo_word_level_timing='none',
-            hypothesis_pseudo_word_level_timing='none',
-            style='seglst',
-            collar=collar
-        )
+        a = align(ref.get(k, SegLST([])), hyp.get(k, SegLST([])))
 
+        # Add a list of matches to each word. This assumes that `align` keeps the
+        # identity of the segments
         for r, h in a:
             assert r is not None or h is not None
 
@@ -213,14 +215,14 @@ def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
             # Find match type
             # Add matching: The reference can match with multiple hypothesis streams,
             # so r has a list of indices while h has a list of only a single index
-            if r is None:   # Insertion
+            if r is None:  # Insertion
                 h['matches'] = [(None, 'insertion')]
-            elif h is None: # Deletion
+            elif h is None:  # Deletion
                 r.setdefault('matches', []).append((None, 'deletion'))
             elif r['words'] == h['words']:  # Correct
                 h.setdefault('matches', []).append((r['word_index'], 'correct'))
                 r.setdefault('matches', []).append((h['word_index'], 'correct'))
-            else:   # Substitution
+            else:  # Substitution
                 h.setdefault('matches', []).append((r['word_index'], 'substitution'))
                 r.setdefault('matches', []).append((h['word_index'], 'substitution'))
 
@@ -266,7 +268,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
     w = w.map(lambda w: {**w, 'words': call_with_args(alignment_transform, w), 'original_words': w['words']})
 
     # Remove any words that are now empty
-    ignored_words = w.filter(lambda s: not s['words'])#.map(lambda s: {**s, 'match_type': 'ignored'})
+    ignored_words = w.filter(lambda s: not s['words'])  # .map(lambda s: {**s, 'match_type': 'ignored'})
     w = w.filter(lambda s: s['words'])
 
     # Get assignment using the word-level timestamps and filtered data
@@ -291,7 +293,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         **w,
         'words': w['original_words'],
         'transformed_words': w['words'],
-        'center_time': (w['start_time'] + w['end_time']) / 2,   # Point where the stitches attach
+        'center_time': (w['start_time'] + w['end_time']) / 2,  # Point where the stitches attach
     })
     data['words'] = words.segments
 
@@ -315,7 +317,8 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         # deletions, substitutions and correct matches.
         # The number of deletions is the number of reference words that are not matched with a hypothesis word.
         ref_words = words_.filter(lambda s: s['source'] == 'reference' and 'matches' in s)
-        deletions = len(ref_words.filter(lambda s: not [w for w, _ in s['matches'] if w is not None and words[w]['source'] == hypothesis_key]))
+        deletions = len(ref_words.filter(
+            lambda s: not [w for w, _ in s['matches'] if w is not None and words[w]['source'] == hypothesis_key]))
 
         return dataclasses.asdict(ErrorRate(
             errors=insertions + deletions + substitutions,
@@ -401,7 +404,8 @@ class AlignmentVisualization:
 
     @cached_property
     def data(self):
-        d = get_visualization_data(self.ref, self.hyp, assignment=self.alignment, alignment_transform=self.alignment_transform)
+        d = get_visualization_data(self.ref, self.hyp, assignment=self.alignment,
+                                   alignment_transform=self.alignment_transform)
         d['markers'] = self.markers
         return d
 

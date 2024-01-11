@@ -3,40 +3,15 @@
     font-family: Arial, Helvetica, sans-serif;
 }
 
-.dropdown {
-    position: relative;
-    display: inline-block;
-}
-
-.dropdown-content {
-    display: none;
-    position: absolute;
-    z-index: 1;
-    background-color: white;
-}
-
-.dropdown-content a {
+.meeteval-viz table {
     color: black;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
 }
 
-.dropdown-content a:hover {background-color: #ddd;}
-
-.show {display: block;}
-
+/* Styles for menu bar pills*/
 .top-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-}
-
-.info-container {
-    display: flex;
-    /* border: 1px solid black; */
-    /* padding: 1px 10px 1px 10px; */
-    margin: 0px 2px 0px 2px;
 }
 
 .pill {
@@ -50,14 +25,18 @@
     align-items: center;
 }
 
-.pill-no-border {
-    display: flex;
-    margin: 2px 3px 0 3px;
-    background-color: #fff;
-    border-radius: 7px;
-    padding: 1px 5px 1px 5px;
-    white-space: nowrap;
-    align-items: center;
+.pill.no-border {
+    border: none;
+}
+
+.pill.warn {
+    background-color: #f3ebc9;
+    border: 1px solid #ffcc00;
+}
+
+.pill:hover:not(.no-border) {
+    background-color: #eeeeee;
+    border: 1px solid #4f9fee;
 }
 
 .selected-segment-details {
@@ -75,11 +54,6 @@
     display: inline-block;
     font-weight: bold;
     margin-right: 5px;
-}
-
-.label {
-    margin-right: 3px;
-    margin-left: 5px;
 }
 
 .info-value {
@@ -104,11 +78,7 @@
     padding-left: 5px;
 }
 
-.pill.warn {
-    background-color: #f3ebc9;
-    border: 1px solid #ffcc00;
-}
-
+/* Icons */
 i {
     display: inline-block;
     font-size: 1.2em;
@@ -159,10 +129,10 @@ Class for the tooltip content.
 
     /* Center the tooltip below the element */
     inset-inline-start: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(1px);
 }
 
-/* Show the tooltip text when you mouse over the tooltip container */
+/* Show the tooltip text when you hover over the tooltip container */
 .tooltip:hover > .tooltipcontent {
     visibility: visible;
     opacity: 1;
@@ -170,6 +140,7 @@ Class for the tooltip content.
     transition-delay: 0.2s;
   }
 
+/* Style for the help text displayed when no utterance is selected */
 .utterance-details-help {
     color: gray;
     font-size: 0.8em;
@@ -177,6 +148,7 @@ Class for the tooltip content.
     font-style: italic;
 }
 
+/* Style for the small hint plot label */
 .plot-label {
     top: 0px;
     left: 0px;
@@ -197,30 +169,30 @@ table.wer-table {
     table-layout: auto;
 }
 
-.wer-table thead tr {
+.meeteval-viz thead tr {
     /* background-color: #ffffff; */
     color: #ffffff;
     text-align: left;
 }
 
-.wer-table thead tr th {
+.meeteval-viz thead tr th {
     font-weight: bold;
     padding: 12px 15px;
     text-align: center !important;
 }
 
-.wer-table th,
-.wer-table td,
-.wer-table tr {
+.meeteval-viz table th,
+.meeteval-viz table td,
+.meeteval-viz table tr {
     padding: 12px 15px;
     background: transparent;
 }
 
-.wer-table tbody tr:nth-child(odd) {
+.meeteval-viz tbody tr:nth-child(odd) {
     background: #fff;
 }
 
-.wer-table tbody tr:nth-child(even) {
+.meeteval-viz tbody tr:nth-child(even) {
     background: #eee;
 }
 
@@ -257,7 +229,7 @@ table.wer-table {
 }
 
 .search-bar button {
-  background-color: '#eee';
+  background-color: #eee;
   color: #333333;
   cursor: pointer;
   display: inline-block;

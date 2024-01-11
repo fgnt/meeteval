@@ -394,16 +394,6 @@ class CanvasPlot {
         errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
     }
 
-    // function drawMenuBar(menu_bar_container) {
-    //     // View
-    //     const view = menu_bar_container.append("button").text("View")
-    //     const view_menu = menu_bar_container.append("div").attr("class", "dropdown-content");
-    //     view_menu.append("a").text("item1");
-    //     view_menu.append("a").text("item2");
-    //     view.on("click", () => view_menu.classed("show", true));
-            
-    // }
-
     function drawHelpButton(container) {
         const pill = container.append("a").attr("href", "https://github.com/fgnt/meeteval").classed("pill", true)
         pill.append("i").classed("fas fa-question-circle", true);
@@ -411,7 +401,7 @@ class CanvasPlot {
     }
 
     function drawExampleInfo(container, info) {
-        const root = container; //container.append("div").classed("info-container", true);
+        const root = container;
 
         label = (label, value, icon=null, tooltip=null) => {
             var l = root.append("div").classed("pill", true)
@@ -1350,8 +1340,8 @@ class CanvasPlot {
 
     class SelectedDetailsView {
         constructor(container) {
-            this.container = container.append("div").classed("selected-segment-details", true).classed("tooltip", true);
-            this.container.append("div").text("Selected segment:").classed("pill-no-border", true).classed("info-label", true);
+            this.container = container.append("div").classed("pill", true).classed("tooltip", true);
+            this.container.append("div").text("Selected segment:").classed("pill no-border", true).classed("info-label", true);
             this.update(null);
         }
 
@@ -1366,7 +1356,7 @@ class CanvasPlot {
                 const rename = { total: "# words" }
                 this.container.selectAll(".utterance-details")
                     .data(utterance ? Object.entries(utterance).filter(d => !blacklist.includes(d[0])).map(e => [rename[e[0]] || e[0], e[1]]) : []).join(enter => {
-                    let e = enter.append("div").classed("utterance-details", true).classed("pill-no-border", true);
+                    let e = enter.append("div").classed("utterance-details", true).classed("pill no-border", true);
                     e.append("div").classed("info-label", true).text(d => d[0] + ":");
                     e.append("div").classed("info-value", true).text(d => d[1]);
                 })
@@ -1382,7 +1372,7 @@ class CanvasPlot {
                         e.append("td").text(d => d[1]);
                 })
             } else {
-                this.container.append("div").classed("utterance-details", true).classed("utterance-details-help pill-no-border", true).text("Select a segment to display details");
+                this.container.append("div").classed("utterance-details", true).classed("utterance-details-help pill no-border", true).text("Select a segment to display details");
             }
         }
     }
