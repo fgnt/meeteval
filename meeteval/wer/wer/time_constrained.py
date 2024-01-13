@@ -43,7 +43,12 @@ def equidistant_intervals(interval, words):
     elif count == 1:
         return [interval]
     interval_length = (interval[1] - interval[0]) / count
-    return [(interval[0] + i * interval_length, interval[0] + (i + 1) * interval_length) for i in range(count)]
+    return [
+        (
+            interval[0] + i * interval_length,
+            interval[0] + (i + 1) * interval_length
+        ) for i in range(count)
+    ]
 
 
 def equidistant_points(interval, words):
@@ -55,7 +60,10 @@ def equidistant_points(interval, words):
         return [((interval[0] + interval[1]) / 2,) * 2]
     interval_length = (interval[1] - interval[0]) / count
 
-    return [(interval[0] + i * interval_length + interval_length / 2,) * 2 for i in range(count)]
+    return [
+        (interval[0] + i * interval_length + interval_length / 2,) * 2
+        for i in range(count)
+    ]
 
 
 def character_based(interval, words):
@@ -70,14 +78,22 @@ def character_based(interval, words):
     end_points = np.cumsum(word_lengths)
     total_num_characters = end_points[-1]
     character_length = (interval[1] - interval[0]) / total_num_characters
-    return [(interval[0] + character_length * start, interval[0] + character_length * end) for start, end in
-            zip([0] + list(end_points[:-1]), end_points)]
+    return [
+        (
+            interval[0] + character_length * start,
+            interval[0] + character_length * end
+        )
+        for start, end in zip([0] + list(end_points[:-1]), end_points)
+    ]
 
 
 def character_based_points(interval, words):
     """Places points in the center of the character-based intervals"""
     intervals = character_based(interval, words)
-    intervals = [((interval[1] + interval[0]) / 2,) * 2 for interval in intervals]
+    intervals = [
+        ((interval[1] + interval[0]) / 2,) * 2
+        for interval in intervals
+    ]
     return intervals
 
 
@@ -97,8 +113,9 @@ def no_segmentation(interval, words):
             )
         else:
             raise ValueError(
-                f'No segmentation strategy was specified (i.e., exactly one timestamp per word is required), '
-                f'but a segment ({interval}) contains no word.'
+                f'No segmentation strategy was specified (i.e., exactly one '
+                f'timestamp per word is required), but a segment ({interval}) '
+                f'contains no word.'
             )
     assert len(words) == 1
     return [interval]
@@ -129,8 +146,9 @@ def _check_timing_annotations(t, k):
         k = k or 'unknown'
         warnings.warn(
             f'A speaker ({k}) overlaps with itself. '
-            f'This can lead to contradictions between pseudo-word-level timings and word order. '
-            f'An exception will be raised later when such a contradiction occurs. '
+            f'This can lead to contradictions between pseudo-word-level '
+            f'timings and word order. An exception will be raised later when '
+            f'such a contradiction occurs. '
         )
 
 
@@ -147,7 +165,8 @@ def _time_constrained_siso_error_rate(
     hypothesis_timing = list(zip(hypothesis.T['start_time'], hypothesis.T['end_time']))
 
     result = time_constrained_levenshtein_distance_with_alignment(
-        reference_words, hypothesis_words, reference_timing, hypothesis_timing, prune=prune
+        reference_words, hypothesis_words, reference_timing, hypothesis_timing,
+        prune=prune
     )
 
     return ErrorRate(
@@ -330,15 +349,23 @@ def apply_collar(s: SegLST, collar: float):
 @seglst_map()
 def get_pseudo_word_level_timings(t: SegLST, strategy: str) -> SegLST:
     """
-    Takes a transcript with segment-level annotations and outputs a transcript with estimated word-level annotations.
+    Takes a transcript with segment-level annotations and outputs a transcript
+    with estimated word-level annotations.
 
     Choices for `strategy`:
-        - `'equidistant_intervals`': Divide segment-level timing into equally sized intervals
-        - `'equidistant_points`': Place time points equally spaded int the segment-level intervals
-        - `'full_segment`': Use the full segment for each word that belongs to that segment
-        - `'character_based`': Estimate the word length based on the number of characters
-        - `'character_based_points`': Estimates the word length based on the number of characters and creates a point in the center of each word
-        - `'none`' or `None`: Do not estimate word-level timings but assume that the provided timings are already given on a word level.
+        - `'equidistant_intervals`': Divide segment-level timing into equally
+                sized intervals
+        - `'equidistant_points`': Place time points equally spaded int the
+                segment-level intervals
+        - `'full_segment`': Use the full segment for each word that belongs to
+                that segment
+        - `'character_based`': Estimate the word length based on the number
+                of characters
+        - `'character_based_points`': Estimates the word length based on the
+                number of characters and creates a point in the center of each
+                word
+        - `'none`' or `None`: Do not estimate word-level timings but assume
+                that the provided timings are already given on a word level.
 
     >>> from IPython.lib.pretty import pprint
     >>> from meeteval.io.seglst import SegLST
@@ -404,7 +431,10 @@ def get_pseudo_word_level_timings(t: SegLST, strategy: str) -> SegLST:
         words = s['words'].split()
         if not words:  # Make sure that we don't drop a speaker
             words = ['']
-        for w, (start, end) in zip(words, pseudo_word_level_strategy((s['start_time'], s['end_time']), words)):
+        for w, (start, end) in zip(
+                words,
+                pseudo_word_level_strategy((s['start_time'], s['end_time']), words)
+        ):
             res.append({**s, 'words': w, 'start_time': start, 'end_time': end})
         return res
 
@@ -461,7 +491,8 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
     Args:
         segments:
         sort: How to sort words/segments. Options:
-            - `True`: sort by segment start time and assert that the word-level timings are sorted by start time
+            - `True`: sort by segment start time and assert that the word-level
+                        timings are sorted by start time
             - `False`: do not sort and do not check word order
             - `'segment'`: sort segments by start time and do not check word order
             - `'word'`: sort words by start time
@@ -482,11 +513,17 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
     SegLST(segments=[{'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
     """
     if sort not in (True, False, 'segment', 'word'):
-        raise ValueError(f'Invalid value for sort: {sort}. Choose one of True, False, "segment", "word"')
+        raise ValueError(
+            f'Invalid value for sort: {sort}. Choose one of True, False, '
+            f'"segment", "word"'
+        )
 
     for s in segments:
         if s['end_time'] < s['start_time']:
-            raise ValueError(f'The end time of an interval must be larger than the start time. Found {s} in {name}')
+            raise ValueError(
+                f'The end time of an interval must be larger than the start '
+                f'time. Found {s} in {name}'
+            )
 
     if sort in (True, 'segment', 'word'):
         segments = segments.sorted('start_time')
@@ -496,17 +533,21 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
     # Check whether words are sorted by start time
     words_sorted = words.sorted('start_time')
     if words_sorted != words:
-        # This check should be fast because `sorted` doesn't change the identity of the contained objects
-        # (so `words_sorted[0] is words[0] == True` when they are sorted).
+        # This check should be fast because `sorted` doesn't change the identity
+        # of the contained objects (so `words_sorted[0] is words[0] == True`
+        # when they are sorted).
         contradictions = [a != b for a, b in zip(words_sorted, words)]
         msg = (
-            f'The order of word-level timings contradicts the segment-level order in {name}: '
-            f'{sum(contradictions)} of {len(contradictions)} times.'
+            f'The order of word-level timings contradicts the segment-level '
+            f'order in {name}: {sum(contradictions)} of {len(contradictions)} '
+            f'times.'
         )
         if sort is not True:
             logger.warning(msg)
         else:
-            raise ValueError(f'{msg}\nConsider setting sort to False or "segment" or "word".')
+            raise ValueError(
+                f'{msg}\nConsider setting sort to False or "segment" or "word".'
+            )
 
     if sort == 'word':
         words = words_sorted
@@ -562,7 +603,9 @@ def get_self_overlap(d: SegLST):
     return SelfOverlap(self_overlap, total)
 
 
-def time_constrained_siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
+def time_constrained_siso_levenshtein_distance(
+        reference: 'SegLST', hypothesis: 'SegLST'
+) -> int:
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
 
     # Ignore empty segments
@@ -592,14 +635,19 @@ def time_constrained_siso_word_error_rate(
     Args:
         reference: reference transcript
         hypothesis: hypothesis transcript
-        reference_pseudo_word_level_timing: strategy for pseudo-word level timing for reference
-        hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
+        reference_pseudo_word_level_timing: strategy for pseudo-word level
+            timing for reference
+        hypothesis_pseudo_word_level_timing: strategy for pseudo-word level
+            timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
-        reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
-        hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        reference_sort: How to sort the reference. Options: 'segment',
+            'word', True, False. See below
+        hypothesis_sort: How to sort the reference. Options: 'segment',
+            'word', True, False. See below
         
     Reference / Hypothesis sorting options:
-    - True: sort by segment start time and assert that the word-level timings are sorted by start time
+    - True: sort by segment start time and assert that the word-level timings
+        are sorted by start time
     - False: do not sort and don't check word order
     - 'segment': sort by segment start time and don't check word order
     - 'word': sort by word start time
@@ -609,18 +657,36 @@ def time_constrained_siso_word_error_rate(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}])
     ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=1.0, overlap_time=2, total_time=2), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1))
     """
-    # Convert to SegLST. Disallow Python conversions since there is currently no way to get the timings from a
-    # Python structure.
-    reference = asseglst(reference, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
-    hypothesis = asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
+    # Convert to SegLST. Disallow Python conversions since there is currently
+    # no way to get the timings from a Python structure.
+    reference = asseglst(
+        reference,
+        required_keys=('start_time', 'end_time', 'words'),
+        py_convert=None
+    )
+    hypothesis = asseglst(
+        hypothesis,
+        required_keys=('start_time', 'end_time', 'words'),
+        py_convert=None
+    )
 
-    # Only single-speaker transcripts are supported, but we can here have multiple segments, e.g., for word-level
-    # transcripts
+    # Only single-speaker transcripts are supported, but we can here have
+    # multiple segments, e.g., for word-level transcripts
     assert 'speaker' not in reference.T.keys() or len(reference.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
     assert 'speaker' not in hypothesis.T.keys() or len(hypothesis.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
 
-    _reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
-    _hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
+    _reference = sort_and_validate(
+        reference,
+        reference_sort,
+        reference_pseudo_word_level_timing,
+        'reference'
+    )
+    _hypothesis = sort_and_validate(
+        hypothesis,
+        hypothesis_sort,
+        hypothesis_pseudo_word_level_timing,
+        'hypothesis'
+    )
     _hypothesis = apply_collar(_hypothesis, collar)
 
     er = _time_constrained_siso_error_rate(_reference, _hypothesis)
@@ -646,43 +712,67 @@ def time_constrained_minimum_permutation_word_error_rate(
         hypothesis_sort='segment',
 ) -> CPErrorRate:
     """
-    Time-constrained minimum permutation word error rate for single-speaker transcripts.
+    Time-constrained minimum permutation word error rate for single-speaker
+    transcripts.
 
     Args:
         reference: reference transcript
         hypothesis: hypothesis transcript
-        reference_pseudo_word_level_timing: strategy for pseudo-word level timing for reference
-        hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
+        reference_pseudo_word_level_timing: strategy for pseudo-word level
+            timing for reference
+        hypothesis_pseudo_word_level_timing: strategy for pseudo-word level
+            timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
-        reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
-        hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+        reference_sort: How to sort the reference. Options: 'segment', 'word',
+            True, False. See below
+        hypothesis_sort: How to sort the reference. Options: 'segment', 'word',
+            True, False. See below
         
     Reference / Hypothesis sorting options:
-    - True: sort by segment start time and assert that the word-level timings are sorted by start time
+    - True: sort by segment start time and assert that the word-level timings
+            are sorted by start time
     - False: do not sort and don't check word order
     - 'segment': sort by segment start time and don't check word order
     - 'word': sort by word start time
     """
     from meeteval.wer.wer.cp import _cp_error_rate
 
-    reference = asseglst(reference, required_keys=('start_time', 'end_time', 'words', 'speaker'), py_convert=None)
-    hypothesis = asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words', 'speaker'), py_convert=None)
+    reference = asseglst(
+        reference,
+        required_keys=('start_time', 'end_time', 'words', 'speaker'),
+        py_convert=None
+    )
+    hypothesis = asseglst(
+        hypothesis,
+        required_keys=('start_time', 'end_time', 'words', 'speaker'),
+        py_convert=None
+    )
 
     reference = reference.groupby('speaker')
     hypothesis = hypothesis.groupby('speaker')
 
-    # Compute self-overlap for ref and hyp before converting to words and applying the collar.
-    # This is required later
+    # Compute self-overlap for ref and hyp before converting to words and
+    # applying the collar. This is required later
     reference_self_overlap = sum([get_self_overlap(v) for v in reference.values()])
     hypothesis_self_overlap = sum([get_self_overlap(v) for v in hypothesis.values()])
 
     # Convert segments into lists of words and word-level timings
     reference = {
-        k: sort_and_validate(v, reference_sort, reference_pseudo_word_level_timing, f'reference speaker "{k}"')
+        k: sort_and_validate(
+            v,
+            reference_sort,
+            reference_pseudo_word_level_timing,
+            f'reference speaker "{k}"'
+        )
         for k, v in reference.items()
     }
     hypothesis = {
-        k: sort_and_validate(v, hypothesis_sort, hypothesis_pseudo_word_level_timing, f'hypothesis speaker "{k}"')
+        k: sort_and_validate(
+            v,
+            hypothesis_sort,
+            hypothesis_pseudo_word_level_timing,
+            f'hypothesis speaker "{k}"'
+        )
         for k, v in hypothesis.items()
     }
 
@@ -691,9 +781,11 @@ def time_constrained_minimum_permutation_word_error_rate(
 
     hypothesis = apply_collar(hypothesis, collar)
 
-    # Convert into integer representation to save some computation later. `'words'` contains a single word only.
+    # Convert into integer representation to save some computation later.
+    # `'words'` contains a single word only.
     sym2int = {v: i for i, v in enumerate([
-        segment['words'] for segment in itertools.chain(reference, hypothesis)
+        segment['words']
+        for segment in itertools.chain(reference, hypothesis)
         if segment['words']
     ], start=1)}
     sym2int[''] = 0
@@ -729,7 +821,8 @@ def tcp_word_error_rate_multifile(
     Computes the tcpWER for each example in the reference and hypothesis files.
     See `time_constrained_minimum_permutation_word_error_rate` for details.
     
-    To compute the overall WER, use `sum(tcp_word_error_rate_multifile(r, h).values())`.
+    To compute the overall WER, use
+    `sum(tcp_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
     r = apply_multi_file(lambda r, h: time_constrained_minimum_permutation_word_error_rate(
@@ -761,30 +854,40 @@ def align(
         hypothesis_sort='segment',
 ):
     """
-    Align two transcripts, similar to `kaldialign.align`, but with time constraint.
+    Align two transcripts, similar to `kaldialign.align`, but with time
+    constraint.
 
     Note that empty segments are ignored / skipped for the alignment.
 
     Args:
         reference: reference transcript
         hypothesis: hypothesis transcript
-        reference_pseudo_word_level_timing: strategy for pseudo-word level timing for reference
-        hypothesis_pseudo_word_level_timing: strategy for pseudo-word level timing for hypothesis
+        reference_pseudo_word_level_timing: strategy for pseudo-word level
+                timing for reference
+        hypothesis_pseudo_word_level_timing: strategy for pseudo-word level
+                timing for hypothesis
         collar: collar applied to hypothesis pseudo-word level timings
         style: Alignment output style. Can be one of
             - 'words' or 'kaldi': Output in the style of `kaldialign.align`
-            - 'index': Output indices of the reference and hypothesis words instead of the words. Empty segments are
-                included in the index, so aligning `('', 'a')` would give index `1` for `'a'`. Note that the
-                indices index words, not segments, and that word indices do not necessarily correspond to the index
-                of the segment in the input. If you want the indices to be valid for your input, make sure to pass
-                word-level timings and set `reference_pseudo_word_level_timing=None` and/or
+            - 'index': Output indices of the reference and hypothesis words
+                instead of the words. Empty segments are included in the index,
+                so aligning `('', 'a')` would give index `1` for `'a'`. Note
+                that the indices index words, not segments, and that word
+                indices do not necessarily correspond to the index of the
+                segment in the input. If you want the indices to be valid for
+                your input, make sure to pass word-level timings and set
+                `reference_pseudo_word_level_timing=None` and/or
                 `hypothesis_pseudo_word_level_timing=None`.
-            - 'seglst': Output the (seglst) segments for each word. Note: Empty segments are ignored
-        reference_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
-        hypothesis_sort: How to sort the reference. Options: 'segment', 'word', True, False. See below
+            - 'seglst': Output the (seglst) segments for each word. Note: Empty
+                segments are ignored
+        reference_sort: How to sort the reference. Options: 'segment', 'word',
+            True, False. See below
+        hypothesis_sort: How to sort the reference. Options: 'segment', 'word',
+            True, False. See below
         
     Reference / Hypothesis sorting options:
-    - True: sort by segment start time and assert that the word-level timings are sorted by start time
+    - True: sort by segment start time and assert that the word-level timings
+            are sorted by start time
     - False: do not sort and don't check word order
     - 'segment': sort by segment start time and don't check word order
     - 'word': sort by word start time
@@ -848,17 +951,40 @@ def align(
        'start_time': 0.5,
        'words': 'a'})]
     """
-    reference = asseglst(reference, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
-    hypothesis = asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words'), py_convert=None)
-    reference = sort_and_validate(reference, reference_sort, reference_pseudo_word_level_timing, 'reference')
-    hypothesis = sort_and_validate(hypothesis, hypothesis_sort, hypothesis_pseudo_word_level_timing, 'hypothesis')
+    reference = asseglst(
+        reference,
+        required_keys=('start_time', 'end_time', 'words'),
+        py_convert=None
+    )
+    hypothesis = asseglst(
+        hypothesis,
+        required_keys=('start_time', 'end_time', 'words'),
+        py_convert=None
+    )
+    reference = sort_and_validate(
+        reference,
+        reference_sort,
+        reference_pseudo_word_level_timing,
+        'reference'
+    )
+    hypothesis = sort_and_validate(
+        hypothesis,
+        hypothesis_sort,
+        hypothesis_pseudo_word_level_timing,
+        'hypothesis'
+    )
 
-    # Add index for tracking across filtering operations. This is only required for the index style since all other
-    # styles can be constructed from seglst without the index. Especially for `style = 'seglst'` we want to keep
+    # Add index for tracking across filtering operations. This is only required
+    # for the index style since all other styles can be constructed from seglst
+    # without the index. Especially for `style = 'seglst'` we want to keep
     # identity
     if style == 'index':
-        reference = SegLST([{**s, '__align_index': i} for i, s in enumerate(reference)])
-        hypothesis = SegLST([{**s, '__align_index': i} for i, s in enumerate(hypothesis)])
+        reference = SegLST(
+            [{**s, '__align_index': i} for i, s in enumerate(reference)]
+        )
+        hypothesis = SegLST(
+            [{**s, '__align_index': i} for i, s in enumerate(hypothesis)]
+        )
 
     # Ignore empty segments
     reference = reference.filter(lambda s: s['words'])
@@ -884,8 +1010,8 @@ def align(
     ]
 
     if style == 'index':
-        # Use the "global" (before filtering) index so that it corresponds to the input when the input
-        # already consists of words
+        # Use the "global" (before filtering) index so that it corresponds to
+        # the input when the input already consists of words
         alignment = [
             (None if a is None else a['__align_index'],
              None if b is None else b['__align_index'])
@@ -898,7 +1024,7 @@ def align(
             for a, b in alignment
         ]
     elif style == 'seglst':
-        pass    # Already in correct format
+        pass  # Already in correct format
     elif style != 'index':
         raise ValueError(f'Unknown alignment style: {style}')
 

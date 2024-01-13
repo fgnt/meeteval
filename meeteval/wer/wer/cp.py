@@ -8,7 +8,12 @@ from meeteval.io.seglst import SegLST, asseglst
 
 from meeteval.wer.wer.error_rate import ErrorRate
 
-__all__ = ['CPErrorRate', 'cp_word_error_rate', 'apply_cp_assignment', 'cp_word_error_rate_multifile']
+__all__ = [
+    'CPErrorRate',
+    'cp_word_error_rate',
+    'apply_cp_assignment',
+    'cp_word_error_rate_multifile'
+]
 
 
 @dataclasses.dataclass(frozen=True, repr=False)
@@ -46,8 +51,18 @@ class CPErrorRate(ErrorRate):
             missed_speaker=self.missed_speaker + other.missed_speaker,
             falarm_speaker=self.falarm_speaker + other.falarm_speaker,
             scored_speaker=self.scored_speaker + other.scored_speaker,
-            reference_self_overlap=self.reference_self_overlap + other.reference_self_overlap if self.reference_self_overlap is not None and other.reference_self_overlap is not None else None,
-            hypothesis_self_overlap=self.hypothesis_self_overlap + other.hypothesis_self_overlap if self.hypothesis_self_overlap is not None and other.hypothesis_self_overlap is not None else None,
+            reference_self_overlap=(
+                self.reference_self_overlap + other.reference_self_overlap
+                if self.reference_self_overlap is not None
+                   and other.reference_self_overlap is not None
+                else None
+            ),
+            hypothesis_self_overlap=(
+                self.hypothesis_self_overlap + other.hypothesis_self_overlap
+                if self.hypothesis_self_overlap is not None
+                   and other.hypothesis_self_overlap is not None
+                else None
+            ),
         )
 
     def apply_assignment(
@@ -150,19 +165,24 @@ def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate
 
     def split_words(d: 'SegLST'):
         return d.flatmap(
-            lambda s: [{**s, 'words': w} for w in (s['words'].split() if s['words'].strip() else [''])])
+            lambda s: [
+                {**s, 'words': w}
+                for w in (s['words'].split() if s['words'].strip() else [''])
+            ])
 
     return cp_error_rate(split_words(reference), split_words(hypothesis))
 
 
-def cp_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'dict[str, CPErrorRate]':
+def cp_word_error_rate_multifile(
+        reference, hypothesis
+) -> 'dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
 
     To compute the overall WER, use `sum(cp_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(cp_word_error_rate, reference_stm, hypothesis_stm)
+    return apply_multi_file(cp_word_error_rate, reference, hypothesis)
 
 
 def _cp_error_rate(
@@ -189,7 +209,8 @@ def _cp_error_rate(
             f'Found a total of {num_speakers} speakers in the input.\n'
             f'This indicates a mistake in the input, or does your use-case '
             f'really require scoring with that many speakers?\n'
-            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md '
+            f'for details.'
         )
 
     cost_matrix = np.array([
@@ -216,8 +237,9 @@ def _cp_error_rate(
     # Compute WER from distance
     distance = sum(distances)
 
-    reference_keys = dict(enumerate(reference.keys()))  # need `dict.get` of the keys for overestimation
-    hypothesis_keys = dict(enumerate(hypothesis.keys()))  # need `dict.get` of the keys for underestimation
+    # need `dict.get` of the keys for overestimation
+    reference_keys = dict(enumerate(reference.keys()))
+    hypothesis_keys = dict(enumerate(hypothesis.keys()))
 
     assignment = tuple([
         (reference_keys.get(r), hypothesis_keys.get(c))
@@ -358,7 +380,8 @@ def apply_cp_assignment(
 
         def get(obj, key, default):
             return obj.get(key, default)
-    elif isinstance(reference, (tuple, list)) and isinstance(hypothesis, (tuple, list)):
+    elif (isinstance(reference, (tuple, list))
+          and isinstance(hypothesis, (tuple, list))):
         fallback_keys_iter = iter(range(
             min(len(reference), len(hypothesis)),
             max(len(reference), len(hypothesis)),

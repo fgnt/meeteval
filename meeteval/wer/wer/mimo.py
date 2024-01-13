@@ -6,7 +6,10 @@ from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _keys, _items, _values
 
-__all__ = ['MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment', 'mimo_word_error_rate_multifile']
+__all__ = [
+    'MimoErrorRate', 'mimo_word_error_rate', 'apply_mimo_assignment',
+    'mimo_word_error_rate_multifile'
+]
 
 from meeteval.io import STM
 
@@ -33,12 +36,16 @@ def mimo_error_rate(
             f'Found a total of {num_speakers} speakers in the input.\n'
             f'This indicates a mistake in the input, or does your use-case '
             f'really require scoring with that many speakers?\n'
-            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md '
+            f'for details.'
         )
 
     from meeteval.wer.matching.mimo_matching import mimo_matching
 
-    distance, assignment = mimo_matching([_values(r) for r in _values(reference)], _values(hypothesis))
+    distance, assignment = mimo_matching(
+        [_values(r) for r in _values(reference)],
+        _values(hypothesis)
+    )
 
     reference_keys = _keys(reference)
     hypothesis_keys = _keys(hypothesis)
@@ -116,14 +123,19 @@ def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
     return mimo_error_rate(reference, hypothesis)
 
 
-def mimo_word_error_rate_multifile(reference_stm, hypothesis_stm) -> 'dict[str, MimoErrorRate]':
+def mimo_word_error_rate_multifile(
+        reference,
+        hypothesis
+) -> 'dict[str, MimoErrorRate]':
     """
-    Computes the MIMO WER for each example in the reference and hypothesis STM files.
+    Computes the MIMO WER for each example in the reference and hypothesis
+    files.
 
-    To compute the overall WER, use `sum(mimo_word_error_rate_multifile(r, h).values())`.
+    To compute the overall WER, use
+    `sum(mimo_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(mimo_word_error_rate, reference_stm, hypothesis_stm)
+    return apply_multi_file(mimo_word_error_rate, reference, hypothesis)
 
 
 def apply_mimo_assignment(

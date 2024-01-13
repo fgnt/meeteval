@@ -162,7 +162,7 @@ class Base(BaseABC):
 
     @classmethod
     def merge(cls, *o) -> 'Self':
-        assert all([type(o_) == type(o[0]) for o_ in o]), o
+        assert all([type(o_) == cls for o_ in o]), o
         return cls([line for o_ in o for line in o_.lines])
 
     def _repr_pretty_(self, p, cycle):

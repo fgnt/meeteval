@@ -183,9 +183,12 @@ def wer(
             any(r.suffix != '' for r in reference_paths) or
             any(h.suffix != '' for h in hypothesis_paths)
     ):
-        raise ValueError(f'Only (kaldi-style) text files are supported, i.e., files without an extension '
-                         f'(not dot allowed in the file name).\n'
-                         f'Got: {reference_paths} for reference and {hypothesis_paths} for hypothesis.')
+        raise ValueError(
+            f'Only (kaldi-style) text files are supported, i.e., files without '
+            f'an extension (not dot allowed in the file name).\n'
+            f'Got: {reference_paths} for reference and {hypothesis_paths} for '
+            f'hypothesis.'
+        )
     from meeteval.io.keyed_text import KeyedText
     reference = KeyedText.load(reference)
     hypothesis = KeyedText.load(hypothesis)
