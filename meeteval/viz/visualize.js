@@ -1415,7 +1415,7 @@ class CanvasPlot {
 
                 const tooltip = this.container.append("div").classed("tooltipcontent", true).classed("wrap-60 alignleft", true);
 
-                const tooltipTable = tooltip.append("table").classed("details-table", true);
+                const tooltipTable = tooltip.append("table").classed("details-table", true).append("tbody");
                 tooltipTable.selectAll(".utterance-details")
                     .data(utterance ? Object.entries(utterance).filter(d => !blacklist.includes(d[0])).map(e => [rename[e[0]] || e[0], e[1]]) : []).join(enter => {
                         let e = enter.append("tr").classed("utterance-details", true);

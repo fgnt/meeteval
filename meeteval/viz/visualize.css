@@ -50,17 +50,6 @@
     align-items: center;
 }
 
-.selected-segment-details {
-    display: flex;
-    margin: 2px 3px 0 3px;
-    background-color: #fff;
-    border-radius: 7px;
-    border: 1px solid #000;
-    padding: 0 5px 0 5px;
-    flex-wrap: wrap;
-    align-items: center;
-}
-
 .info-label {
     display: inline-block;
     font-weight: bold;
@@ -96,6 +85,7 @@ i {
     margin-right: 5px;
 }
 
+/* Plot elements */
 .minimap {
     position: relative;
     background-color: white;
@@ -105,6 +95,7 @@ i {
     border-radius: 5px;
 }
 
+/* Tooltips */
 .tooltip {
     position: relative;
 }
@@ -115,13 +106,19 @@ i {
     max-inline-size: 40ch;
 }
 
+/* Wraps text at about 60 characters. Used in selected segment details
+tooltip */
 .wrap-60 {
     inline-size: max-content;
     max-inline-size: 60ch;
 }
 
 /*
-Class for the tooltip content.
+Class for the tooltip content. This is the element that is shown when you hover
+over the tooltip container. It is hidden by default.
+
+The JS code may apply an additional translate style to move the tooltip into the
+visible area.
 */
 .tooltip .tooltipcontent {
     visibility: hidden;
@@ -140,14 +137,17 @@ Class for the tooltip content.
     transition: opacity 0.3s;
     transition-delay: 2s;
 
-    /* Width: fit content size, but not larger than 30 characters */
+    /* Width: fit content size. Size is limited by children */
     inline-size: fit-content;
 
     /* Center the tooltip below the element */
     inset-inline-start: 50%;
-    transform: translateX(-50%) translateY(1px);
+    /* Don't move this to the translate property. The translate property is
+       used by the JS code and stacks with transform: translate. */
+    transform: translateX(-50%);
 }
 
+/* Tooltip that is aligned left of its parent (e.g., selected segment) */
 .tooltipcontent.alignleft {
     inset-inline-start: 0;
     transform: none;
@@ -183,30 +183,25 @@ Class for the tooltip content.
     opacity: 0.5;
 }
 
-table.wer-table {
-    border-collapse: collapse;
-    margin: auto;
-    width: 100%;
-    table-layout: auto;
-}
+/* Style for the tables */
 
-.meeteval-viz thead tr {
-    /* background-color: #ffffff; */
+/* Table header */
+.meeteval-viz thead {
     color: #ffffff;
-    text-align: left;
 }
 
-.meeteval-viz thead tr th {
+/* Duplicate .meeteval-viz so that we are more specific than the Jupyter
+Notebook CSS */
+.meeteval-viz.meeteval-viz table thead th {
     font-weight: bold;
-    padding: 12px 15px;
-    text-align: center !important;
+    text-align: center;
 }
 
-.meeteval-viz table th,
-.meeteval-viz table td,
-.meeteval-viz table tr {
+.meeteval-viz.meeteval-viz table th,
+.meeteval-viz.meeteval-viz table td,
+.meeteval-viz.meeteval-viz table tr {
     padding: 12px 15px;
-    background: transparent;
+    text-align: left;
 }
 
 .meeteval-viz tbody tr:nth-child(odd) {
@@ -217,10 +212,20 @@ table.wer-table {
     background: #eee;
 }
 
-.wer-table tbody tr td:nth-child(3),
-.wer-table tbody tr td:nth-child(4) {
+table.wer-table {
+    border-collapse: collapse;
+    margin: auto;
+    width: 100%;
+    table-layout: auto;
+}
+
+/* Use a monospaced font for number columns (starting from column 3) in the
+wer table */
+.wer-table tbody tr td:nth-child(n+3) {
     font-family: monospace;
 }
+
+/* Menu Elements */
 
 .range-selector input {
     /* background: red; */
@@ -241,6 +246,7 @@ table.wer-table {
   -moz-appearance: textfield;
 }
 
+/* Hint shown below tables in tooltips */
 .tooltip-info {
     font-style: italic;
 }
@@ -261,25 +267,4 @@ table.wer-table {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
-}
-
-.details-table {
-    width: 100%;
-}
-
-.details-table tr:nth-child(odd) {
-    background: #fff;
-}
-
-.details-table tr:nth-child(even) {
-    background: #eee;
-}
-
-.details-table tr td:nth-child(2) {
-    text-align: left;
-    width: auto;
-}
-
-.details-table tr td:nth-child(1) {
-    width: 6em;
 }
