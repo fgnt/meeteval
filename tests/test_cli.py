@@ -4,7 +4,6 @@ from pathlib import Path
 
 example_files = (Path(__file__).parent.parent / 'example_files').absolute()
 
-
 def run(cmd):
     cp = subprocess.run(
         cmd,
@@ -34,6 +33,8 @@ def run(cmd):
 def test_burn_orc():
     # Normal test with stm files
     run(f'python -m meeteval.wer orcwer -h hyp.stm -r ref.stm')
+    # assert (example_files / 'hyp_orc.json').exists()
+    # assert (example_files / 'hyp_orc_per_reco.json').exists()
     run(f'meeteval-wer orcwer -h hyp.stm -r ref.stm')
 
     # Multiple stm files
@@ -53,10 +54,13 @@ def test_burn_orc():
     # Test with ctm files
     run(f'python -m meeteval.wer orcwer -h hyp1.ctm -h hyp2.ctm -r ref.stm')
     run(f"python -m meeteval.wer orcwer -h 'hyp*.ctm' -r ref.stm")
+    run(f'python -m meeteval.wer orcwer -h hyp1.ctm -r ref.stm')
 
     # Test output formats
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out average-out.json")
-    run("python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out '{parent}-{stem}-average-out.yaml'")
+    # assert (example_files / 'average-out.json').exists()
+    run("python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out '{parent}/{stem}-average-out.yaml'")
+    # assert (example_files / 'hyp-average-out.yaml').exists()
     # Output to stdout. Specifying the format requires =
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out -")
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out=-.yaml")
@@ -66,27 +70,40 @@ def test_burn_orc():
     # mandatory.
     run(f'python -m meeteval.wer orcwer -h <(cat hypA.stm hypB.stm) -r <(cat refA.stm refB.stm) --average-out hyp_orc.json --per-reco-out hyp_orc_per_reco.json')
 
+    # Test with files in SegLST format
+    run(f'python -m meeteval.wer orcwer -h hyp.seglst.json -r ref.seglst.json')
+
+    # Test with regex
+    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --regex ".*A"')
+    run('python -m meeteval.wer orcwer -h hyp.seglst.json -r ref.seglst.json --regex ".*A"')
+
 
 def test_burn_mimo():
     run(f'python -m meeteval.wer mimower -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer mimower -h 'hyp?.stm' -r 'ref?.stm'")
+    run(f'python -m meeteval.wer mimower -h hyp.seglst.json -r ref.seglst.json')
 
 
 def test_burn_cp():
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer cpwer -h 'hyp?.stm' -r 'ref?.stm'")
+    run(f'python -m meeteval.wer cpwer -h hyp.seglst.json -r ref.seglst.json')
 
 
 def test_burn_tcp():
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
+    run(f'python -m meeteval.wer tcpwer -h hyp.seglst.json -r ref.seglst.json')
 
 
 def test_burn_md_eval_22():
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'meeteval-der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm --collar 0.25')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm --regex ".*A"')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.seglst.json -r ref.seglst.json')
     # examples for collar:
     #    0:    CHiME-6
     #    0.25: CHiME-7 DASR

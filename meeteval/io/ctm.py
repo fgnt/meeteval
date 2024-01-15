@@ -1,9 +1,11 @@
 import typing
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 from meeteval.io.base import Base, BaseLine, BaseABC
 import decimal
+import logging
 
 if typing.TYPE_CHECKING:
     from typing import Self
@@ -15,7 +17,7 @@ __all__ = [
     'CTMGroup',
 ]
 
-
+_warned = False
 
 
 @dataclass(frozen=True)
@@ -105,6 +107,17 @@ class CTM(Base):
 
     @classmethod
     def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        global _warned
+        if not _warned:
+            _warned = True
+            logging.warning(
+                'CTM files do not support speaker IDs, so using them is fragile. '
+                'CTM files should only be used when compatibility with other '
+                'tools (e.g., asclite) is required. If compatibility is not '
+                'important, consider using STM files instead. '
+                'Each CTM file path is treated as a separate speaker, where '
+                'the file name is interpreted as the speaker ID.'
+            )
         return cls([
             CTMLine.parse(line, parse_float=parse_float)
             for line in map(str.strip, s.split('\n'))
@@ -136,6 +149,8 @@ class CTMGroup(BaseABC):
 
     @classmethod
     def load(cls, ctm_files, parse_float=decimal.Decimal):
+        if isinstance(ctm_files, (str, Path)):
+            ctm_files = [ctm_files]
         return cls({str(ctm_file): CTM.load(ctm_file, parse_float=parse_float)
                     for ctm_file in ctm_files})
 
@@ -181,7 +196,18 @@ class CTMGroup(BaseABC):
 
     def to_seglst(self) -> 'SegLST':
         from meeteval.io.seglst import SegLST
-        return SegLST.merge(*[ctm.to_seglst().map(lambda x: {**x, 'speaker': speaker}) for speaker, ctm in self.ctms.items()])
+        return SegLST.merge(
+            *[ctm.to_seglst().map(lambda x: {**x, 'speaker': speaker}) for speaker, ctm in self.ctms.items()])
+
+    @classmethod
+    def merge(cls, *o):
+        seen_keys = set()
+        for o_ in o:
+            assert isinstance(o_, cls), o_
+            if o_.ctms.keys() & seen_keys:
+                raise ValueError(f'CTMGroup.merge() does not support duplicate keys: {o_.ctms.keys() & seen_keys}')
+            seen_keys.update(o_.ctms.keys())
+        return cls({k: v for o_ in o for k, v in o_.ctms.items()})
 
     def to_stm(self):
         from meeteval.io import STM, STMLine
@@ -229,7 +255,9 @@ if __name__ == '__main__':
         stm.dump(stm_file)
         print(f'Wrote {len(stm)} lines to {stm_file}')
 
+
     import fire
+
     fire.Fire({
         'to_stm': to_stm,
     })

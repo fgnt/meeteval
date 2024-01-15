@@ -1,6 +1,9 @@
 import dataclasses
+import decimal
 import functools
+import io
 import typing
+from pathlib import Path
 
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
@@ -8,8 +11,14 @@ from meeteval._typing import TypedDict
 
 if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
-    from typing import Callable, Iterable, Any
+    from typing import Callable, Iterable, Any, Self
 
+__all__ = [
+    'SegLST',
+    'SegLstSegment',
+    'asseglst',
+    'apply_multi_file',
+]
 
 
 class SegLstSegment(TypedDict, total=False):
@@ -26,8 +35,8 @@ class SegLstSegment(TypedDict, total=False):
     speaker: str
     segment_index: int
 
-    # Unused but by MeetEval but present in some file formats. They are defined here for compatibility and
-    # conversion in both directions
+    # Unused but by MeetEval but present in some file formats. They are defined
+    # here for compatibility and conversion in both directions
     channel: int
     confidence: float
 
@@ -43,13 +52,75 @@ class SegLST(BaseABC):
     # Caches
     _unique = None
 
+    @classmethod
+    def load(
+            cls,
+            file: [Path, str, io.TextIOBase, tuple, list],
+            parse_float=decimal.Decimal
+    ) -> 'Self':
+        from meeteval.io.base import _open
+        files = file if isinstance(file, (tuple, list)) else [file]
+
+        parsed = []
+        for f in files:
+            with _open(f, 'r') as fd:
+                parsed.append(cls.parse(fd.read(), parse_float=parse_float))
+
+        return cls.merge(*parsed)
+
+    @classmethod
+    def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
+        """
+        Parses a SegLST from a string.
+
+        >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0}]')
+        SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+        """
+        import simplejson
+
+        def fix_floats(s):
+            """Convert common float keys to decimal"""
+            for k in ('start_time', 'end_time'):
+                if k in s:
+                    s[k] = parse_float(s[k])
+            return s
+
+        return cls([
+            fix_floats(s) for s in simplejson.loads(s, parse_float=parse_float)
+        ])
+
+    def dump(self, file):
+        from meeteval.io.base import _open
+        with _open(file, 'w') as fd:
+            import simplejson
+            simplejson.dump(self.segments, fd, use_decimal=True, indent='  ')
+
+    def dumps(self):
+        """
+        Dumps the data as JSON string.
+
+        >>> print(SegLST([{'words': 'a b c', 'session_id': 0, 'speaker': 0}]).dumps())
+        [
+          {
+            "words": "a b c",
+            "session_id": 0,
+            "speaker": 0
+          }
+        ]
+        """
+        import simplejson
+        return simplejson.dumps(self.segments, use_decimal=True, indent='  ')
+
     @property
     class T:
         """
-        The "transpose" of the segments, i.e., a mapping that maps keys to lists of values.
+        The "transpose" of the segments, i.e., a mapping that maps keys to
+        lists of values.
 
-        The name `T` is inspired by the `T` in `pandas.DataFrame.T` and `numpy.ndarray.T`.
+        The name `T` is inspired by the `T` in `pandas.DataFrame.T` and
+        `numpy.ndarray.T`.
         """
+
         def __init__(self, outer):
             self._outer = outer
 
@@ -57,7 +128,9 @@ class SegLST(BaseABC):
             """
             The keys that are common among all segments
             """
-            return set.intersection(*[set(s.keys()) for s in self._outer.segments])
+            return set.intersection(
+                *[set(s.keys()) for s in self._outer.segments]
+            )
 
         def __getitem__(self, key):
             """
@@ -97,7 +170,9 @@ class SegLST(BaseABC):
          1: SegLST(segments=[{'words': 'd e f', 'segment_index': 0, 'speaker': 1}]),
          2: SegLST(segments=[{'words': 'g h i', 'segment_index': 0, 'speaker': 2}])}
         """
-        return {k: SegLST(g) for k, g in groupby(self.segments, key=key).items()}
+        return {
+            k: SegLST(g) for k, g in groupby(self.segments, key=key).items()
+        }
 
     def sorted(self, key) -> 'SegLST':
         """
@@ -107,18 +182,23 @@ class SegLST(BaseABC):
 
     def map(self, fn: 'Callable[[SegLstSegment], SegLstSegment]') -> 'SegLST':
         """
-        Applies `fn` to all segments and returns a new `SegLST` object with the results.
+        Applies `fn` to all segments and returns a new `SegLST` object with
+        the results.
         """
         return SegLST([fn(s) for s in self.segments])
 
-    def flatmap(self, fn: 'Callable[[list[SegLstSegment]], Iterable[SegLstSegment]]') -> 'SegLST':
+    def flatmap(
+            self, fn: 'Callable[[list[SegLstSegment]], Iterable[SegLstSegment]]'
+    ) -> 'SegLST':
         """
-        Returns a new `SegLST` by applying `fn`, which is exptected to return an iterable of `SegLstSegment`s,
+        Returns a new `SegLST` by applying `fn`, which is exptected to return
+        an iterable of `SegLstSegment`s,
         to all segments and flattening the output.
 
-        The name is inspired by other programming languages (e.g., JavaScript, Rust, Java, Scala) where
-        flatmap is a common operation on lists / arrays / iterators. In data loading frameworks,
-        this operation is known as map followed by unbatch.
+        The name is inspired by other programming languages (e.g., JavaScript,
+        Rust, Java, Scala) where flatmap is a common operation on lists /
+         arrays / iterators. In data loading frameworks, this operation is
+         known as map followed by unbatch.
 
         Example: Split utterances into words
             >>> SegLST([{'words': 'a b c'}]).flatmap(lambda x: [{'words': w} for w in x['words'].split()])
@@ -128,7 +208,8 @@ class SegLST(BaseABC):
 
     def filter(self, fn: 'Callable[[SegLstSegment], bool]') -> 'SegLST':
         """
-        Applies `fn` to all segments and returns a new `SegLST` object with the segments for which `fn` returns true.
+        Applies `fn` to all segments and returns a new `SegLST` object with the
+        segments for which `fn` returns true.
         """
         return SegLST([s for s in self.segments if fn(s)])
 
@@ -169,15 +250,18 @@ class SegLST(BaseABC):
 
 def asseglistconvertible(d, *, py_convert=NestedStructure):
     """
-    Converts `d` into a structure that is convertible to the SegLST format, i.e., that
-    has `to_seglst` (and often `new`) defined.
+    Converts `d` into a structure that is convertible to the SegLST format,
+    i.e., that has `to_seglst` (and often `new`) defined.
     """
     # Already convertible
     if hasattr(d, 'to_seglst'):
         return d
 
     # Chime7 format / List of `SegLstSegment`s
-    if isinstance(d, list) and (len(d) == 0 or isinstance(d[0], dict) and 'words' in d[0]):
+    if (
+            isinstance(d, list)
+            and (len(d) == 0 or isinstance(d[0], dict) and 'words' in d[0])
+    ):
         # TODO: Conversion back to list of segments (Python structure)?
         return SegLST(d)
 
@@ -186,20 +270,29 @@ def asseglistconvertible(d, *, py_convert=NestedStructure):
     # Convert Python structures
     if isinstance(d, (list, tuple, dict, str)):
         if py_convert is None:
-            raise TypeError(f'Cannot convert {type(d)} to SegLST with py_convert={py_convert!r}!')
+            raise TypeError(
+                f'Cannot convert {type(d)} to SegLST with '
+                f'py_convert={py_convert!r}!'
+            )
         # TODO: Conversion back to Python structure?
         return py_convert(d)
 
     raise NotImplementedError(f'No conversion implemented for {type(d)}!')
 
 
+class SegLSTKeyMissingError(ValueError):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+
 def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
     """
-    Converts an object `d` into SegLST data format. `d` can be anything convertible to the SegLST format.
-    Returns `d` if `isinstance(d, SegLST)`.
+    Converts an object `d` into SegLST data format. `d` can be anything
+    convertible to the SegLST format. Returns `d` if `isinstance(d, SegLST)`.
 
-    Python structures have to have one or two nested levels. The first level is interpreted as the speaker key and the
-    second level as the segment key.
+    Python structures have to have one or two nested levels. The first level is
+    interpreted as the speaker key and the second level as the segment key.
+
     >>> asseglst(['a b c'])
     SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
     >>> asseglst([['a b c', 'd e f'], ['g h i']])
@@ -228,20 +321,20 @@ def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
     assert isinstance(required_keys, tuple), required_keys
 
     # Exit early if already in the correct format
-    if isinstance(d, SegLST):
-        return d
-
-    # Get a type that is convertible to SegLST
-    d = asseglistconvertible(d, py_convert=py_convert)
-
-    t = d.to_seglst()
+    if not isinstance(d, SegLST):
+        # Get a type that is convertible to SegLST
+        t = asseglistconvertible(d, py_convert=py_convert)
+        t = t.to_seglst()
+    else:
+        t = d
 
     # Check that `t` has all required keys
     if len(t) and not set(required_keys).issubset(t.T.keys()):
         required_keys = set(required_keys)
         raise ValueError(
-            f'Some required keys are not present in the converted data structure!\n'
-            f'Required: {required_keys}, found: {t.T.keys()}, missing: {required_keys - t.T.keys()}'
+            f'Some required keys are not present in the data structure!\n'
+            f'Required: {required_keys}, found: {t.T.keys()}, missing: '
+            f'{required_keys - t.T.keys()}'
         )
     return t
 
@@ -309,8 +402,10 @@ def groupby(
 
 def seglst_map(*, required_keys=(), py_convert=NestedStructure):
     """
-    Decorator to for a function that takes a (single) `SegLST` object as input and returns a (single) `SegLST` object
-    as output. Automatically converts the input to `SegLST` and converts the returned value back to its original type.
+    Decorator to for a function that takes a (single) `SegLST` object as input
+    and returns a (single) `SegLST` object as output. Automatically converts
+    the input to `SegLST` and converts the returned value back to its original
+    type.
 
     >>> @seglst_map(required_keys=('speaker',))
     ... def fn(seglst, *, speaker='X'):
@@ -347,8 +442,8 @@ def apply_multi_file(
     """
     Applies a function individually to all sessions / files.
 
-    `reference` and `hypothesis` must be convertible to `SegLST`. If they are a Python structure, the first level
-    is interpreted as the session / file key.
+    `reference` and `hypothesis` must be convertible to `SegLST`. If they are a
+    Python structure, the first level is interpreted as the session / file key.
 
     >>> from meeteval.wer.wer.cp import cp_word_error_rate
     >>> from pprint import pprint
@@ -362,14 +457,19 @@ def apply_multi_file(
     import logging
     reference = asseglst(
         reference, required_keys=('session_id',),
-        py_convert=lambda p: NestedStructure(p, ('session_id', 'speaker', 'segment_id'))
+        py_convert=lambda p: NestedStructure(
+            p, ('session_id', 'speaker', 'segment_id')
+        )
     ).groupby('session_id')
     hypothesis = asseglst(
         hypothesis, required_keys=('session_id',),
-        py_convert=lambda p: NestedStructure(p, ('session_id', 'speaker', 'segment_id'))
+        py_convert=lambda p: NestedStructure(
+            p, ('session_id', 'speaker', 'segment_id')
+        )
     ).groupby('session_id')
 
-    # Check session keys. Print a warning if they differ and raise an exception when they differ too much
+    # Check session keys. Print a warning if they differ and raise an exception
+    # when they differ too much
     if reference.keys() != hypothesis.keys():
         h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
         r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
@@ -382,7 +482,8 @@ def apply_multi_file(
             # because we cannot distinguish between silence and missing.
             logging.warning(
                 f'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(reference)})\n'
+                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: '
+                f'{len(h_minus_r)} of {len(reference)})\n'
                 f'Drop them.',
             )
             hypothesis = {
@@ -395,15 +496,21 @@ def apply_multi_file(
             pass
         elif ratio <= allowed_empty_examples_ratio:
             logging.warning(
-                f'Missing {ratio * 100:.3} % = {len(r_minus_h)}/{len(reference.keys())} of recordings in hypothesis.\n'
-                f'Please check your system, if it ignored some recordings or predicted no transcriptions for some recordings.\n'
-                f'Continue with the assumption, that the system predicted silence for the missing recordings.',
+                f'Missing {ratio * 100:.3} % = '
+                f'{len(r_minus_h)}/{len(reference.keys())} of recordings in'
+                f' hypothesis.\n'
+                f'Please check your system, if it ignored some recordings or '
+                f'predicted no transcriptions for some recordings.\n'
+                f'Continue with the assumption, that the system predicted '
+                f'silence for the missing recordings.',
             )
         else:
             raise RuntimeError(
                 'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: {len(h_minus_r)} of {len(hypothesis)})\n'
-                f'reference - hypothesis: e.g. {r_minus_h[:5]} (Total: {len(r_minus_h)} of {len(reference)})'
+                f'hypothesis - reference: e.g. {h_minus_r[:5]} '
+                f'(Total: {len(h_minus_r)} of {len(hypothesis)})\n'
+                f'reference - hypothesis: e.g. {r_minus_h[:5]} '
+                f'(Total: {len(r_minus_h)} of {len(reference)})'
             )
 
     results = {}

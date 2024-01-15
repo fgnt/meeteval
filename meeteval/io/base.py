@@ -160,6 +160,11 @@ class Base(BaseABC):
         # return cls([cls.line_cls.parse(line) for line in s.splitlines() if line.strip()])
         raise NotImplementedError
 
+    @classmethod
+    def merge(cls, *o) -> 'Self':
+        assert all([type(o_) == cls for o_ in o]), o
+        return cls([line for o_ in o for line in o_.lines])
+
     def _repr_pretty_(self, p, cycle):
         name = self.__class__.__name__
         with p.group(len(name) + 1, name + '(', ')'):
@@ -364,19 +369,3 @@ def _open(f, mode='r'):
         return open(f, mode)
     else:
         raise TypeError(type(f), f)
-
-
-def load(file, parse_float=decimal.Decimal):
-    import meeteval
-    file = Path(file)
-    if file.suffix == '.stm':
-        load_fn = meeteval.io.stm.STM.load
-    elif file.suffix == '.rttm':
-        load_fn = meeteval.io.rttm.RTTM.load
-    elif file.suffix == '.uem':
-        load_fn = meeteval.io.uem.UEM.load
-    elif file.suffix == '.ctm':
-        load_fn = meeteval.io.ctm.CTM.load
-    else:
-        raise ValueError(f'Unknown file type: {file}')
-    return load_fn(file, parse_float=parse_float)

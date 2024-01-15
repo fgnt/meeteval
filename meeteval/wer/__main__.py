@@ -9,9 +9,6 @@ import decimal
 from pathlib import Path
 
 import meeteval.io
-from meeteval.io.ctm import CTMGroup
-from meeteval.io.keyed_text import KeyedText
-from meeteval.io.stm import STM
 from meeteval.wer.wer import combine_error_rates, ErrorRate
 import sys
 
@@ -93,39 +90,10 @@ def _load(path: Path):
             raise NotImplementedError(f'Unknown file ext: {path.suffix}')
 
 
-def _load_reference(reference: 'Path | list[Path]'):
-    """Loads a reference transcription file. Currently only STM supported"""
-    return STM.load(reference)
-
-
-def _load_hypothesis(hypothesis: 'list[Path]'):
-    """Loads the hypothesis. Supports one STM file or multiple CTM files
-    (one per channel)"""
-    if len(hypothesis) > 1:
-        # We have multiple, only supported for ctm files
-        suffix = {h.suffixes[-1] for h in hypothesis}
-        assert len(suffix) == 1, suffix
-        filename = suffix.pop()
-    else:
-        hypothesis = hypothesis[0]
-        filename = str(hypothesis)
-
-    if filename.endswith('.ctm'):
-        if isinstance(hypothesis, list):
-            return CTMGroup.load(hypothesis).to_stm()
-        else:
-            return CTMGroup.load([hypothesis]).to_stm()
-    elif filename.endswith('.stm'):
-        return STM.load(hypothesis)
-    elif filename.startswith('/dev/fd/') or filename.startswith('/proc/self/fd/'):
-        # This is a pipe, i.e. python -m ... <(cat ...)
-        # For now, assume it is an STM file
-        return STM.load(hypothesis)
-    else:
-        raise RuntimeError(hypothesis, filename)
-
-
-def _load_texts(reference_paths: 'list[str]', hypothesis_paths: 'list[str]', regex) -> 'tuple[STM, list[Path], STM, list[Path]]':
+def _load_texts(
+        reference_paths: 'list[str]', hypothesis_paths: 'list[str]', regex,
+        file_format=None,
+) -> 'tuple[meeteval.io.SegLST, list[Path], meeteval.io.SegLST, list[Path]]':
     """Load and validate reference and hypothesis texts.
 
     Validation checks that reference and hypothesis have the same example IDs.
@@ -141,21 +109,18 @@ def _load_texts(reference_paths: 'list[str]', hypothesis_paths: 'list[str]', reg
     hypothesis_paths = [Path(file) for h in hypothesis_paths for file in _glob(h)]
 
     # Load input files
-    reference = _load_reference(reference_paths)
-
-    # Hypothesis can be an STM file or a collection of  CTM files. Detect
-    # which one we have and load it
-    hypothesis = _load_hypothesis(hypothesis_paths)
+    reference = meeteval.io.asseglst(meeteval.io.load(reference_paths, format=file_format))
+    hypothesis = meeteval.io.asseglst(meeteval.io.load(hypothesis_paths, format=file_format))
 
     # Filter lines with regex based on filename
     if regex:
         r = re.compile(regex)
 
-        def filter(stm):
-            filenames = stm.filenames()
+        def filter(s):
+            filenames = s.T['session_id']
             filtered_filenames = [f for f in filenames if r.fullmatch(f)]
             assert filtered_filenames, (regex, filenames, 'Found nothing')
-            return stm.filter(lambda l: l.filename in filtered_filenames)
+            return s.filter(lambda l: l['session_id'] in filtered_filenames)
 
         reference = filter(reference)
         hypothesis = filter(hypothesis)
@@ -195,13 +160,13 @@ def _save_results(
     _dump({
         example_id: dataclasses.asdict(error_rate)
         for example_id, error_rate in per_reco.items()
-    }, per_reco_out.format(parent=f'{parent}/', stem=stem))
+    }, per_reco_out.format(parent=parent, stem=stem))
 
     # Compute and save average
     average = combine_error_rates(*per_reco.values())
     _dump(
         dataclasses.asdict(average),
-        average_out.format(parent=f'{parent}/', stem=stem),
+        average_out.format(parent=parent, stem=stem),
     )
     return average
 
@@ -218,9 +183,13 @@ def wer(
             any(r.suffix != '' for r in reference_paths) or
             any(h.suffix != '' for h in hypothesis_paths)
     ):
-        raise ValueError(f'Only (kaldi-style) text files are supported, i.e., files without an extension '
-                         f'(not dot allowed in the file name).\n'
-                         f'Got: {reference_paths} for reference and {hypothesis_paths} for hypothesis.')
+        raise ValueError(
+            f'Only (kaldi-style) text files are supported, i.e., files without '
+            f'an extension (not dot allowed in the file name).\n'
+            f'Got: {reference_paths} for reference and {hypothesis_paths} for '
+            f'hypothesis.'
+        )
+    from meeteval.io.keyed_text import KeyedText
     reference = KeyedText.load(reference)
     hypothesis = KeyedText.load(hypothesis)
     from meeteval.wer.wer.siso import siso_word_error_rate_multifile
@@ -350,7 +319,7 @@ class CLI:
         # Define argument parser and commands
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument('--version', action='store_true',
-                            help='Show version')
+                                 help='Show version')
 
         # Logging and verbosity
         logging.addLevelName(100,
@@ -542,7 +511,6 @@ class CLI:
 
 
 def cli():
-
     cli = CLI()
 
     cli.add_command(wer)
