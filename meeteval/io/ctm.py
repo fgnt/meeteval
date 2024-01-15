@@ -112,9 +112,11 @@ class CTM(Base):
             _warned = True
             logging.warning(
                 'CTM files do not support speaker IDs, so using them is fragile. '
-                'CTM files should only be used when compatibility with other tools (e.g., asclite) is required. '
-                'If compatibility is not important, consider using STM files instead. '
-                'Each CTM file path is treated as a separate speaker.'
+                'CTM files should only be used when compatibility with other '
+                'tools (e.g., asclite) is required. If compatibility is not '
+                'important, consider using STM files instead. '
+                'Each CTM file path is treated as a separate speaker, where '
+                'the file name is interpreted as the speaker ID.'
             )
         return cls([
             CTMLine.parse(line, parse_float=parse_float)

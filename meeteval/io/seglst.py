@@ -80,7 +80,7 @@ class SegLST(BaseABC):
 
         def fix_floats(s):
             """Convert common float keys to decimal"""
-            for k in ('start_time', 'end_time', 'confidence'):
+            for k in ('start_time', 'end_time'):
                 if k in s:
                     s[k] = parse_float(s[k])
             return s
