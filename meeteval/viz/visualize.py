@@ -1,5 +1,6 @@
 import logging
 
+import meeteval
 from meeteval.wer import ErrorRate
 
 logging.basicConfig(level=logging.ERROR)
@@ -67,27 +68,6 @@ def dump_json(
                             sort_keys=sort_keys, **kwargs)
     else:
         raise TypeError(path)
-
-
-html_template = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>{title}</title>
-    <script src="https://d3js.org/d3.v7.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-</head>
-<body>
-<div>{settings}</div>
-<div id="my_dataviz"></div>
-<script src="visualize.js"></script>
-<script>
-    d3.json("data.json").then(d => alignment_visualization(d, "#my_dataviz"));
-</script>
-</body>
-</html>
-"""
 
 
 def get_wer(t: SegLST, assignment_type, collar=5, hypothesis_key='hypothesis'):
@@ -287,7 +267,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         get_alignment(w, assignment, collar=5, hypothesis_key=k)
     words = w + ignored_words
 
-    # Map back to original_words TODO: remove "original_words" key
+    # Map back to original_words
     # and pre-compute things that are required in the visualization
     words = words.map(lambda w: {
         **w,
@@ -360,8 +340,8 @@ class AlignmentVisualization:
 
     def __init__(
             self,
-            ref: STM,
-            hyp: STM,
+            reference,
+            hypothesis,
             alignment='tcp',
             colormap='default',
             barplot_style='absolute',
@@ -373,8 +353,8 @@ class AlignmentVisualization:
             alignment_transform=None,
             markers=None,
     ):
-        self.ref = ref
-        self.hyp = hyp
+        self.reference = reference
+        self.hypothesis = hypothesis
         self.alignment = alignment
         self.colormap = colormap
         self.barplot_style = barplot_style
@@ -390,34 +370,44 @@ class AlignmentVisualization:
         if isinstance(self.colormap, str):
             if not self.colormap in self.available_colormaps:
                 raise ValueError(
-                    f'Unknown colormap: {self.colormap}. Use one of {self.available_colormaps} or a custom mapping from '
-                    f'match types ("correct", "insertion", "deletion" and "substitution") to (HTML) colors.'
+                    f'Unknown colormap: {self.colormap}. Use one of '
+                    f'{self.available_colormaps} or a custom mapping from '
+                    f'match types ("correct", "insertion", "deletion" and '
+                    f'"substitution") to (HTML) colors.'
                 )
             return f'colormaps.{self.colormap}'
         else:
             colormap_keys = ['correct', 'substitution', 'insertion', 'deletion']
             if self.colormap.keys() != colormap_keys:
                 raise ValueError(
-                    f'Colormap defined the wrong keys: Need {colormap_keys} but found {list(self.colormap.keys())}'
+                    f'Colormap defined the wrong keys: Need {colormap_keys} '
+                    f'but found {list(self.colormap.keys())}'
                 )
             return dumps_json(self.colormap, indent=None)
 
     @cached_property
     def data(self):
-        d = get_visualization_data(self.ref, self.hyp, assignment=self.alignment,
+        d = get_visualization_data(
+            self.reference, self.hypothesis, assignment=self.alignment,
                                    alignment_transform=self.alignment_transform)
         d['markers'] = self.markers
         return d
 
     def _repr_html_(self):
+        """
+        Be aware that this writes _a lot of data_ in json format into the
+        output cell. This can cause the browser to hang/crash and may produce
+        large ipynb files.
+        """
         return self.html()
 
     def html(self):
         """
-        TODO: make this work without the manual patching ("replace") below
+        Creates a visualization in HTML format.
 
-        Be aware that this writes _a lot of data_ in json format into the output cell. This can cause the browser to
-        hang/crash and may produce large ipynb files.
+        Note: This HTML contains script and link tags that load external
+            libraries, so the visualization will not work offline!
+            TODO: Add an option to embed the dependencies into the HTML file.
         """
         # Generate data
         element_id = 'viz-' + str(uuid.uuid4())
@@ -483,37 +473,54 @@ def cli():
 
     parser.add_argument('--reference', '-r', type=str, required=True)
     parser.add_argument('--hypothesis', '-h', type=str, required=True)
-    parser.add_argument('--filename', type=str, required=True)  # TODO: name!
-    parser.add_argument('--alignment', '-a', type=str, default='tcp', choices=['tcp', 'cp', 'ditcp'])
-    parser.add_argument('--output-dir', '-o', type=str, default='.')
-    parser.add_argument('--html-title', type=str, default='MeetEval Visualization {filename}')
-    parser.add_argument('--no-browser', action='store_true')
+    parser.add_argument(
+        '--example-id', type=str, required=True,
+        help="The example to visualize, in case there is more than one in the "
+             "reference and hypothesis"
+    )
+    parser.add_argument(
+        '--alignment', '-a', type=str, default='tcp',
+        choices=['tcp', 'cp']
+    )
+    parser.add_argument(
+        '--output-filename', '-o', type=str,
+        default='{example_id}.html'
+    )
+    parser.add_argument(
+        '--html-title', type=str,
+        default='MeetEval Visualization {filename}'
+    )
 
     args = parser.parse_args()
 
-    data = get_visualization_data(
-        STM.load(args.reference).grouped_by_filename()[args.filename],
-        STM.load(args.hypothesis).grouped_by_filename()[args.filename],
-        assignment=args.alignment,
+    reference = meeteval.io.asseglst(meeteval.io.load(args.reference))
+    hypothesis = meeteval.io.asseglst(meeteval.io.load(args.hypothesis))
+
+    if 'session_id' in reference.T.keys():
+        session_ids = reference.unique('session_id').union(hypothesis.unique('session_id'))
+        if len(session_ids) > 0:
+            assert args.example_id is not None
+            reference = reference.filter(lambda s: s['session_id'] == args.example_id)
+            hypothesis = hypothesis.filter(lambda s: s['session_id'] == args.example_id)
+        else:
+            assert args.example_id is None or next(iter(session_ids)) == args.example_id, args.example_id
+    else:
+        assert args.example_id is None, args.example_id
+
+    output_filename = Path(args.output_filename.format(
+        example_id=next(iter(reference.unique('session_id')))
+    ))
+
+    AlignmentVisualization(
+        reference,
+        hypothesis,
+        alignment=args.alignment,
+    ).dump(output_filename)
+
+    print(
+        f'Wrote visualization to {output_filename}\n'
+        f'To view it, open the file in a browser (e.g., xdg-open {output_filename})'
     )
-
-    output_dir = Path(args.output_dir)
-    dump_json(data, output_dir / 'data.json')
-    Path(output_dir / 'index.html').write_text(
-        html_template.format(title=args.html_title.format(filename=args.filename), settings=str(args)))
-    shutil.copy(Path(__file__).parent / 'plot.js', output_dir / 'plot.js')
-    shutil.copy(Path(__file__).parent / 'visualize.js', output_dir / 'visualize.js')
-
-    import os
-    os.system(f'cd {output_dir} && python -m http.server')
-    #
-    # if not args.no_browser:
-    #     try:
-    #         import webbrowser
-    #     except:
-    #         logging.warning('Could not open browser automatically. Please install the "webbrowser" Python module or open the file manually.')
-    #     else:
-    #         webbrowser.open(str(output_dir / 'index.html'))
 
 
 if __name__ == '__main__':

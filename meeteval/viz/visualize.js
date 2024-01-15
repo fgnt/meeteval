@@ -452,7 +452,6 @@ class CanvasPlot {
                     // :hover
                     const bound = root_element.node().getBoundingClientRect();
                     const e = tooltipcontent.node().getBoundingClientRect();
-                    console.log(tooltipcontent)
                     let shift = 0;
                     if (e.left < bound.left) {
                         shift = bound.left - e.left;
@@ -1279,7 +1278,6 @@ class CanvasPlot {
                 // Substitution or correct
                 context.beginPath();
                 const bandleft = this.plot.x(m.speaker);
-                // console.log("draw match", m)
                 context.strokeStyle = settings.colors[m.match_type];
                 context.moveTo(bandleft + rectwidth, this.plot.y(m.left_center_time));
                 context.lineTo(bandleft + rectwidth + this.ref_hyp_gap / 2, this.plot.y(m.left_center_time));
@@ -1352,7 +1350,6 @@ class CanvasPlot {
 
             // Draw boundary around the selected utterance
             if (this.selected_utterance) {
-                console.log(this.selected_utterance)
                 const d = this.selected_utterance;
                 const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + this.ref_hyp_gap : 0);
                 context.beginPath();
