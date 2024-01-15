@@ -39,6 +39,17 @@
     border: 1px solid #4f9fee;
 }
 
+.pill.selection-details {
+    display: flex;
+    margin: 2px 3px 0 3px;
+    background-color: #fff;
+    border-radius: 7px;
+    border: 1px solid #000;
+    padding: 0 5px 0 5px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
 .selected-segment-details {
     display: flex;
     margin: 2px 3px 0 3px;
@@ -104,6 +115,11 @@ i {
     max-inline-size: 40ch;
 }
 
+.wrap-60 {
+    inline-size: max-content;
+    max-inline-size: 60ch;
+}
+
 /*
 Class for the tooltip content.
 */
@@ -130,6 +146,11 @@ Class for the tooltip content.
     /* Center the tooltip below the element */
     inset-inline-start: 50%;
     transform: translateX(-50%) translateY(1px);
+}
+
+.tooltipcontent.alignleft {
+    inset-inline-start: 0;
+    transform: none;
 }
 
 /* Show the tooltip text when you hover over the tooltip container */

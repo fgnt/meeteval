@@ -63,6 +63,38 @@ function alignment_visualization(
         } else {fn.call_pending = true;}
     }
 
+    let root_element = d3.select(element_id);
+
+    // /* Define a Tooltip component that positions the tooltip correctly / so that it's visible */
+    // class Tooltip extends HTMLElement {
+    //     constructor() {
+    //         super();
+    //         this.classList.add("tooltip");
+    //         this.content = this.querySelector(".tooltipcontent");
+    //     }
+    //     connectedCallback() {
+    //         this.addEventListener("mouseenter", () => this.show())
+    //         this.addEventListener("mouseleave", () => this.hide())
+    //     }
+    //
+    //     show() {
+    //         this.content.classList.add("visible");
+    //         const bl = this.root.getBoundingClientRect().left;
+    //         const l = this.content.getBoundingClientRect().left;
+    //         if (l < bl) this.content.style.translate = `${bl - l}px`
+    //     }
+    //
+    //     hide() {
+    //         this.content.classList.remove("visible");
+    //     }
+    // }
+    // try {
+    //     customElements.define('meeteval-tooltip', Tooltip);
+    // } catch(e) {
+    //     // Ignore. If this fails, the component is already defined, likely in
+    //     // another notebook cell
+    // }
+
 class Axis {
     constructor(padding, numTicks=null, tickPadding=3, tickSize=6) {
         this.padding = padding;
@@ -405,11 +437,34 @@ class CanvasPlot {
 
         label = (label, value, icon=null, tooltip=null) => {
             var l = root.append("div").classed("pill", true)
-            if (tooltip) l.classed("tooltip", true);
             if (icon) l.append("i").classed("fas " + icon, true);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
-            if (tooltip) tooltip(l.append("div").classed("tooltipcontent", true));
+            if (tooltip){
+                l.classed("tooltip", true);
+                const tooltipcontent = l.append("div").classed("tooltipcontent", true);
+                tooltip(tooltipcontent);
+                l.on("mouseenter", () => {
+                    // Correct position if it would be outside the visualization
+                    // space. Prioritize left over right because scrolling is
+                    // not supported to the left.
+                    // Displaying and hiding the tooltip is handled by CSS via
+                    // :hover
+                    const bound = root_element.node().getBoundingClientRect();
+                    const e = tooltipcontent.node().getBoundingClientRect();
+                    console.log(tooltipcontent)
+                    let shift = 0;
+                    if (e.left < bound.left) {
+                        shift = bound.left - e.left;
+                    } else if (e.right > bound.right) {
+                        shift = Math.max(bound.right - e.right, bound.left - e.left);
+                    }
+                    tooltipcontent.style("translate", shift + "px");
+                });
+                l.on("mouseleave", () => {
+                    tooltipcontent.node().style.translate = null;
+                });
+            }
             return l;
         }
 
@@ -1340,8 +1395,8 @@ class CanvasPlot {
 
     class SelectedDetailsView {
         constructor(container) {
-            this.container = container.append("div").classed("pill", true).classed("tooltip", true);
-            this.container.append("div").text("Selected segment:").classed("pill no-border", true).classed("info-label", true);
+            this.container = container.append("div").classed("pill tooltip selection-details", true);
+            this.container.append("div").text("Selected segment:").classed("pill no-border info-label", true);
             this.update(null);
         }
 
@@ -1361,7 +1416,7 @@ class CanvasPlot {
                     e.append("div").classed("info-value", true).text(d => d[1]);
                 })
 
-                const tooltip = this.container.append("div").classed("tooltipcontent", true).classed("tooltip-details", true);
+                const tooltip = this.container.append("div").classed("tooltipcontent", true).classed("wrap-60 alignleft", true);
 
                 const tooltipTable = tooltip.append("table").classed("details-table", true);
                 tooltipTable.selectAll(".utterance-details")
@@ -1410,7 +1465,8 @@ class CanvasPlot {
     var margin = {top: 30, right: 30, bottom: 70, left: 60},
         width = 1500 - margin.left - margin.right,
         height = 300 - margin.top - margin.bottom;
-    const top_row_container = d3.select(element_id).append("div").classed("top-row", true)
+
+    const top_row_container = root_element.append("div").classed("top-row", true)
     drawHelpButton(top_row_container);
     drawExampleInfo(top_row_container, data.info)
     // drawMenuBar(top_row_container);
@@ -1423,10 +1479,10 @@ class CanvasPlot {
         for (const minimap of minimaps) minimap.error_bars.updateBins();
         redraw();
     });
-    const selectedUtteranceDetails = new SelectedDetailsView(d3.select(element_id).append("div").classed("top-row", true));
+    const selectedUtteranceDetails = new SelectedDetailsView(root_element.append("div").classed("top-row", true));
     // const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
 
-    const plot_container = d3.select(element_id).append("div").style("margin", "10px")
+    const plot_container = root_element.append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
 
     var details_plot = null;
