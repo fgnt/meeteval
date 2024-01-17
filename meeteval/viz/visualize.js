@@ -1369,34 +1369,59 @@ class CanvasPlot {
             this.container = container.append("div").classed("pill tooltip selection-details", true);
             this.container.append("div").text("Selected segment:").classed("pill no-border info-label", true);
             this.update(null);
+
+            this.blacklist = ["source"]
+            this.rename = { total: "# words" }
         }
 
         clear() {
             this.container.selectAll(".utterance-details").remove();
         }
 
+        formatValue(element, key, value) {
+            if (/^([a-zA-Z0-9_/.-]+\.wav)$/.test(value)) {
+                // Audio path: Display audio player
+                element.append("audio")
+                    .attr("controls", "true")
+                    .attr("src", "file:////" + value)
+                    .text(value);
+                // Display tooltip with file path and hint that the play button
+                // may not work
+                addTooltip(
+                    element,
+                    value +
+                        "\nThe play button may not work, if the file doesn't " +
+                        "exists or the browser has no permissions.\n" +
+                        "For local audio files, the play button works only " +
+                        "in a standalone HTML file (i.e. it doesn't work in " +
+                        "Jupyter Notebook)"
+                )
+            } else {
+                // Plain value: Display as text
+                element.text(value);
+            }
+        }
+
         update(utterance) {
             this.clear();
             if (utterance) {
-                const blacklist = ["source"]
-                const rename = { total: "# words" }
-                this.container.selectAll(".utterance-details")
-                    .data(utterance ? Object.entries(utterance).filter(d => !blacklist.includes(d[0])).map(e => [rename[e[0]] || e[0], e[1]]) : []).join(enter => {
-                    let e = enter.append("div").classed("utterance-details", true).classed("pill no-border", true);
-                    e.append("div").classed("info-label", true).text(d => d[0] + ":");
-                    e.append("div").classed("info-value", true).text(d => d[1]);
-                })
-
-                const tooltip = this.container.append("div").classed("tooltipcontent", true).classed("wrap-60 alignleft", true);
-
+                const tooltip = addTooltip(this.container).classed("wrap-60 alignleft utterance-details", true);
                 const tooltipTable = tooltip.append("table").classed("details-table", true).append("tbody");
-                tooltipTable.selectAll(".utterance-details")
-                    .data(utterance ? Object.entries(utterance).filter(d => !blacklist.includes(d[0])).map(e => [rename[e[0]] || e[0], e[1]]) : []).join(enter => {
-                        let e = enter.append("tr").classed("utterance-details", true);
 
-                        e.append("td").text(d => d[0] + ":");
-                        e.append("td").text(d => d[1]);
-                })
+                for (var [key, value] of Object.entries(utterance)) {
+                    if (this.blacklist.includes(key)) return;
+                    key = this.rename[key] || key;
+
+                    // Pill
+                    const pill = this.container.append("div").classed("utterance-details pill no-border", true);
+                    pill.append("div").classed("info-label", true).text(key + ":");
+                    this.formatValue(pill.append("div").classed("info-value", true), key, value);
+
+                    // Row in tooltip table
+                    const row = tooltipTable.append("tr").classed("utterance-details", true);
+                    row.append("td").text(key + ":");
+                    this.formatValue(row.append("td"), key, value);
+                }
             } else {
                 this.container.append("div").classed("utterance-details", true).classed("utterance-details-help pill no-border", true).text("Select a segment to display details");
             }
