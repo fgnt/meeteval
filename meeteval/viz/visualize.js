@@ -65,36 +65,6 @@ function alignment_visualization(
 
     let root_element = d3.select(element_id);
 
-    // /* Define a Tooltip component that positions the tooltip correctly / so that it's visible */
-    // class Tooltip extends HTMLElement {
-    //     constructor() {
-    //         super();
-    //         this.classList.add("tooltip");
-    //         this.content = this.querySelector(".tooltipcontent");
-    //     }
-    //     connectedCallback() {
-    //         this.addEventListener("mouseenter", () => this.show())
-    //         this.addEventListener("mouseleave", () => this.hide())
-    //     }
-    //
-    //     show() {
-    //         this.content.classList.add("visible");
-    //         const bl = this.root.getBoundingClientRect().left;
-    //         const l = this.content.getBoundingClientRect().left;
-    //         if (l < bl) this.content.style.translate = `${bl - l}px`
-    //     }
-    //
-    //     hide() {
-    //         this.content.classList.remove("visible");
-    //     }
-    // }
-    // try {
-    //     customElements.define('meeteval-tooltip', Tooltip);
-    // } catch(e) {
-    //     // Ignore. If this fails, the component is already defined, likely in
-    //     // another notebook cell
-    // }
-
 class Axis {
     constructor(padding, numTicks=null, tickPadding=3, tickSize=6) {
         this.padding = padding;
@@ -290,6 +260,33 @@ class DetailsAxis{
     }
 }
 
+function addTooltip(element, tooltip) {
+    element.classed("tooltip", true);
+    const tooltipcontent = element.append("div").classed("tooltipcontent", true);
+    if (typeof tooltip === "string") tooltipcontent.text(tooltip)
+    else if (tooltip) tooltip(tooltipcontent);
+    element.on("mouseenter", () => {
+        // Correct position if it would be outside the visualization
+        // space. Prioritize left over right because scrolling is
+        // not supported to the left.
+        // Displaying and hiding the tooltip is handled by CSS via
+        // :hover
+        const bound = root_element.node().getBoundingClientRect();
+        const e = tooltipcontent.node().getBoundingClientRect();
+        let shift = 0;
+        if (e.left < bound.left) {
+            shift = bound.left - e.left;
+        } else if (e.right > bound.right) {
+            shift = Math.max(bound.right - e.right, bound.left - e.left);
+        }
+        tooltipcontent.style("translate", shift + "px");
+    });
+    element.on("mouseleave", () => {
+        tooltipcontent.node().style.translate = null;
+    });
+    return tooltipcontent;
+}
+
 class CanvasPlot {
     element;
     canvas;
@@ -440,30 +437,7 @@ class CanvasPlot {
             if (icon) l.append("i").classed("fas " + icon, true);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
-            if (tooltip){
-                l.classed("tooltip", true);
-                const tooltipcontent = l.append("div").classed("tooltipcontent", true);
-                tooltip(tooltipcontent);
-                l.on("mouseenter", () => {
-                    // Correct position if it would be outside the visualization
-                    // space. Prioritize left over right because scrolling is
-                    // not supported to the left.
-                    // Displaying and hiding the tooltip is handled by CSS via
-                    // :hover
-                    const bound = root_element.node().getBoundingClientRect();
-                    const e = tooltipcontent.node().getBoundingClientRect();
-                    let shift = 0;
-                    if (e.left < bound.left) {
-                        shift = bound.left - e.left;
-                    } else if (e.right > bound.right) {
-                        shift = Math.max(bound.right - e.right, bound.left - e.left);
-                    }
-                    tooltipcontent.style("translate", shift + "px");
-                });
-                l.on("mouseleave", () => {
-                    tooltipcontent.node().style.translate = null;
-                });
-            }
+            if (tooltip) addTooltip(l, tooltip);
             return l;
         }
 
