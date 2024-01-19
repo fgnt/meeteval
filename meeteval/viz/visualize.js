@@ -1381,21 +1381,57 @@ class CanvasPlot {
         formatValue(element, key, value) {
             if (/^([a-zA-Z0-9_/.-]+\.wav)$/.test(value)) {
                 // Audio path: Display audio player
-                element.append("audio")
+                let audio = element.append("audio")
+                audio.classed("info-value", true)
                     .attr("controls", "true")
-                    .attr("src", "file:////" + value)
+                    .attr("src", "http://localhost:7777" + value)
                     .text(value);
-                // Display tooltip with file path and hint that the play button
-                // may not work
-                addTooltip(
-                    element,
-                    value +
-                        "\nThe play button may not work, if the file doesn't " +
-                        "exists or the browser has no permissions.\n" +
-                        "For local audio files, the play button works only " +
-                        "in a standalone HTML file (i.e. it doesn't work in " +
-                        "Jupyter Notebook)"
-                )
+
+                let fallback_text_box = element.append('div').classed("info-value", true)
+
+                // Display tooltip with file path
+                let tooltip = addTooltip(element, value)
+
+                // On error,
+                //  - Add hint to tooltip when the play button works
+                //  - Try to access local file
+                //  - If that also doesn't work, show the file name and an
+                //    exclamation mark to indicate an issue (Tooltip contains hints).
+                audio.on('error', function() {
+                    audio.attr("src", "file:////" + value);
+                    let tooltip_text = (value +
+                        "\nThe play button needs access to the file to work.\n" +
+                        " - With 'python -m meeteval.viz.file_server' you can " +
+                        "start a process, that exposes normalized wav files on http://localhost:7777\n" +
+                        " - A standalone HTML file has access to the filesystem and doesn't need a server, " +
+                        "but it cannot normalize the audio.\n" +
+                        "In Jupyter Notebooks only a server can deliver audio files.")
+                    tooltip.text(tooltip_text);
+                    audio.on('error', function() {
+                        audio.remove();
+                        fallback_text_box.text(value + ' ');
+                        fallback_text_box.append("i").classed("fas fa-triangle-exclamation", true);
+                        copy_button;
+                    })
+                });
+
+                let copy_button = element.append('button').classed("copybutton", true)
+
+                let icon = copy_button.append("i");
+                icon.classed("fas fa-copy", true);
+
+                copy_button.on('click', function() {
+                  navigator.clipboard.writeText(value);
+
+                  icon.classed("fas fa-copy", false);
+                  icon.classed("fas fa-check", true);
+                  setTimeout(function() {
+                      icon.classed("fas fa-check", false);
+                      icon.classed("fas fa-copy", true);
+                  }, 700)
+                });
+
+
             } else {
                 // Plain value: Display as text
                 element.text(value);
