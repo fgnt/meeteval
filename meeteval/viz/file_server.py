@@ -25,15 +25,15 @@ class Backend:
         name = Path(name)
         if name.suffix in ['.wav']:
             # data, sample_rate = soundfile.read(str(name))
-            # data = data * 0.95 / np.amax(np.abs(data))
+            # data = data * 0.50 / np.amax(np.abs(data))
             # bytes = io.BytesIO()
             # bytes.name = str(name)
             # soundfile.write(bytes, data, samplerate=sample_rate)
+            # return web.Response(body=bytes.getvalue())
 
             cp = subprocess.run([
-                'sox', '--norm', str(name), '-t', 'wav', '-'
+                'sox', '--norm', str(name), '-t', 'ogg', '-'
             ], stdout=subprocess.PIPE, check=True)
-            # return web.Response(body=bytes.getvalue())
             return web.Response(body=cp.stdout)
         else:
             return web.Response(status=web.HTTPUnauthorized().status_code)
