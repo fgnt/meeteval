@@ -59,6 +59,8 @@
 .info-value {
     display: inline-block;
     font-weight: normal;
+    vertical-align: middle;
+    flex-wrap: wrap;
 }
 
 .legend-element {
@@ -83,6 +85,27 @@ i {
     display: inline-block;
     font-size: 1.2em;
     margin-right: 5px;
+}
+
+.copybutton {
+    display: inline-block;
+    font-weight: normal;
+    vertical-align: middle;
+    flex-wrap: wrap;
+    padding: 0.5em;
+    /*background: #5784f5;*/
+    /*color: #fff;*/
+    font-size: 1em;
+    margin: 0;
+    margin-right: 0px;
+    /*border:none;*/
+    outline:none;
+    border-radius:0.6em;
+    cursor:pointer;
+}
+
+.copybutton i {
+    margin-right: 0px;
 }
 
 /* Plot elements */
