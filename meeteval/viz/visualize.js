@@ -1390,7 +1390,9 @@ class CanvasPlot {
                 let fallback_text_box = element.append('div').classed("info-value", true)
 
                 // Display tooltip with file path
-                let tooltip = addTooltip(element, value)
+                let tooltip = addTooltip(element, false).classed("wrap-60 alignleft", true)
+
+                tooltip.append("div").attr('align', 'left').text(value)
 
                 // On error,
                 //  - Add hint to tooltip when the play button works
@@ -1399,14 +1401,12 @@ class CanvasPlot {
                 //    exclamation mark to indicate an issue (Tooltip contains hints).
                 audio.on('error', function() {
                     audio.attr("src", "file:////" + value);
-                    let tooltip_text = (value +
-                        "\nThe play button needs access to the file to work.\n" +
-                        " - With 'python -m meeteval.viz.file_server' you can " +
-                        "start a process, that exposes normalized wav files on http://localhost:7777\n" +
-                        " - A standalone HTML file has access to the filesystem and doesn't need a server, " +
-                        "but it cannot normalize the audio.\n" +
-                        "In Jupyter Notebooks only a server can deliver audio files.")
-                    tooltip.text(tooltip_text);
+                    tooltip.append("div").attr('align', 'left').text(
+                        "\nWith access to the audio file, a player will appear. Options:\n" +
+                        " - With 'python -m meeteval.viz.file_server' you can start a process, that exposes normalized wav files on http://localhost:7777\n" +
+                        " - A standalone HTML file has access to the filesystem and doesn't need a server, but it cannot normalize the audio.\n" +
+                        " - In Jupyter Notebooks only a server can deliver audio files."
+                    );
                     audio.on('error', function() {
                         audio.remove();
                         fallback_text_box.text(value + ' ');
@@ -1415,12 +1415,12 @@ class CanvasPlot {
                     })
                 });
 
+                // Add a copy button
                 let copy_button = element.append('button').classed("copybutton", true)
-
                 let icon = copy_button.append("i");
                 icon.classed("fas fa-copy", true);
-
                 copy_button.on('click', function() {
+                  // Click animation
                   navigator.clipboard.writeText(value);
 
                   icon.classed("fas fa-copy", false);
