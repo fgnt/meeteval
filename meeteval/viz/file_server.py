@@ -24,19 +24,28 @@ class Backend:
         # assert name.startswith('/net/'), name
         name = Path(name)
         if name.suffix in ['.wav']:
-            # data, sample_rate = soundfile.read(str(name))
-            # data = data * 0.50 / np.amax(np.abs(data))
-            # bytes = io.BytesIO()
-            # bytes.name = str(name)
-            # soundfile.write(bytes, data, samplerate=sample_rate)
-            # return web.Response(body=bytes.getvalue())
-
-            cp = subprocess.run([
-                'sox', '--norm', str(name), '-t', 'ogg', '-'
-            ], stdout=subprocess.PIPE, check=True)
-            return web.Response(body=cp.stdout)
-        else:
-            return web.Response(status=web.HTTPUnauthorized().status_code)
+            try:
+                data, sample_rate = soundfile.read(str(name))
+            except Exception:
+                import traceback
+                traceback.print_exc()
+            else:
+                data = data * 0.95 / np.amax(np.abs(data))
+                bytes = io.BytesIO()
+                # Wav files produce in some browsers artefacts in the audio.
+                # This is undesired, because it is not clear, that it is caused
+                # by the browser or by the enhancement system of the user.
+                # Ogg doesn't has this issue.
+                # ToDo: Does ogg remove user artefacts?
+                #       If yes, use another codec. Or find a reliable way to
+                #       use wav files in all browsers.
+                soundfile.write(bytes, data, samplerate=sample_rate, format='ogg')
+                return web.Response(body=bytes.getvalue())
+                # cp = subprocess.run([
+                #     'sox', '--norm', str(name), '-t', 'ogg', '-'
+                # ], stdout=subprocess.PIPE, check=True)
+                # return web.Response(body=cp.stdout)
+        return web.Response(status=web.HTTPUnauthorized().status_code)
 
     def main(self):
         app = web.Application()
