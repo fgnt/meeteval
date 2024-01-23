@@ -32,6 +32,7 @@ extras_require = {
         'pyyaml',
         'fire',
         'simplejson',
+        'aiohttp',
     ],
     'test': [
         'editdistance',     # Faulty for long sequences, but useful for testing
