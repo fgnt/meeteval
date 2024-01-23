@@ -44,6 +44,7 @@ extras_require = {
         'ipython',  # IPython.lib.pretty.pprint
         'pyyaml',
         'simplejson',
+        'aiohttp',
     ],
     'all': [  # List only missing from the other lists
         'lazy_dataset',
