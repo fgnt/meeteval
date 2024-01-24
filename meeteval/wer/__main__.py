@@ -92,7 +92,7 @@ def _load(path: Path):
 
 def _load_texts(
         reference_paths: 'list[str]', hypothesis_paths: 'list[str]', regex,
-        file_format=None,
+        reference_sort=False, hypothesis_sort=False, file_format=None,
 ) -> 'tuple[meeteval.io.SegLST, list[Path], meeteval.io.SegLST, list[Path]]':
     """Load and validate reference and hypothesis texts.
 
@@ -124,6 +124,46 @@ def _load_texts(
 
         reference = filter(reference)
         hypothesis = filter(hypothesis)
+
+    # Sort
+    if reference_sort == 'segment':
+        if 'start_time' in reference.T.keys():
+            reference = reference.sorted('start_time')
+        else:
+            logging.warning(
+                'Ignoring --reference-sort="segment" because no start_time is '
+                'found in the reference'
+            )
+    elif not reference_sort:
+        pass
+    elif reference_sort in ('word', True):
+        raise ValueError(
+            f'reference_sort={reference_sort} is only supported for'
+            f'time-constrained WERs.'
+        )
+    else:
+        raise ValueError(
+            f'Unknown choice for reference_sort: {reference_sort}'
+        )
+    if hypothesis_sort == 'segment':
+        if 'start_time' in hypothesis.T.keys():
+            hypothesis = hypothesis.sorted('start_time')
+        else:
+            logging.warning(
+                'Ignoring --hypothesis-sort="segment" because no start_time is '
+                'found in the hypothesis'
+            )
+    elif not hypothesis_sort:
+        pass
+    elif hypothesis_sort in ('word', True):
+        raise ValueError(
+            f'hypothesis_sort={hypothesis_sort} is only supported for'
+            f'time-constrained WERs.'
+        )
+    else:
+        raise ValueError(
+            f'Unknown choice for hypothesis_sort: {hypothesis_sort}'
+        )
 
     return reference, reference_paths, hypothesis, hypothesis_paths
 
@@ -202,11 +242,15 @@ def orcwer(
         average_out='{parent}/{stem}_orcwer.json',
         per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
         regex=None,
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     from meeteval.wer.wer.orc import orc_word_error_rate_multifile
     reference, _, hypothesis, hypothesis_paths = _load_texts(
-        reference, hypothesis, regex=regex)
+        reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+    )
     results = orc_word_error_rate_multifile(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
@@ -216,11 +260,15 @@ def cpwer(
         average_out='{parent}/{stem}_cpwer.json',
         per_reco_out='{parent}/{stem}_cpwer_per_reco.json',
         regex=None,
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
     from meeteval.wer.wer.cp import cp_word_error_rate_multifile
     reference, _, hypothesis, hypothesis_paths = _load_texts(
-        reference, hypothesis, regex)
+        reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+    )
     results = cp_word_error_rate_multifile(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
@@ -230,11 +278,15 @@ def mimower(
         average_out='{parent}/{stem}_mimower.json',
         per_reco_out='{parent}/{stem}_mimower_per_reco.json',
         regex=None,
+        reference_sort='segment',
+        hypothesis_sort='segment',
 ):
     """Computes the MIMO WER"""
     from meeteval.wer.wer.mimo import mimo_word_error_rate_multifile
     reference, _, hypothesis, hypothesis_paths = _load_texts(
-        reference, hypothesis, regex=regex)
+        reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+    )
     results = mimo_word_error_rate_multifile(reference, hypothesis)
     _save_results(results, hypothesis_paths, per_reco_out, average_out)
 
@@ -271,11 +323,15 @@ def tcpwer(
 def _merge(
         files: 'list[str]',
         out: str = None,
-        average: bool = None
+        average: bool = None,
+        regex: str = None,
 ):
     # Load input files
     files = [Path(f) for f in files]
     data = [_load(f) for f in files]
+
+    if regex is not None:
+        regex = re.compile(regex)
 
     import meeteval
     ers = []
@@ -287,6 +343,8 @@ def _merge(
             ers.append([None, ErrorRate.from_dict(d)])
         else:
             for k, v in d.items():  # Details file
+                if not regex.fullmatch(k):
+                    continue
                 if 'errors' in v:
                     ers.append([k, ErrorRate.from_dict(v)])
 
@@ -308,18 +366,32 @@ def merge(files, out):
     return _merge(files, out, average=None)
 
 
-def average(files, out):
+def average(files, out, regex=None):
     """Computes the average over one or multiple per-reco files"""
-    return _merge(files, out, average=True)
+    return _merge(files, out, average=True, regex=regex)
 
+
+class SmartFormatter(argparse.ArgumentDefaultsHelpFormatter):
+    """
+    https://stackoverflow.com/a/22157136/5766934
+    """
+    def _split_lines(self, text, width):
+        import textwrap
+        return [
+            tt
+            for i, t in enumerate(text.split('\n'))
+            for tt in textwrap.wrap(t, width, subsequent_indent='  ' if i > 0 else '')
+        ]
 
 class CLI:
     def __init__(self):
 
         # Define argument parser and commands
-        self.parser = argparse.ArgumentParser()
+        self.parser = argparse.ArgumentParser(
+            formatter_class=SmartFormatter
+        )
         self.parser.add_argument('--version', action='store_true',
-                                 help='Show version')
+                                 help='Show version\nwith\nlinebreaks')
 
         # Logging and verbosity
         logging.addLevelName(100,
@@ -329,7 +401,9 @@ class CLI:
             choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'SILENT']
         )
 
-        self.commands = self.parser.add_subparsers(title='Subcommands')
+        self.commands = self.parser.add_subparsers(
+            title='Subcommands',
+        )
 
     @staticmethod
     def positive_number(x: str):
@@ -394,14 +468,15 @@ class CLI:
                 '--hyp-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
                 help='Specifies how word-level timings are '
                      'determined from segment-level timing '
-                     'for the hypothesis. Choices: '
-                     'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
-                     'equidistant_points: Place time points equally spaded int the segment-level intervals; '
-                     'full_segment: Use the full segment for each word that belongs to that segment;'
-                     'character_based: Estimate the word length based on the number of characters; '
-                     'character_based_points: Estimates the word length based on the number of characters and '
-                     'creates a point in the center of each word; '
-                     'none: Do not estimate word-level timings but assume that the provided timings are already '
+                     'for the hypothesis.\n'
+                     'Choices:\n'
+                     '- equidistant_intervals: Divide segment-level timing into equally sized intervals\n'
+                     '- equidistant_points: Place time points equally spaded int the segment-level intervals\n'
+                     '- full_segment: Use the full segment for each word that belongs to that segment\n'
+                     '- character_based: Estimate the word length based on the number of characters\n'
+                     '- character_based_points: Estimates the word length based on the number of characters and '
+                     'creates a point in the center of each word\n'
+                     '- none: Do not estimate word-level timings but assume that the provided timings are already '
                      'given on a word level.'
             )
         elif name == 'ref_pseudo_word_timing':
@@ -409,37 +484,40 @@ class CLI:
                 '--ref-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
                 help='Specifies how word-level timings are '
                      'determined from segment-level timing '
-                     'for the reference. Choices: '
-                     'equidistant_intervals: Divide segment-level timing into equally sized intervals; '
-                     'equidistant_points: Place time points equally spaded int the segment-level intervals; '
-                     'full_segment: Use the full segment for each word that belongs to that segment. '
-                     'character_based: Estimate the word length based on the number of characters; '
-                     'character_based_points: Estimates the word length based on the number of characters and '
-                     'creates a point in the center of each word; '
-                     'none: Do not estimate word-level timings but assume that the provided timings are already '
+                     'for the reference.\n'
+                     'Choices:\n'
+                     '- equidistant_intervals: Divide segment-level timing into equally sized intervals\n'
+                     '- equidistant_points: Place time points equally spaded int the segment-level intervals\n'
+                     '- full_segment: Use the full segment for each word that belongs to that segment.\n'
+                     '- character_based: Estimate the word length based on the number of characters\n'
+                     '- character_based_points: Estimates the word length based on the number of characters and '
+                     'creates a point in the center of each word\n'
+                     '- none: Do not estimate word-level timings but assume that the provided timings are already '
                      'given on a word level.'
             )
         elif name == 'reference_sort':
             command_parser.add_argument(
                 '--reference-sort', choices=[True, False, 'word', 'segment'],
-                help='How to sort words/segments in the reference; '
-                     'True: sort by segment start time and assert that the word-level timings are sorted by start '
-                     'time; '
-                     'False: do not sort and do not check word order. Segment order is taken from input file '
-                     'and sorting is up to the user; '
-                     'segment: sort segments by start time and do not check word order'
-                     'word: sort words by start time'
+                help='How to sort words/segments in the reference.\n'
+                     'Choices:\n'
+                     '- segment: Sort segments by start time and do not check word order\n'
+                     '- False: Do not sort and do not check word order. Segment order is taken from input file '
+                     'and sorting is up to the user\n'
+                     '- True: Sort by segment start time and assert that the word-level timings are sorted by start '
+                     'time. Only supported for time-constrained WERs\n'
+                     '- word: sort words by start time. Only supported for time-constrained WERs'
             )
         elif name == 'hypothesis_sort':
             command_parser.add_argument(
                 '--hypothesis-sort', choices=[True, False, 'word', 'segment'],
-                help='How to sort words/segments in the reference; '
-                     'True: sort by segment start time and assert that the word-level timings are sorted by start '
-                     'time; '
-                     'False: do not sort and do not check word order. Segment order is taken from input file '
-                     'and sorting is up to the user; '
-                     'segment: sort segments by start time and do not check word order'
-                     'word: sort words by start time'
+                help='How to sort words/segments in the reference.\n'
+                     'Choices:\n'
+                     '- segment: Sort segments by start time and do not check word order\n'
+                     '- False: Do not sort and do not check word order. Segment order is taken from input file '
+                     'and sorting is up to the user\n'
+                     '- True: Sort by segment start time and assert that the word-level timings are sorted by start '
+                     'time. Only supported for time-constrained WERs\n'
+                     '- word: sort words by start time. Only supported for time-constrained WERs'
             )
         elif name == 'files':
             command_parser.add_argument('files', nargs='+')
@@ -452,7 +530,7 @@ class CLI:
         command_parser = self.commands.add_parser(
             command_name,
             add_help=False,
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            formatter_class=SmartFormatter,
             help=fn.__doc__,
         )
         command_parser.add_argument(
