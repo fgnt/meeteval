@@ -4,6 +4,7 @@ import functools
 import io
 import typing
 from pathlib import Path
+import decimal
 
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
@@ -29,8 +30,8 @@ class SegLstSegment(TypedDict, total=False):
         We do not define an enum with all these keys for speed reasons
     """
     session_id: str
-    start_time: float
-    end_time: float
+    start_time: 'float | decimal.Decimal'
+    end_time: 'float | decimal.Decimal'
     words: str
     speaker: str
     segment_index: int
@@ -39,6 +40,11 @@ class SegLstSegment(TypedDict, total=False):
     # here for compatibility and conversion in both directions
     channel: int
     confidence: float
+
+
+_SegLstSegment_keys = typing.Literal[
+    'session_id', 'start_time', 'end_time', 'words', 'speaker',
+    'segment_index', 'channel', 'confidence']
 
 
 @dataclasses.dataclass(frozen=True)
@@ -164,11 +170,22 @@ class SegLST(BaseABC):
                 *[set(s.keys()) for s in self._outer.segments]
             )
 
-        def __getitem__(self, key):
+        def __getitem__(self, key: _SegLstSegment_keys):
             """
             Returns the values for `key` of all segments as a list.
             """
             return [s[key] for s in self._outer.segments]
+
+        def __class_getitem__(cls, item: _SegLstSegment_keys) -> 'list':
+            """
+            This is a dummy for type annotation.
+
+            PyCharm doesn't get it, what a property on the class definition
+            does and thinks `__class_getitem__` is called, while `__getitem__`
+            gets called.
+
+            """
+            raise NotImplementedError
 
     def unique(self, key) -> 'set[Any]':
         """
@@ -190,7 +207,7 @@ class SegLST(BaseABC):
             return SegLST(self.segments + other.segments)
         return NotImplemented
 
-    def groupby(self, key) -> 'dict[Any, SegLST]':
+    def groupby(self, key: _SegLstSegment_keys) -> 'dict[Any, SegLST]':
         """
         >>> t = asseglst(['a b c', 'd e f', 'g h i'])
         >>> t.segments
@@ -202,9 +219,10 @@ class SegLST(BaseABC):
          1: SegLST(segments=[{'words': 'd e f', 'segment_index': 0, 'speaker': 1}]),
          2: SegLST(segments=[{'words': 'g h i', 'segment_index': 0, 'speaker': 2}])}
         """
-        return {
+        from meeteval.io.base import _Dict
+        return _Dict({
             k: SegLST(g) for k, g in groupby(self.segments, key=key).items()
-        }
+        })
 
     def sorted(self, key) -> 'SegLST':
         """
