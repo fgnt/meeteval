@@ -417,6 +417,17 @@ class CLI:
 
         return x
 
+    @staticmethod
+    def str_or_bool(x: str):
+        """Convert common boolean strings to bool and pass through other
+        strings"""
+        if x in ('true', 'True'):
+            return True
+        elif x in ('false', 'False'):
+            return False
+        else:
+            return x
+
     def add_argument(self, command_parser, name, p):
         if name == 'reference':
             command_parser.add_argument(
@@ -465,7 +476,8 @@ class CLI:
             )
         elif name == 'hyp_pseudo_word_timing':
             command_parser.add_argument(
-                '--hyp-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
+                '--hyp-pseudo-word-timing',
+                choices=pseudo_word_level_strategies.keys(),
                 help='Specifies how word-level timings are '
                      'determined from segment-level timing '
                      'for the hypothesis.\n'
@@ -481,7 +493,8 @@ class CLI:
             )
         elif name == 'ref_pseudo_word_timing':
             command_parser.add_argument(
-                '--ref-pseudo-word-timing', choices=pseudo_word_level_strategies.keys(),
+                '--ref-pseudo-word-timing',
+                choices=pseudo_word_level_strategies.keys(),
                 help='Specifies how word-level timings are '
                      'determined from segment-level timing '
                      'for the reference.\n'
@@ -497,7 +510,9 @@ class CLI:
             )
         elif name == 'reference_sort':
             command_parser.add_argument(
-                '--reference-sort', choices=[True, False, 'word', 'segment'],
+                '--reference-sort',
+                choices=[True, False, 'word', 'segment'],
+                type=self.str_or_bool,
                 help='How to sort words/segments in the reference.\n'
                      'Choices:\n'
                      '- segment: Sort segments by start time and do not check word order\n'
@@ -509,7 +524,9 @@ class CLI:
             )
         elif name == 'hypothesis_sort':
             command_parser.add_argument(
-                '--hypothesis-sort', choices=[True, False, 'word', 'segment'],
+                '--hypothesis-sort',
+                choices=[True, False, 'word', 'segment'],
+                type=self.str_or_bool,
                 help='How to sort words/segments in the reference.\n'
                      'Choices:\n'
                      '- segment: Sort segments by start time and do not check word order\n'
