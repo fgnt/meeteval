@@ -44,12 +44,16 @@ class STMLine(BaseLine):
         else:
             raise ValueError(f'Unable to parse STM line: {line}')
         try:
+            if parse_float is float:
+                def parse_float(x):
+                    return int(x) if x.isdigit() else float(x)
+
             stm_line = STMLine(
                 filename,
                 int(channel) if begin_time.isdigit() else channel,
                 speaker_id,
-                int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float
-                int(end_time) if end_time.isdigit() else parse_float(end_time),  # Keep type, int or float
+                parse_float(begin_time),
+                parse_float(end_time),
                 transcript
             )
         except Exception as e:

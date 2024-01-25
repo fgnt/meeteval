@@ -49,11 +49,14 @@ class CTMLine(BaseLine):
             # CB: Should we disable the support for missing confidence?
             filename, channel, begin_time, duration, word, *confidence = line.strip().split()
             assert len(confidence) < 2, confidence
+            if parse_float is float:
+                def parse_float(x):
+                    return int(x) if x.isdigit() else float(x)
             ctm_line = CTMLine(
                 filename,
                 int(channel) if begin_time.isdigit() else channel,
-                int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float
-                int(duration) if duration.isdigit() else parse_float(duration),  # Keep type, int or float
+                parse_float(begin_time),  # Keep type, int or float
+                parse_float(duration),  # Keep type, int or float
                 word,
                 confidence[0] if confidence else None
             )

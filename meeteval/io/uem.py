@@ -44,11 +44,15 @@ class UEMLine(BaseLine):
         """
         filename, channel, begin_time, end_time = line.split()
 
+        if parse_float is float:
+            def parse_float(x):
+                return int(x) if x.isdigit() else float(x)
+
         return UEMLine(
             filename=filename,
             channel=int(channel) if begin_time.isdigit() else channel,
-            begin_time=int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float,
-            end_time=int(end_time) if end_time.isdigit() else parse_float(end_time),  # Keep type, int or float,
+            begin_time=parse_float(begin_time),  # Keep type, int or float,
+            end_time=parse_float(end_time),  # Keep type, int or float,
         )
 
     def serialize(self):

@@ -72,8 +72,8 @@ class SegLST(BaseABC):
         """
         Parses a SegLST from a string.
 
-        >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0}]')
-        SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+        >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0, "session_id": "a"}]')
+        SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0, 'session_id': 'a'}])
 
         >>> SegLST.parse('{"a": {"words": "a b c", "segment_index": 0, "speaker": 0}}')
         Traceback (most recent call last):
@@ -81,6 +81,12 @@ class SegLST(BaseABC):
         ValueError: Invalid JSON format for SegLST: Expected a list of segments, but found a dict.
         """
         import simplejson
+
+        if parse_float is float:
+            def parse_float(x):
+                if not isinstance(x, str):
+                    return x
+                return int(x) if x.isdigit() else float(x)
 
         def fix_floats(s):
             """Convert common float keys to decimal"""
@@ -328,7 +334,7 @@ def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
 
     Data formats are also converted
     >>> from meeteval.io.stm import STM, STMLine
-    >>> stm = STM.parse('ex 1 A 0 1 a b c')
+    >>> stm = STM.parse('ex 1 A 0 1 a b c', parse_float=float)
     >>> asseglst(stm).segments
     [{'session_id': 'ex', 'channel': 1, 'speaker': 'A', 'start_time': 0, 'end_time': 1, 'words': 'a b c'}]
 
@@ -437,7 +443,7 @@ def seglst_map(*, required_keys=(), py_convert=NestedStructure):
     ... def fn(seglst, *, speaker='X'):
     ...     return seglst.map(lambda x: {**x, 'speaker': speaker})
     >>> from meeteval.io.stm import STM
-    >>> fn(STM.parse('X 1 A 0 1 a b c'))
+    >>> fn(STM.parse('X 1 A 0 1 a b c', parse_float=float))
     STM(lines=[STMLine(filename='X', channel=1, speaker_id='X', begin_time=0, end_time=1, transcript='a b c')])
     >>> from meeteval.io.rttm import RTTM
     >>> fn(RTTM.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>'))

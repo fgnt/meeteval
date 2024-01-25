@@ -127,7 +127,7 @@ class BaseLine:
         Return a new object replacing specified fields with new values.
 
         >>> from meeteval.io.stm import STMLine
-        >>> line = STMLine.parse('rec1 0 A 10 20 Hello World')
+        >>> line = STMLine.parse('rec1 0 A 10 20 Hello World', parse_float=float)
         >>> line
         STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')
         >>> line.replace(speaker_id='B')
@@ -204,7 +204,7 @@ class Base(BaseABC):
     def groupby(self, key) -> 'dict[str, Self]':
         """
         >>> from meeteval.io.stm import STM, STMLine
-        >>> stm = STM([STMLine.parse('rec1 0 A 10 20 Hello World')])
+        >>> stm = STM([STMLine.parse('rec1 0 A 10 20 Hello World', parse_float=float)])
         >>> stm.groupby(['filename', 'begin_time'])
         {('rec1', 10): STM(lines=[STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')])}
         >>> stm.groupby('filename')

@@ -57,17 +57,21 @@ class RTTMLine(BaseLine):
         >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
         RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
         """
-        type_, filename, channel, begin_time, duration, othography, \
+        type_, filename, channel, begin_time, duration, orthography, \
         speaker_type, speaker_id, confidence, signal_look_ahead_time, \
             = line.split()
+
+        if parse_float is float:
+            def parse_float(x):
+                return int(x) if x.isdigit() else float(x)
 
         return RTTMLine(
             type=type_,
             filename=filename,
             channel=int(channel) if begin_time.isdigit() else channel,
-            begin_time=int(begin_time) if begin_time.isdigit() else parse_float(begin_time),  # Keep type, int or float,
-            duration=int(duration) if duration.isdigit() else parse_float(duration),  # Keep type, int or float,
-            othography=othography,
+            begin_time=parse_float(begin_time),  # Keep type, int or float,
+            duration=parse_float(duration),  # Keep type, int or float,
+            othography=orthography,
             speaker_type=speaker_type,
             speaker_id=speaker_id,
             confidence=confidence,
