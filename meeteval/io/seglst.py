@@ -4,10 +4,12 @@ import functools
 import io
 import typing
 from pathlib import Path
+import decimal
 
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
 from meeteval._typing import TypedDict
+from meeteval._typing import Literal
 
 if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
@@ -29,8 +31,8 @@ class SegLstSegment(TypedDict, total=False):
         We do not define an enum with all these keys for speed reasons
     """
     session_id: str
-    start_time: float
-    end_time: float
+    start_time: 'float | decimal.Decimal'
+    end_time: 'float | decimal.Decimal'
     words: str
     speaker: str
     segment_index: int
@@ -39,6 +41,11 @@ class SegLstSegment(TypedDict, total=False):
     # here for compatibility and conversion in both directions
     channel: int
     confidence: float
+
+
+_SegLstSegment_keys = Literal[
+    'session_id', 'start_time', 'end_time', 'words', 'speaker',
+    'segment_index', 'channel', 'confidence']
 
 
 @dataclasses.dataclass(frozen=True)
@@ -72,8 +79,8 @@ class SegLST(BaseABC):
         """
         Parses a SegLST from a string.
 
-        >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0}]')
-        SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+        >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0, "session_id": "a"}]')
+        SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0, 'session_id': 'a'}])
 
         >>> SegLST.parse('{"a": {"words": "a b c", "segment_index": 0, "speaker": 0}}')
         Traceback (most recent call last):
@@ -81,6 +88,12 @@ class SegLST(BaseABC):
         ValueError: Invalid JSON format for SegLST: Expected a list of segments, but found a dict.
         """
         import simplejson
+
+        if parse_float is float:
+            def parse_float(x):
+                if not isinstance(x, str):
+                    return x
+                return int(x) if x.isdigit() else float(x)
 
         def fix_floats(s):
             """Convert common float keys to decimal"""
@@ -158,11 +171,22 @@ class SegLST(BaseABC):
                 *[set(s.keys()) for s in self._outer.segments]
             )
 
-        def __getitem__(self, key):
+        def __getitem__(self, key: _SegLstSegment_keys):
             """
             Returns the values for `key` of all segments as a list.
             """
             return [s[key] for s in self._outer.segments]
+
+        def __class_getitem__(cls, item: _SegLstSegment_keys) -> 'list':
+            """
+            This is a dummy for type annotation.
+
+            PyCharm doesn't get it, what a property on the class definition
+            does and thinks `__class_getitem__` is called, while `__getitem__`
+            gets called.
+
+            """
+            raise NotImplementedError
 
     def unique(self, key) -> 'set[Any]':
         """
@@ -184,7 +208,7 @@ class SegLST(BaseABC):
             return SegLST(self.segments + other.segments)
         return NotImplemented
 
-    def groupby(self, key) -> 'dict[Any, SegLST]':
+    def groupby(self, key: _SegLstSegment_keys) -> 'dict[Any, SegLST]':
         """
         >>> t = asseglst(['a b c', 'd e f', 'g h i'])
         >>> t.segments
@@ -196,9 +220,10 @@ class SegLST(BaseABC):
          1: SegLST(segments=[{'words': 'd e f', 'segment_index': 0, 'speaker': 1}]),
          2: SegLST(segments=[{'words': 'g h i', 'segment_index': 0, 'speaker': 2}])}
         """
-        return {
+        from meeteval.io.base import _Dict
+        return _Dict({
             k: SegLST(g) for k, g in groupby(self.segments, key=key).items()
-        }
+        })
 
     def sorted(self, key) -> 'SegLST':
         """
@@ -328,7 +353,7 @@ def asseglst(d, *, required_keys=(), py_convert=NestedStructure) -> 'SegLST':
 
     Data formats are also converted
     >>> from meeteval.io.stm import STM, STMLine
-    >>> stm = STM.parse('ex 1 A 0 1 a b c')
+    >>> stm = STM.parse('ex 1 A 0 1 a b c', parse_float=float)
     >>> asseglst(stm).segments
     [{'session_id': 'ex', 'channel': 1, 'speaker': 'A', 'start_time': 0, 'end_time': 1, 'words': 'a b c'}]
 
@@ -437,11 +462,11 @@ def seglst_map(*, required_keys=(), py_convert=NestedStructure):
     ... def fn(seglst, *, speaker='X'):
     ...     return seglst.map(lambda x: {**x, 'speaker': speaker})
     >>> from meeteval.io.stm import STM
-    >>> fn(STM.parse('X 1 A 0 1 a b c'))
+    >>> fn(STM.parse('X 1 A 0 1 a b c', parse_float=float))
     STM(lines=[STMLine(filename='X', channel=1, speaker_id='X', begin_time=0, end_time=1, transcript='a b c')])
     >>> from meeteval.io.rttm import RTTM
     >>> fn(RTTM.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>'))
-    RTTM(lines=[RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350000'), othography='<NA>', speaker_type='<NA>', speaker_id='X', confidence='<NA>', signal_look_ahead_time='<NA>')])
+    RTTM(lines=[RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350000'), orthography='<NA>', speaker_type='<NA>', speaker_id='X', confidence='<NA>', signal_look_ahead_time='<NA>')])
     >>> fn({'A': 'abc', 'B': 'def'}).structure
     {'X': 'abc def'}
     """

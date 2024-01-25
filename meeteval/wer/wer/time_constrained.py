@@ -937,7 +937,7 @@ def align(
     >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='seglst')
     [({'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}, None)]
     >>> from meeteval.io.stm import STM, STMLine
-    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a')]), STM([STMLine.parse('ex 1 B 0 1 a')]), style='seglst'))
+    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a', parse_float=float)]), STM([STMLine.parse('ex 1 B 0 1 a', parse_float=float)]), style='seglst'))
     [({'channel': 1,
        'end_time': 1,
        'session_id': 'ex',

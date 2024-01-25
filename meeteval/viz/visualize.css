@@ -1,0 +1,293 @@
+/* Set the font for everything within the visualization, except for font-awesome icons */
+.meeteval-viz :not(.fas) {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.meeteval-viz table {
+    color: black;
+}
+
+/* Styles for menu bar pills*/
+.top-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.pill {
+    display: flex;
+    margin: 2px 3px 0 3px;
+    background-color: #fff;
+    border-radius: 7px;
+    border: 1px solid #000;
+    padding: 0 5px 0 5px;
+    white-space: nowrap;
+    align-items: center;
+}
+
+.pill.no-border {
+    border: none;
+}
+
+.pill.warn {
+    background-color: #f3ebc9;
+    border: 1px solid #ffcc00;
+}
+
+.pill:hover:not(.no-border) {
+    background-color: #eeeeee;
+    border: 1px solid #4f9fee;
+}
+
+.pill.selection-details {
+    display: flex;
+    margin: 2px 3px 0 3px;
+    background-color: #fff;
+    border-radius: 7px;
+    border: 1px solid #000;
+    padding: 0 5px 0 5px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.info-label {
+    display: inline-block;
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.info-value {
+    display: inline-block;
+    font-weight: normal;
+    vertical-align: middle;
+    flex-wrap: wrap;
+}
+
+.legend-element {
+    margin: 0 3px 0 3px;
+    padding: 0 0px 0 0;
+    white-space: nowrap;
+}
+
+.legend-color {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+}
+
+.legend-label {
+    display: inline-block;
+    padding-left: 5px;
+}
+
+/* Icons */
+i {
+    display: inline-block;
+    font-size: 1.2em;
+    margin-right: 5px;
+}
+
+.copybutton {
+    display: inline-block;
+    font-weight: normal;
+    vertical-align: middle;
+    flex-wrap: wrap;
+    padding: 0.3em;
+    /*background: #5784f5;*/
+    /*color: #fff;*/
+    font-size: 1em;
+    margin: 0;
+    margin-right: 0px;
+    /*border:none;*/
+    outline:none;
+    border-radius:0.6em;
+    cursor:pointer;
+}
+
+.copybutton i {
+    margin-right: 0px;
+}
+
+/* Plot elements */
+.minimap {
+    position: relative;
+    background-color: white;
+    margin-bottom: 1px;
+    padding: 2px;
+    border: 1px solid black;
+    border-radius: 5px;
+}
+
+/* Tooltips */
+.tooltip {
+    position: relative;
+}
+
+/* Wraps text at about 40 characters. Used in text-only tooltips */
+.wrap-40 {
+    inline-size: max-content;
+    max-inline-size: 40ch;
+}
+
+/* Wraps text at about 60 characters. Used in selected segment details
+tooltip */
+.wrap-60 {
+    inline-size: max-content;
+    max-inline-size: 60ch;
+}
+
+/*
+Class for the tooltip content. This is the element that is shown when you hover
+over the tooltip container. It is hidden by default.
+
+The JS code may apply an additional translate style to move the tooltip into the
+visible area.
+*/
+.tooltip .tooltipcontent {
+    visibility: hidden;
+    
+    white-space: pre-wrap;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    top: 100%;
+    left: 0%;
+    opacity: 0;
+    transition: opacity 0.3s;
+    transition-delay: 2s;
+
+    /* Width: fit content size. Size is limited by children */
+    inline-size: fit-content;
+
+    /* Center the tooltip below the element */
+    inset-inline-start: 50%;
+    /* Don't move this to the translate property. The translate property is
+       used by the JS code and stacks with transform: translate. */
+    transform: translateX(-50%);
+}
+
+/* Tooltip that is aligned left of its parent (e.g., selected segment) */
+.tooltipcontent.alignleft {
+    inset-inline-start: 0;
+    transform: none;
+}
+
+/* Show the tooltip text when you hover over the tooltip container */
+.tooltip:hover > .tooltipcontent {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.1s;
+    transition-delay: 0.2s;
+  }
+
+/* Style for the help text displayed when no utterance is selected */
+.utterance-details-help {
+    color: gray;
+    font-size: 0.8em;
+    margin-left: 5px;
+    font-style: italic;
+}
+
+/* Style for the small hint plot label */
+.plot-label {
+    top: 0px;
+    left: 0px;
+    position: absolute;
+    padding: 0 3px 0 3px;
+    font-style: italic;
+    user-select: none;
+    border-radius: 0 5px 5px 0;
+    font-size: 10px;
+    background-color: #fff;
+    opacity: 0.5;
+}
+
+/* Style for the tables */
+
+/* Table header */
+.meeteval-viz thead {
+    color: #ffffff;
+}
+
+/* Duplicate .meeteval-viz so that we are more specific than the Jupyter
+Notebook CSS */
+.meeteval-viz.meeteval-viz table thead th {
+    font-weight: bold;
+    text-align: center;
+}
+
+.meeteval-viz.meeteval-viz table th,
+.meeteval-viz.meeteval-viz table td,
+.meeteval-viz.meeteval-viz table tr {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.meeteval-viz tbody tr:nth-child(odd) {
+    background: #fff;
+}
+
+.meeteval-viz tbody tr:nth-child(even) {
+    background: #eee;
+}
+
+table.wer-table {
+    border-collapse: collapse;
+    margin: auto;
+    width: 100%;
+    table-layout: auto;
+}
+
+/* Use a monospaced font for number columns (starting from column 3) in the
+wer table */
+.wer-table tbody tr td:nth-child(n+3) {
+    font-family: monospace;
+}
+
+/* Menu Elements */
+
+.range-selector input {
+    /* background: red; */
+    border-radius: 3px;
+    border: 1px solid gray;
+    width: 3em;
+}
+
+/* Chrome, Safari, Edge, Opera */
+.range-selector input::-webkit-outer-spin-button,
+.range-selector input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+.range-selector input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Hint shown below tables in tooltips */
+.tooltip-info {
+    font-style: italic;
+}
+
+.search-bar input {
+    border-color: transparent;
+}
+
+.search-bar button {
+  background-color: #eee;
+  color: #333333;
+  cursor: pointer;
+  display: inline-block;
+  border: none;
+  margin: 0;
+  /* padding: 10px 12px; */
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}

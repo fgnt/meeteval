@@ -32,6 +32,8 @@ extras_require = {
         'pyyaml',
         'fire',
         'simplejson',
+        'aiohttp',
+        'soundfile',
     ],
     'test': [
         'editdistance',     # Faulty for long sequences, but useful for testing
@@ -43,6 +45,8 @@ extras_require = {
         'ipython',  # IPython.lib.pretty.pprint
         'pyyaml',
         'simplejson',
+        'aiohttp',
+        'soundfile',
     ],
     'all': [  # List only missing from the other lists
         'lazy_dataset',
