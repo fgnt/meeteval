@@ -99,15 +99,19 @@ class SegLST(BaseABC):
 
         # Check if the first and last entry have the correct format. We here
         # require that the "session_id" key is present in all segments.
-        if (
-                loaded
-                and not isinstance(loaded[0], dict) and 'session_id' in loaded[0]
-                and not isinstance(loaded[-1], dict) and 'session_id' in loaded[-1]
-        ):
-            raise ValueError(
-                f'Invalid JSON format for SegLST: Expected a list of segments '
-                f'(as dicts), but found a list of {type(loaded[0])}.'
-            )
+        if loaded:
+            if (
+                    isinstance(loaded[0], dict)
+                    and isinstance(loaded[-1], dict)
+                    and 'session_id' in loaded[0]
+                    and 'session_id' in loaded[-1]
+            ):
+                pass
+            else:
+                raise ValueError(
+                    f'Invalid JSON format for SegLST: Expected a list of segments '
+                    f'(as dicts), but found a list of {type(loaded[0])}.'
+                )
 
         return cls([fix_floats(s) for s in loaded])
 
