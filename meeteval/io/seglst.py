@@ -44,13 +44,12 @@ class SegLstSegment(TypedDict, total=False):
 @dataclasses.dataclass(frozen=True)
 class SegLST(BaseABC):
     """
-    A collection of segments in SegLST format. This the input type to most
-    functions in MeetEval that process transcript segments.
+    Segment-wise Long-form Speech Transcription annotation (SegLST) format
+
+    This the input type to most functions in MeetEval that process transcript
+    segments.
     """
     segments: 'list[SegLstSegment]'
-
-    # Caches
-    _unique = None
 
     @classmethod
     def load(
@@ -75,6 +74,11 @@ class SegLST(BaseABC):
 
         >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0}]')
         SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+
+        >>> SegLST.parse('{"a": {"words": "a b c", "segment_index": 0, "speaker": 0}}')
+        Traceback (most recent call last):
+          ...
+        ValueError: Invalid JSON format for SegLST: Expected a list of segments, but found a dict.
         """
         import simplejson
 
@@ -85,9 +89,27 @@ class SegLST(BaseABC):
                     s[k] = parse_float(s[k])
             return s
 
-        return cls([
-            fix_floats(s) for s in simplejson.loads(s, parse_float=parse_float)
-        ])
+        loaded = simplejson.loads(s, parse_float=parse_float)
+
+        if not isinstance(loaded, list):
+            raise ValueError(
+                'Invalid JSON format for SegLST: Expected a list of segments, '
+                'but found a dict.'
+            )
+
+        # Check if the first and last entry have the correct format. We here
+        # require that the "session_id" key is present in all segments.
+        if (
+                loaded
+                and not isinstance(loaded[0], dict) and 'session_id' in loaded[0]
+                and not isinstance(loaded[-1], dict) and 'session_id' in loaded[-1]
+        ):
+            raise ValueError(
+                f'Invalid JSON format for SegLST: Expected a list of segments '
+                f'(as dicts), but found a list of {type(loaded[0])}.'
+            )
+
+        return cls([fix_floats(s) for s in loaded])
 
     def dump(self, file):
         from meeteval.io.base import _open

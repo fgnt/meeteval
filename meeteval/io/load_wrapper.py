@@ -108,7 +108,8 @@ def load(path: 'Path | list[Path]', parse_float=decimal.Decimal, format: 'str | 
         # Guess the type from the file content. Only support Chime7 JSON / SegLST format.
         try:
             return meeteval.io.SegLST.load(path, parse_float=parse_float)
-        except Exception as e:
+        except ValueError as e:
+            # Catches simplejson's JSONDecodeError and our own ValueErrors
             raise ValueError(f'Unknown JSON format: {path}. Only SegLST format is supported.') from e
     else:
         raise ValueError(f'Unknown file type: {path}')
