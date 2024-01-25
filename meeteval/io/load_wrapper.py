@@ -87,10 +87,9 @@ def load(path: 'Path | list[Path]', parse_float=decimal.Decimal, format: 'str | 
         return loaded[0].__class__.merge(*loaded)
 
     import meeteval
-    path = Path(path)
 
     if format in (None, 'none', 'auto'):
-        format = _guess_format(path)
+        format = _guess_format(Path(path))
 
     if format == 'stm':
         load_fn = meeteval.io.STM.load
