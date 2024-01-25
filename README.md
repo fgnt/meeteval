@@ -13,6 +13,8 @@ MeetEval supports the following metrics for meeting transcription evaluation:
 - Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER)
 - [Time-Constrained minimum-Permutation Word Error Rate (tcpWER)](/doc/tcpwer.md)
 
+WIP: MeetEval supports visualization for cpWER and tcpWER
+
 ## Installation
 
 You need to have [Cython](https://cython.org/) installed.
@@ -136,6 +138,24 @@ meeteval-wer orcwer -h hyp1.ctm -h hyp2.ctm -r reference.stm
 ```
 
 Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away. We recommend to use `STM` files.
+
+## Visualization [WIP]
+
+Preview: https://groups.uni-paderborn.de/nt/meeteval/viz.html
+
+```python
+import meeteval
+from meeteval.viz.visualize import AlignmentVisualization
+
+folder = r'https://raw.githubusercontent.com/fgnt/meeteval/main/'
+av = AlignmentVisualization(
+    meeteval.io.load(folder + 'example_files/ref.stm').groupby('filename')['recordingA'],
+    meeteval.io.load(folder + 'example_files/hyp.stm').groupby('filename')['recordingA']
+)
+# display(av)  # Jupyter
+# av.dump('viz.html')  # Create standalone HTML file
+```
+
 
 ## Cite
 
