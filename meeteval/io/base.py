@@ -3,6 +3,7 @@ import io
 import os
 import sys
 import typing
+import operator
 from pathlib import Path
 import contextlib
 import dataclasses
@@ -210,19 +211,17 @@ class Base(BaseABC):
         {'rec1': STM(lines=[STMLine(filename='rec1', channel=0, speaker_id='A', begin_time=10, end_time=20, transcript='Hello World')])}
         """
         if isinstance(key, str):
-            attribute = key
-            key = lambda x: getattr(x, attribute)
+            key = operator.attrgetter(key)
         elif isinstance(key, (tuple, list)):
-            attributes = key
-            key = lambda x: tuple([getattr(x, a) for a in attributes])
+            key = operator.attrgetter(*key)
 
-        return {
+        return _Dict({
             filename: self.__class__(list(group))
             for filename, group in groupby(
                 sorted(self.lines, key=key),
                 key=key
             )
-        }
+        })
 
     def grouped_by_filename(self) -> 'dict[str, Self]':
         return self.groupby(lambda x: x.filename)
@@ -361,11 +360,66 @@ class Base(BaseABC):
         return cls([cls.line_cls.from_dict({**defaults, **segment}) for segment in asseglst(s)])
 
 
-
 def _open(f, mode='r'):
     if isinstance(f, io.TextIOBase):
         return contextlib.nullcontext(f)
+    elif isinstance(f, str) and str(f).startswith('http'):
+        import urllib.request, urllib.error
+        try:
+            resource = urllib.request.urlopen(str(f))
+        except urllib.error.URLError as e:
+            raise FileNotFoundError(f) from e
+        # https://stackoverflow.com/a/19156107/5766934
+        return contextlib.nullcontext(io.TextIOWrapper(
+            resource, resource.headers.get_content_charset()))
     elif isinstance(f, (str, os.PathLike)):
         return open(f, mode)
     else:
         raise TypeError(type(f), f)
+
+
+class _VerboseKeyError(KeyError):
+    # origin: paderbox.utils.mapping.DispatchError
+    def __str__(self):
+        if len(self.args) == 2 and isinstance(self.args[0], str):
+            item, keys = self.args
+            if not keys:
+                return f'Invalid option {item!r}.\n' \
+                       f'Mapping is empty.'
+
+            import difflib
+            # Suggestions are sorted by their similarity.
+            try:
+                suggestions = difflib.get_close_matches(
+                    item, keys, cutoff=0, n=100
+                )
+            except TypeError:
+                keys = map(str, keys)
+                suggestions = difflib.get_close_matches(
+                    item, keys, cutoff=0, n=100
+                )
+            return f'Invalid option {item!r}.\n' \
+                   f'Close matches: {suggestions!r}.'
+        else:
+            return super().__str__()
+
+
+class _Dict(dict):
+    """
+    Is basically a dict with a better error message on key error.
+
+    origin: paderbox.utils.mapping.Dispatcher
+
+    >>> from meeteval.io.base import _Dict
+    >>> d = _Dict(abc=1, bcd=2)
+    >>> d['acd']  #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    meeteval.io.base._VerboseKeyError: Invalid option 'acd'.
+    Close matches: ['bcd', 'abc'].
+    """
+    def __getitem__(self, item):
+        try:
+            return super().__getitem__(item)
+        except KeyError as e:
+            raise _VerboseKeyError(item, self.keys()) from None
