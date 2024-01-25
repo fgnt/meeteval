@@ -77,17 +77,22 @@ def test_burn_orc():
     run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --regex ".*A"')
     run('python -m meeteval.wer orcwer -h hyp.seglst.json -r ref.seglst.json --regex ".*A"')
 
+    # Test sort option. Only test the ones that are available for ORC
+    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
+
 
 def test_burn_mimo():
     run(f'python -m meeteval.wer mimower -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer mimower -h 'hyp?.stm' -r 'ref?.stm'")
     run(f'python -m meeteval.wer mimower -h hyp.seglst.json -r ref.seglst.json')
+    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
 
 def test_burn_cp():
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer cpwer -h 'hyp?.stm' -r 'ref?.stm'")
     run(f'python -m meeteval.wer cpwer -h hyp.seglst.json -r ref.seglst.json')
+    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
 
 def test_burn_tcp():
@@ -95,6 +100,7 @@ def test_burn_tcp():
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
     run(f'python -m meeteval.wer tcpwer -h hyp.seglst.json -r ref.seglst.json')
+    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --reference-sort word --hypothesis-sort true')
 
 
 def test_burn_md_eval_22():
