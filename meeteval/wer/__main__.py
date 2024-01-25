@@ -391,7 +391,7 @@ class CLI:
             formatter_class=SmartFormatter
         )
         self.parser.add_argument('--version', action='store_true',
-                                 help='Show version\nwith\nlinebreaks')
+                                 help='Show version')
 
         # Logging and verbosity
         logging.addLevelName(100,
