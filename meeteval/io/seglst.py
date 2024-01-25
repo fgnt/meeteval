@@ -9,6 +9,7 @@ import decimal
 from meeteval.io.base import BaseABC
 from meeteval.io.py import NestedStructure
 from meeteval._typing import TypedDict
+from meeteval._typing import Literal
 
 if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
@@ -42,7 +43,7 @@ class SegLstSegment(TypedDict, total=False):
     confidence: float
 
 
-_SegLstSegment_keys = typing.Literal[
+_SegLstSegment_keys = Literal[
     'session_id', 'start_time', 'end_time', 'words', 'speaker',
     'segment_index', 'channel', 'confidence']
 
