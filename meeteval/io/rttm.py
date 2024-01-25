@@ -45,7 +45,7 @@ class RTTMLine(BaseLine):
     channel: str = '1'
     begin_time: 'float | int | str | decimal.Decimal' = 0
     duration: 'float | int | str | decimal.Decimal' = 0
-    othography: 'str' = '<NA>'
+    orthography: 'str' = '<NA>'
     speaker_type: 'str' = '<NA>'
     speaker_id: 'str' = '<NA>'
     confidence: str = '<NA>'
@@ -55,7 +55,7 @@ class RTTMLine(BaseLine):
     def parse(cls, line: str, parse_float=decimal.Decimal) -> 'RTTMLine':
         """
         >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
-        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), othography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
+        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), orthography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
         """
         type_, filename, channel, begin_time, duration, orthography, \
         speaker_type, speaker_id, confidence, signal_look_ahead_time, \
@@ -71,7 +71,7 @@ class RTTMLine(BaseLine):
             channel=int(channel) if begin_time.isdigit() else channel,
             begin_time=parse_float(begin_time),  # Keep type, int or float,
             duration=parse_float(duration),  # Keep type, int or float,
-            othography=orthography,
+            orthography=orthography,
             speaker_type=speaker_type,
             speaker_id=speaker_id,
             confidence=confidence,
@@ -110,7 +110,7 @@ class RTTMLine(BaseLine):
         'SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>'
         """
         return (f'{self.type} {self.filename} {self.channel} '
-                f'{self.begin_time} {self.duration} {self.othography} '
+                f'{self.begin_time} {self.duration} {self.orthography} '
                 f'{self.speaker_type} {self.speaker_id} {self.confidence} '
                 f'{self.signal_look_ahead_time}')
 
