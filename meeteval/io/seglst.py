@@ -49,9 +49,6 @@ class SegLST(BaseABC):
     """
     segments: 'list[SegLstSegment]'
 
-    # Caches
-    _unique = None
-
     @classmethod
     def load(
             cls,
@@ -75,6 +72,11 @@ class SegLST(BaseABC):
 
         >>> SegLST.parse('[{"words": "a b c", "segment_index": 0, "speaker": 0}]')
         SegLST(segments=[{'words': 'a b c', 'segment_index': 0, 'speaker': 0}])
+
+        >>> SegLST.parse('{"a": {"words": "a b c", "segment_index": 0, "speaker": 0}}')
+        Traceback (most recent call last):
+          ...
+        ValueError: Invalid JSON format for SegLST: Expected a list of segments, but found a dict.
         """
         import simplejson
 
@@ -85,9 +87,20 @@ class SegLST(BaseABC):
                     s[k] = parse_float(s[k])
             return s
 
-        return cls([
-            fix_floats(s) for s in simplejson.loads(s, parse_float=parse_float)
-        ])
+        loaded = simplejson.loads(s, parse_float=parse_float)
+
+        if not isinstance(loaded, list):
+            raise ValueError(
+                'Invalid JSON format for SegLST: Expected a list of segments, '
+                'but found a dict.'
+            )
+        if loaded and not isinstance(loaded[0], dict):
+            raise ValueError(
+                f'Invalid JSON format for SegLST: Expected a list of segments '
+                f'(as dicts), but found a list of {type(loaded[0])}.'
+            )
+
+        return cls([fix_floats(s) for s in loaded])
 
     def dump(self, file):
         from meeteval.io.base import _open
