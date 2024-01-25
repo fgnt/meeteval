@@ -343,7 +343,7 @@ def _merge(
             ers.append([None, ErrorRate.from_dict(d)])
         else:
             for k, v in d.items():  # Details file
-                if not regex.fullmatch(k):
+                if regex is not None and not regex.fullmatch(k):
                     continue
                 if 'errors' in v:
                     ers.append([k, ErrorRate.from_dict(v)])
