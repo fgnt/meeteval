@@ -230,7 +230,9 @@ class ErrorRate:
         )
 
 
-def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
+def combine_error_rates(
+        *error_rates: ErrorRate, empty_type=ErrorRate
+) -> ErrorRate:
     """
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None), ErrorRate(0, 10, 0, 0, 0, None, None))
     ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
@@ -238,9 +240,13 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10)
     >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10, None, None)]*10))
     ErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100)
+    >>> combine_error_rates()
+    ErrorRate(errors=0, length=0, insertions=0, deletions=0, substitutions=0)
     """
     if len(error_rates) == 1:
         return error_rates[0]
+    if len(error_rates) == 0:
+        return empty_type.zero()
     return sum(error_rates)
 
 
@@ -273,4 +279,3 @@ class CombinedErrorRate(ErrorRate):
                     if getattr(self, f.name) is not None
                 ]) + ')'
         )
-    

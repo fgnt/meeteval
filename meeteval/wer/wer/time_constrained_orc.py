@@ -1,5 +1,5 @@
 import meeteval
-from meeteval.wer import ErrorRate
+from meeteval.wer import ErrorRate, combine_error_rates
 from meeteval.wer.wer.orc import OrcErrorRate
 from meeteval.wer.wer.utils import check_single_filename
 
@@ -8,6 +8,11 @@ import typing
 if typing.TYPE_CHECKING:
     from meeteval.io import STM
     from meeteval.wer.wer.cp import CPErrorRate
+
+__all__ = [
+    'time_constrained_orc_wer',
+    'time_constrained_orc_wer_multifile',
+]
 
 
 def time_constrained_orc_wer(
@@ -70,7 +75,8 @@ def time_constrained_orc_wer(
     distance, assignment = time_constrained_orc_levenshtein_distance(
         [segment.T['words'] for segment in reference.groupby('segment_index').values()],
         [stream.T['words'] for stream in hypothesis.values()],
-        [list(zip(segment.T['start_time'], segment.T['end_time'])) for segment in reference.groupby('segment_index').values()],
+        [list(zip(segment.T['start_time'], segment.T['end_time'])) for segment in
+         reference.groupby('segment_index').values()],
         [list(zip(stream.T['start_time'], stream.T['end_time'])) for stream in hypothesis.values()],
     )
 
@@ -78,7 +84,7 @@ def time_constrained_orc_wer(
     assignment = [hypothesis_keys[h] for r, h in assignment]
 
     # Apply assignment in seglst format
-    r_ = list(reference.groupby('segment_index').values()) # Shallow copy because we pop later
+    r_ = list(reference.groupby('segment_index').values())  # Shallow copy because we pop later
     if assignment:
         reference_new = []
         for h in assignment:
@@ -89,13 +95,13 @@ def time_constrained_orc_wer(
         reference_new = reference.groupby('speaker')
 
     from meeteval.wer.wer.time_constrained import _time_constrained_siso_error_rate
-    er = sum([
+    er = combine_error_rates([
         _time_constrained_siso_error_rate(
             reference_new.get(k, meeteval.io.SegLST([])),
             hypothesis.get(k, meeteval.io.SegLST([])),
         )
         for k in set(hypothesis.keys()) | set(reference_new.keys())
-    ] + [ErrorRate(0, 0, 0, 0, 0, None, None)]) # Catch edge case when both are empty
+    ])
     length = len(reference)
     assert er.length == length, (length, er)
     assert er.errors == distance, (distance, er, assignment)
@@ -109,6 +115,7 @@ def time_constrained_orc_wer(
         reference_self_overlap=None,
         hypothesis_self_overlap=None,
     )
+
 
 def time_constrained_orc_wer_multifile(
         reference: 'STM', hypothesis: 'STM',
