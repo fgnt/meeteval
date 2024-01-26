@@ -116,7 +116,7 @@ def time_constrained_orc_wer_multifile(
         hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
         hypothesis_sort='segment',
-) -> 'Dict[str, CPErrorRate]':
+) -> 'dict[str, CPErrorRate]':
     from meeteval.io.seglst import apply_multi_file
     r = apply_multi_file(lambda r, h: time_constrained_orc_wer(
         r, h,
