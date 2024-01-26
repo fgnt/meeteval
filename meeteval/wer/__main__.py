@@ -320,6 +320,29 @@ def tcpwer(
     average.reference_self_overlap.warn('reference')
 
 
+def tcorcwer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_tcorcwer.json',
+        per_reco_out='{parent}/{stem}_tcorcwer_per_reco.json',
+        regex=None,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        hypothesis_sort='segment',
+):
+    """Computes the time-constrained ORC WER (tcORC WER)"""
+    from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer_multifile
+    reference, _, hypothesis, hypothesis_paths = _load_texts(
+        reference, hypothesis, regex)
+    results = time_constrained_orc_wer_multifile(
+        reference, hypothesis, collar=collar,
+        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+        hypothesis_sort=hypothesis_sort,
+    )
+    _save_results(results, hypothesis_paths, per_reco_out, average_out)
+
+
 def _merge(
         files: 'list[str]',
         out: str = None,
@@ -613,6 +636,7 @@ def cli():
     cli.add_command(orcwer)
     cli.add_command(mimower)
     cli.add_command(tcpwer)
+    cli.add_command(tcorcwer)
     cli.add_command(merge)
     cli.add_command(average)
 
