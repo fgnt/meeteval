@@ -95,7 +95,7 @@ def time_constrained_orc_wer(
         reference_new = reference.groupby('speaker')
 
     from meeteval.wer.wer.time_constrained import _time_constrained_siso_error_rate
-    er = combine_error_rates([
+    er = combine_error_rates(*[
         _time_constrained_siso_error_rate(
             reference_new.get(k, meeteval.io.SegLST([])),
             hypothesis.get(k, meeteval.io.SegLST([])),
