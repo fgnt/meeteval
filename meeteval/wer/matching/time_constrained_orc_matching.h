@@ -76,7 +76,6 @@ struct Layout {
  */
 struct Path {
     std::shared_ptr<Path> previous;
-    unsigned int speaker;
     unsigned int utterance;
     unsigned int stream;
 };
@@ -205,8 +204,6 @@ struct UpdateState {
 
 /*
  * Computes a time-constrained update of a levenshtein row, in-place.
- *
- * TODO: do we copy too much (up, left, diagonal, ...)?
  */
 void update_levenshtein_row(
     std::vector<UpdateState> &row,
@@ -217,12 +214,14 @@ void update_levenshtein_row(
     const unsigned int hypothesis_begin,
     const unsigned int hypothesis_end
 ) {
+    // Sanity checks
     assert(row.size() >= hypothesis_end - hypothesis_begin + 1);
     assert(reference.size() == reference_timings.size());
     assert(hypothesis.size() == hypothesis_timings.size());
     assert(hypothesis_end <= hypothesis.size());
     assert(hypothesis_begin <= hypothesis_end);
 
+    // The number of updates we have to do
     unsigned int steps = hypothesis_end - hypothesis_begin;
 
     // These two variables track the currently "active" region in the hypothesis
@@ -232,7 +231,6 @@ void update_levenshtein_row(
     unsigned int hyp_end = 0;
 
     for (size_t reference_index = 0; reference_index < reference.size(); reference_index++) {
-//        printf("reference_index %d\n", reference_index);
         auto ref_symbol = reference.at(reference_index);
         auto & ref_timing = reference_timings.at(reference_index);
 
@@ -360,11 +358,10 @@ std::vector<Utterance> make_utterances(std::vector<std::vector<std::pair<double,
 
 
 /*
- * TODO: Utterances must be sorted for this algorithm to work!
- * TODO: All utterances must contain at least one word!
- * TODO: Must have at least one speaker and one stream!
+ * All utterances must contain at least one word. This is ensured by the calling code.
+ * Must have at least one speaker and one stream. This is ensured by the calling code.
  */
-std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time_constrained_orc_levenshtein_distance_(
+std::pair<unsigned int, std::vector<unsigned int>> time_constrained_orc_levenshtein_distance_(
     std::vector<std::vector<unsigned int>> reference,
     std::vector<std::vector<unsigned int>> hypothesis,
     std::vector<std::vector<std::pair<double, double>>> reference_timings,
@@ -384,21 +381,13 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
     // and (in reverse) the latest seen begin time to support unsorted utterance begin/end times
     std::vector<Utterance> reference_utterances = make_utterances(reference_timings);
 
-//    printf("utterances\n");
-//    for (std::vector<Utterance> s : reference_utterances) {
-//        printf("  "); for (Utterance u : s) printf(" (%.2f, %.2f)", u.begin_time, u.end_time); printf("\n");
-//    }
-
     // Compute for every word in the hypothesis the earliest seen end time and the latest seen begin time
     // This is required when the words are not sorted by begin time.
-//    printf("computing extended_hypothesis_timings\n");
     std::vector<std::vector<Timing>> extended_hypothesis_timings(num_hypothesis_streams);
     for (size_t s = 0; s < hypothesis.size(); s++) {
-//        printf("s: %d, size: %d\n", s, hypothesis_timings.at(s).size());
         extended_hypothesis_timings.at(s) = make_extended_timing(hypothesis_timings.at(s));
     }
 
-//    printf("computing extended_reference_timings\n");
     std::vector<std::vector<Timing>> extended_reference_timings(reference_timings.size());
     for (size_t u = 0; u < reference_timings.size(); u++) {
         extended_reference_timings.at(u) = make_extended_timing(reference_timings.at(u));
@@ -419,43 +408,46 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
     std::vector<unsigned int> new_state_end(hypothesis.size());
     std::vector<unsigned int> indices;
 
-    // Pre-allocate temporary memory TODO: this is often (but not always!) larger than necessary
+    // Pre-allocate temporary memory. This is often (but not always!) larger than necessary, but negligible
+    // compared to the state space
     unsigned int max_num_states = 0;
     for (size_t s = 0; s < hypothesis.size(); s++) max_num_states = std::max(max_num_states, (unsigned int) hypothesis.at(s).size());
     std::vector<UpdateState> tmp_row(max_num_states + 1);
 
     // Iterate through reference utterances in temporal order
     for (unsigned int u = 0; u < num_utterances; u++) {
-        Utterance current_reference_utterance = reference_utterances.at(u);
+        // TODO: merge these into one datastructure?
+        auto &active_reference_utterance = reference_utterances.at(u);
+        auto &active_reference = reference.at(u);
+        auto &active_reference_timings = extended_reference_timings.at(u);
 
-        // Compute size of new state TODO: is this too large?
+        // TODO the stored state size is larger than necessary
+        // Compute size of new state
         // This state has the dimensions of the hypothesis words that overlap
-        // on each stream with the current block of reference utterances
+        // on each stream with the current reference utterance
         for (size_t s = 0; s < hypothesis.size(); s++) {
-            // Find which words overlap with the current reference block, i.e., which portion of the state
-            // has to be computed
-
+            auto offset = new_state_offset.at(s);
+            auto current_hypothesis_size = hypothesis.at(s).size();
+            auto timings = extended_hypothesis_timings.at(s);
             while (
-                new_state_offset.at(s) < hypothesis.at(s).size()
-                && extended_hypothesis_timings.at(s).at(new_state_offset.at(s)).earliest_end_time <
-                current_reference_utterance.begin_time
+                offset < current_hypothesis_size
+                && timings.at(offset).earliest_end_time < active_reference_utterance.begin_time
             ) {
-                new_state_offset.at(s)++;
+                offset++;
             }
-//            new_state_end.at(s) = new_state_offset.at(s);
-            new_state_end.at(s) = 0;
+            new_state_offset.at(s) = offset;
             while (
-                new_state_end.at(s) < hypothesis.at(s).size()
-                && extended_hypothesis_timings.at(s).at(new_state_end.at(s)).latest_begin_time <
-                current_reference_utterance.end_time
+                offset < current_hypothesis_size
+                && timings.at(offset).latest_begin_time <
+                active_reference_utterance.end_time
             ) {
-                new_state_end.at(s)++;
+                offset++;
             }
+            new_state_end.at(s) = offset;
         }
 
-        // Compute new cells
-        // We only have one possible previous state for ORC-WER! (since there
-        // is only one speaker)
+        // Compute next state
+        // We only have one possible previous state for ORC-WER
         Layout target_layout = make_layout(new_state_offset, new_state_end);
         auto first_update = true;
         StateEntry new_state = {
@@ -463,33 +455,36 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
             .layout=target_layout,
             .offset=new_state_offset,
         };
-//            printf("new_state size: %d\n", new_state.cost.size());
-//            printf("new_state layout: "); for (auto i : new_state.layout.dimensions) printf(" %d", i); printf("\n");
-
-        auto & prev_state = state; // TODO: rename. We don't need two pointers to the same object
-
-        auto &active_reference = reference.at(u);
-        auto &active_reference_timings = extended_reference_timings.at(u);
 
         // Compute the update for every hypothesis stream and min over that
+        bool updated = false;
         for (unsigned int s = 0; s < hypothesis.size(); s++) {
-            // TODO: only iterate over the streams that actually overlap with the current reference
+
+            // Skip streams that are not overlapping with the current reference,
+            // identified by a state dimension of 1
+            // Placing the utterance on these streams can only increase the cost
+            // over placing it on a stream that overlaps
+            // We still need to process it on one stream to advance the state
+            if (
+                new_state.layout.dimensions.at(s) == 1
+                && (updated || s < hypothesis.size() - 1)
+            ) continue;
+            updated = true;
+
             unsigned int old_distance = -1;
             // TODO: eliminate the index vector and multiplications
             std::vector<unsigned int> new_state_index(new_state.layout.dimensions.size());
-            std::vector<unsigned int> old_state_index(prev_state.layout.dimensions.size());
+            std::vector<unsigned int> old_state_index(state.layout.dimensions.size());
             std::vector<unsigned int> old_closest_index(new_state_index.size());
 
             // Iterate over all starting points of of levenshtein rows along the active_hypothesis_index dimension,
             // i.e., where new_state_index[s] == 0
-//            printf("Start loop");
             while(true) {
-//                printf("while loop\n");
                 // Translate the new state index into the old state index
                 for (size_t i = 0; i < old_state_index.size(); i++) {
-                    assert(new_state.offset.at(i) >= prev_state.offset.at(i));
-                    assert(prev_state.offset.at(i) <= new_state_index.at(i) + new_state_offset.at(i));
-                    old_state_index.at(i) = new_state_index.at(i) + new_state_offset.at(i) - prev_state.offset.at(i);
+                    assert(new_state.offset.at(i) >= state.offset.at(i));
+                    assert(state.offset.at(i) <= new_state_index.at(i) + new_state_offset.at(i));
+                    old_state_index.at(i) = new_state_index.at(i) + new_state_offset.at(i) - state.offset.at(i);
                 }
 
                 // Find the index in prev state that is closest to the new index
@@ -498,29 +493,30 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
                 for (size_t i = 0; i < closest_index.size(); i++) {
                     closest_index[i] = std::min(
                         (unsigned int) old_state_index[i],
-                        (unsigned int) prev_state.layout.dimensions[i] - 1
+                        (unsigned int) state.layout.dimensions[i] - 1
                     );
                     assert(old_state_index[i] >= closest_index[i]);
                     distance += old_state_index[i] - closest_index[i];
                 }
-                assert(prev_state.layout.within(closest_index));
+                assert(state.layout.within(closest_index));
 
-                // TODO: store all of them in a hash map to further reduce the number of calls of update_levensthein_row?
-                if (false && old_distance != -1 && old_closest_index == closest_index && distance > old_distance) {
+                if (old_distance != -1 && old_closest_index == closest_index && distance > old_distance) {
+                    // Optimization:
                     // If the distance is greater than 0 we use an earlier state and fill with insertions.
-                    // The levenshtein is invariant to a constant offset, so we can simply take the
+                    // The Levenshtein distance is invariant to a constant offset, so we can simply take the
                     // last row and add the insertions
+                    auto cost_offset = distance - old_distance;
                     for (unsigned int s_ = 0; s_ < new_state.layout.dimensions.at(s); s_++) {
-                        tmp_row[s_].cost += distance - old_distance;
+                        tmp_row[s_].cost += cost_offset;
                     }
                 } else {
                     // Fill temporary row
                     for (unsigned int s_ = 0; s_ < new_state.layout.dimensions.at(s); s_++) {
-                        if (prev_state.layout.within(closest_index)) {
+                        if (state.layout.within(closest_index)) {
                             // Copy from previous state
                             // We have to add the distance because the states might not be overlapping
-                            tmp_row.at(s_).index = prev_state.layout.get_index(closest_index);
-                            tmp_row.at(s_).cost = prev_state.cost.at(tmp_row.at(s_).index ).cost + distance;
+                            tmp_row.at(s_).index = state.layout.get_index(closest_index);
+                            tmp_row.at(s_).cost = state.cost.at(tmp_row.at(s_).index ).cost + distance;
                         } else {
                             // Pad with insertions
                             assert(s_ > 0);
@@ -529,12 +525,10 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
                         }
 
                         // Increment state index to move along with s_.
-                        // This might move closest_index out of the prev_state area
+                        // This might move closest_index out of the state area
                         closest_index[s]++;
                     }
 
-//                            printf("Forwarding Levenshtein row (d: %d, u: %d, s: %d, length: %d)\n", d, indices.at(d) - 1, s, new_state_end.at(s) - new_state_offset.at(s));
-//                            printf("tmp_row ["); for (UpdateState i : tmp_row) printf(" %d", i.cost); printf("] -> ");
                     // Forward tmp row
                     update_levenshtein_row(
                         tmp_row,
@@ -549,8 +543,6 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
                 old_distance = distance;
                 old_closest_index = closest_index;
 
-//                        printf("%d [", distance); for (int i =0; i < new_state_end.at(s) - new_state_offset.at(s); i++) printf(" %d", tmp_row.at(i).cost); printf("]\n");
-//                        printf("["); for (UpdateState i : tmp_row) printf(" %d", i.cost); printf("]\n");
                 // Copy into state
                 assert(new_state_index[s] == 0);
                 for (unsigned int s_ = 0; s_ < new_state.layout.dimensions.at(s); s_++) {
@@ -559,8 +551,7 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
                     if (first_update || tmp_row.at(s_).cost < new_state.cost[_index].cost) {
                         new_state.cost[_index].cost = tmp_row.at(s_).cost;
                         new_state.cost[_index].path = std::make_shared<struct Path>(Path{
-                            .previous=prev_state.cost.at(tmp_row.at(s_).index).path,
-                            .speaker=0, // TODO: this is always 0 for ORC-WER
+                            .previous=state.cost.at(tmp_row.at(s_).index).path,
                             .utterance=u,
                             .stream=s
                         });
@@ -569,7 +560,6 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
                 }
 
                 new_state_index[s] = 0;
-//                printf("new_state_index:"); for (auto i : new_state_index) printf(" %d", i); printf("\n");
                 if (!new_state.layout.advance_index(new_state_index, s)) break;
             }
             first_update = false;
@@ -589,11 +579,11 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
 
     // Get assignment
     // [(reference speaker index, hypothesis stream index)]
-    std::vector<std::pair<unsigned int, unsigned int>> assignment;
+    std::vector<unsigned int> assignment;
     Path path = *final_state.cost.back().path;
 
     while (true) {
-        assignment.push_back({path.speaker, path.stream});
+        assignment.push_back(path.stream);
         if (path.previous) {
             path = *path.previous;
         } else {

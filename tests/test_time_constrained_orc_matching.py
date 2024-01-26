@@ -7,7 +7,7 @@ from meeteval.io import SegLST
 # Limit alphabet to ensure a few correct matches
 @st.composite
 def string(draw, max_length=100):
-    return ' '.join(draw(st.text(alphabet='abcdefg', min_size=0, max_size=max_length)))
+    return ' '.join(draw(st.text(alphabet='abcdefg', min_size=1, max_size=max_length)))
 
 
 # Generate a random SegLST object

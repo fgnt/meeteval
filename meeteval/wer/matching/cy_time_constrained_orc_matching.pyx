@@ -8,7 +8,7 @@ ctypedef unsigned int uint
 
 
 cdef extern from "time_constrained_orc_matching.h":
-    pair[uint, vector[pair[uint, uint]]] time_constrained_orc_levenshtein_distance_(
+    pair[uint, vector[uint]] time_constrained_orc_levenshtein_distance_(
             vector[vector[uint]] reference,
             vector[vector[uint]] hypothesis,
             vector[vector[pair[double, double]]] reference_timings,

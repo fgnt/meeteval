@@ -81,7 +81,7 @@ def time_constrained_orc_wer(
     )
 
     hypothesis_keys = list(hypothesis.keys())
-    assignment = [hypothesis_keys[h] for r, h in assignment]
+    assignment = [hypothesis_keys[h] for h in assignment]
 
     # Apply assignment in seglst format
     r_ = list(reference.groupby('segment_index').values())  # Shallow copy because we pop later
