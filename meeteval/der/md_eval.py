@@ -189,12 +189,12 @@ def _md_eval_22(
         collar=0,
         regex=None,
 ):
-    from meeteval.wer.__main__ import _load_texts
+    from meeteval.wer.api import _load_texts
 
-    r, _, h, hypothesis_paths = _load_texts(
+    r, h = _load_texts(
         reference, hypothesis, regex)
 
     per_reco = md_eval_22_multifile(r, h, collar)
 
     from meeteval.wer.__main__ import _save_results
-    _save_results(per_reco, hypothesis_paths, per_reco_out, average_out)
+    _save_results(per_reco, hypothesis, per_reco_out, average_out)
