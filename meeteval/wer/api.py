@@ -40,10 +40,11 @@ def _load_texts(
             paths = [Path(file) for r in paths for file in _glob(str(r))]
             return meeteval.io.asseglst(
                 meeteval.io.load(paths, format=file_format))
-        elif isinstance(paths, meeteval.io.base.BaseABC):
-            return meeteval.io.asseglst(paths)
         else:
-            raise TypeError(type(paths), paths)
+            try:
+                return meeteval.io.asseglst(paths)
+            except Exception as e:
+                raise TypeError(type(paths), paths) from e
 
     # Load input files
     reference = load(reference_paths)
