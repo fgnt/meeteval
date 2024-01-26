@@ -27,7 +27,7 @@ ext_modules = cythonize(
         Extension(
             'meeteval.wer.matching.cy_time_constrained_orc_matching',
             ['meeteval/wer/matching/cy_time_constrained_orc_matching.pyx'],
-            extra_compile_args=['-std=c++11'],
+            extra_compile_args=['-std=c++11', '-O3'],
             extra_link_args=['-std=c++11'],
         ),
      ]
