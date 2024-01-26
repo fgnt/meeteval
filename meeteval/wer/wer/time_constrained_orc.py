@@ -3,6 +3,12 @@ from meeteval.wer import ErrorRate
 from meeteval.wer.wer.orc import OrcErrorRate
 from meeteval.wer.wer.utils import check_single_filename
 
+import typing
+
+if typing.TYPE_CHECKING:
+    from meeteval.io import STM
+    from meeteval.wer.wer.cp import CPErrorRate
+
 
 def time_constrained_orc_wer(
         reference,
