@@ -14,6 +14,27 @@ __all__ = [
 ]
 
 
+def _glob(pathname):
+    # Normalize and glob (for backwards compatibility) the path input
+    match = list(glob.glob(pathname))
+    # Forward pathname if not matched to get the correct error message
+    return match or [pathname]
+
+
+def _maybe_load(paths, file_format) -> meeteval.io.SegLST:
+    if isinstance(paths, (str, Path)):
+        paths = [paths]
+    if isinstance(paths, (tuple, list)):
+        paths = [Path(file) for r in paths for file in _glob(str(r))]
+        return meeteval.io.asseglst(
+            meeteval.io.load(paths, format=file_format))
+    else:
+        try:
+            return meeteval.io.asseglst(paths)
+        except Exception as e:
+            raise TypeError(type(paths), paths) from e
+
+
 def _load_texts(
         reference_paths: 'list[str]',
         hypothesis_paths: 'list[str]',
@@ -26,29 +47,9 @@ def _load_texts(
 
     Validation checks that reference and hypothesis have the same example IDs.
     """
-
-    # Normalize and glob (for backwards compatibility) the path input
-    def _glob(pathname):
-        match = list(glob.glob(pathname))
-        # Forward pathname if not matched to get the correct error message
-        return match or [pathname]
-
-    def load(paths) -> meeteval.io.SegLST:
-        if isinstance(paths, (str, Path)):
-            paths = [paths]
-        if isinstance(paths, (tuple, list)):
-            paths = [Path(file) for r in paths for file in _glob(str(r))]
-            return meeteval.io.asseglst(
-                meeteval.io.load(paths, format=file_format))
-        else:
-            try:
-                return meeteval.io.asseglst(paths)
-            except Exception as e:
-                raise TypeError(type(paths), paths) from e
-
     # Load input files
-    reference = load(reference_paths)
-    hypothesis = load(hypothesis_paths)
+    reference = _maybe_load(reference_paths, file_format=file_format)
+    hypothesis = _maybe_load(hypothesis_paths, file_format=file_format)
 
     # Filter lines with regex based on filename
     if regex:
