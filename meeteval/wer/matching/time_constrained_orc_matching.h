@@ -421,7 +421,6 @@ std::pair<unsigned int, std::vector<unsigned int>> time_constrained_orc_levensht
         auto &active_reference = reference.at(u);
         auto &active_reference_timings = extended_reference_timings.at(u);
 
-        // TODO the stored state size is larger than necessary
         // Compute size of new state
         // This state has the dimensions of the hypothesis words that overlap
         // on each stream with the current reference utterance
@@ -500,46 +499,35 @@ std::pair<unsigned int, std::vector<unsigned int>> time_constrained_orc_levensht
                 }
                 assert(state.layout.within(closest_index));
 
-                if (old_distance != -1 && old_closest_index == closest_index && distance > old_distance) {
-                    // Optimization:
-                    // If the distance is greater than 0 we use an earlier state and fill with insertions.
-                    // The Levenshtein distance is invariant to a constant offset, so we can simply take the
-                    // last row and add the insertions
-                    auto cost_offset = distance - old_distance;
-                    for (unsigned int s_ = 0; s_ < new_state.layout.dimensions.at(s); s_++) {
-                        tmp_row[s_].cost += cost_offset;
-                    }
-                } else {
-                    // Fill temporary row
-                    for (unsigned int s_ = 0; s_ < new_state.layout.dimensions.at(s); s_++) {
-                        if (state.layout.within(closest_index)) {
-                            // Copy from previous state
-                            // We have to add the distance because the states might not be overlapping
-                            tmp_row.at(s_).index = state.layout.get_index(closest_index);
-                            tmp_row.at(s_).cost = state.cost.at(tmp_row.at(s_).index ).cost + distance;
-                        } else {
-                            // Pad with insertions
-                            assert(s_ > 0);
-                            tmp_row.at(s_).index = tmp_row.at(s_ - 1).index;
-                            tmp_row.at(s_).cost = tmp_row.at(s_ - 1).cost + 1;
-                        }
-
-                        // Increment state index to move along with s_.
-                        // This might move closest_index out of the state area
-                        closest_index[s]++;
+                // Fill temporary row
+                for (unsigned int s_ = 0; s_ < new_state.layout.dimensions.at(s); s_++) {
+                    if (state.layout.within(closest_index)) {
+                        // Copy from previous state
+                        // We have to add the distance because the states might not be overlapping
+                        tmp_row.at(s_).index = state.layout.get_index(closest_index);
+                        tmp_row.at(s_).cost = state.cost.at(tmp_row.at(s_).index ).cost + distance;
+                    } else {
+                        // Pad with insertions
+                        assert(s_ > 0);
+                        tmp_row.at(s_).index = tmp_row.at(s_ - 1).index;
+                        tmp_row.at(s_).cost = tmp_row.at(s_ - 1).cost + 1;
                     }
 
-                    // Forward tmp row
-                    update_levenshtein_row(
-                        tmp_row,
-                        active_reference,
-                        hypothesis.at(s),
-                        active_reference_timings,
-                        extended_hypothesis_timings.at(s),
-                        new_state.offset.at(s),
-                        new_state_end.at(s)
-                    );
+                    // Increment state index to move along with s_.
+                    // This might move closest_index out of the state area
+                    closest_index[s]++;
                 }
+
+                // Forward tmp row
+                update_levenshtein_row(
+                    tmp_row,
+                    active_reference,
+                    hypothesis.at(s),
+                    active_reference_timings,
+                    extended_hypothesis_timings.at(s),
+                    new_state.offset.at(s),
+                    new_state_end.at(s)
+                );
                 old_distance = distance;
                 old_closest_index = closest_index;
 
