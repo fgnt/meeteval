@@ -95,7 +95,7 @@ def time_constrained_orc_wer(
             hypothesis.get(k, meeteval.io.SegLST([])),
         )
         for k in set(hypothesis.keys()) | set(reference_new.keys())
-    ], start=ErrorRate(0, 0, 0, 0, 0, None, None))
+    ] + [ErrorRate(0, 0, 0, 0, 0, None, None)]) # Catch edge case when both are empty
     length = len(reference)
     assert er.length == length, (length, er)
     assert er.errors == distance, (distance, er, assignment)
