@@ -356,6 +356,10 @@ class AlignmentVisualization:
             markers=None,
             recording_file='',
     ):
+        if isinstance(reference, (str, Path)):
+            reference = meeteval.io.load(reference)
+        if isinstance(hypothesis, (str, Path)):
+            hypothesis = meeteval.io.load(hypothesis)
         self.reference = reference
         self.hypothesis = hypothesis
         self.alignment = alignment
