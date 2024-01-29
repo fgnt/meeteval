@@ -240,18 +240,18 @@ def tcorcwer(
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
+        reference_sort='segment',
 ):
     """Computes the time-constrained ORC WER (tcORC WER)"""
-    from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer_multifile
-    reference, _, hypothesis, hypothesis_paths = _load_texts(
-        reference, hypothesis, regex)
-    results = time_constrained_orc_wer_multifile(
-        reference, hypothesis, collar=collar,
-        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
-        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+    results = meeteval.wer.tcorcwer(
+        reference, hypothesis, regex=regex,
+        collar=collar,
+        hyp_pseudo_word_timing=hyp_pseudo_word_timing,
+        ref_pseudo_word_timing=ref_pseudo_word_timing,
         hypothesis_sort=hypothesis_sort,
+        reference_sort=reference_sort,
     )
-    _save_results(results, hypothesis_paths, per_reco_out, average_out)
+    _save_results(results, hypothesis, per_reco_out, average_out)
 
 
 def _merge(

@@ -11,6 +11,7 @@ __all__ = [
     'orcwer',
     'mimower',
     'tcpwer',
+    'tcorcwer',
 ]
 
 
@@ -175,7 +176,39 @@ def tcpwer(
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
     )
-    average: ErrorRate = sum(results.values())
-    average.hypothesis_self_overlap.warn('hypothesis')
-    average.reference_self_overlap.warn('reference')
+    from meeteval.wer import combine_error_rates
+    average: ErrorRate = combine_error_rates(results)
+    if average.hypothesis_self_overlap is not None:
+        average.hypothesis_self_overlap.warn('hypothesis')
+    if average.reference_self_overlap is not None:
+        average.reference_self_overlap.warn('reference')
+    return results
+
+
+def tcorcwer(
+        reference, hypothesis,
+        regex=None,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        hypothesis_sort='segment',
+        reference_sort='segment',
+):
+    """Computes the time-constrained ORC WER"""
+    from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer_multifile
+    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex)
+    results = time_constrained_orc_wer_multifile(
+        reference, hypothesis,
+        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+        collar=collar,
+        hypothesis_sort=hypothesis_sort,
+        reference_sort=reference_sort,
+    )
+    from meeteval.wer import combine_error_rates
+    average: ErrorRate = combine_error_rates(results)
+    if average.hypothesis_self_overlap is not None:
+        average.hypothesis_self_overlap.warn('hypothesis')
+    if average.reference_self_overlap is not None:
+        average.reference_self_overlap.warn('reference')
     return results
