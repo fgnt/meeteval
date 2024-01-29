@@ -121,6 +121,8 @@ def test_burn_md_eval_22():
     # examples for collar:
     #    0:    CHiME-6
     #    0.25: CHiME-7 DASR
+    # ToDo: Table 2 of https://arxiv.org/pdf/2312.04324.pdf lists collars for
+    #       datsets. Add them here.
 
 
 def test_burn_merge():

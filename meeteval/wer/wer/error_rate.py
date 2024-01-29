@@ -68,7 +68,7 @@ class ErrorRate:
     This class is frozen because an error rate should not change after it
     has been computed.
     """
-    error_rate: int = dataclasses.field(init=False)
+    error_rate: float = dataclasses.field(init=False)
 
     errors: int
     length: int
@@ -230,9 +230,7 @@ class ErrorRate:
         )
 
 
-def combine_error_rates(
-        *error_rates: ErrorRate, empty_type=ErrorRate
-) -> ErrorRate:
+def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     """
     >>> combine_error_rates(ErrorRate(10, 10, 0, 0, 10, None, None), ErrorRate(0, 10, 0, 0, 0, None, None))
     ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
@@ -243,10 +241,18 @@ def combine_error_rates(
     >>> combine_error_rates()
     ErrorRate(errors=0, length=0, insertions=0, deletions=0, substitutions=0)
     """
-    if len(error_rates) == 1:
-        return error_rates[0]
+    if isinstance(error_rates, (tuple, list)) and len(error_rates) == 1:
+        if dataclasses.is_dataclass(error_rates[0]):
+            return error_rates[0]
+        error_rates, = error_rates
+    if isinstance(error_rates, dict):
+        error_rates = error_rates.values()
+    assert all([dataclasses.is_dataclass(er) for er in error_rates]), ([dataclasses.is_dataclass(er) for er in error_rates], error_rates)
+
+    # Sum returns an int when the operand is empty.
+    # sum(..., start=...) is supported only from Python 3.8+
     if len(error_rates) == 0:
-        return empty_type.zero()
+        return ErrorRate.zero()
     return sum(error_rates)
 
 

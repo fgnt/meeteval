@@ -11,6 +11,7 @@ from pathlib import Path
 import meeteval.io
 from meeteval.wer.wer import combine_error_rates, ErrorRate
 import sys
+import meeteval.wer
 
 from meeteval.wer.wer.time_constrained import pseudo_word_level_strategies
 
@@ -90,86 +91,8 @@ def _load(path: Path):
             raise NotImplementedError(f'Unknown file ext: {path.suffix}')
 
 
-def _load_texts(
-        reference_paths: 'list[str]', hypothesis_paths: 'list[str]', regex,
-        reference_sort=False, hypothesis_sort=False, file_format=None,
-) -> 'tuple[meeteval.io.SegLST, list[Path], meeteval.io.SegLST, list[Path]]':
-    """Load and validate reference and hypothesis texts.
-
-    Validation checks that reference and hypothesis have the same example IDs.
-    """
-
-    # Normalize and glob (for backwards compatibility) the path input
-    def _glob(pathname):
-        match = list(glob.glob(pathname))
-        # Forward pathname if not matched to get the correct error message
-        return match or [pathname]
-
-    reference_paths = [Path(file) for r in reference_paths for file in _glob(r)]
-    hypothesis_paths = [Path(file) for h in hypothesis_paths for file in _glob(h)]
-
-    # Load input files
-    reference = meeteval.io.asseglst(meeteval.io.load(reference_paths, format=file_format))
-    hypothesis = meeteval.io.asseglst(meeteval.io.load(hypothesis_paths, format=file_format))
-
-    # Filter lines with regex based on filename
-    if regex:
-        r = re.compile(regex)
-
-        def filter(s):
-            filenames = s.T['session_id']
-            filtered_filenames = [f for f in filenames if r.fullmatch(f)]
-            assert filtered_filenames, (regex, filenames, 'Found nothing')
-            return s.filter(lambda l: l['session_id'] in filtered_filenames)
-
-        reference = filter(reference)
-        hypothesis = filter(hypothesis)
-
-    # Sort
-    if reference_sort == 'segment':
-        if 'start_time' in reference.T.keys():
-            reference = reference.sorted('start_time')
-        else:
-            logging.warning(
-                'Ignoring --reference-sort="segment" because no start_time is '
-                'found in the reference'
-            )
-    elif not reference_sort:
-        pass
-    elif reference_sort in ('word', True):
-        raise ValueError(
-            f'reference_sort={reference_sort} is only supported for'
-            f'time-constrained WERs.'
-        )
-    else:
-        raise ValueError(
-            f'Unknown choice for reference_sort: {reference_sort}'
-        )
-    if hypothesis_sort == 'segment':
-        if 'start_time' in hypothesis.T.keys():
-            hypothesis = hypothesis.sorted('start_time')
-        else:
-            logging.warning(
-                'Ignoring --hypothesis-sort="segment" because no start_time is '
-                'found in the hypothesis'
-            )
-    elif not hypothesis_sort:
-        pass
-    elif hypothesis_sort in ('word', True):
-        raise ValueError(
-            f'hypothesis_sort={hypothesis_sort} is only supported for'
-            f'time-constrained WERs.'
-        )
-    else:
-        raise ValueError(
-            f'Unknown choice for hypothesis_sort: {hypothesis_sort}'
-        )
-
-    return reference, reference_paths, hypothesis, hypothesis_paths
-
-
 def _get_parent_stem(hypothesis_paths: 'list[Path]'):
-    hypothesis_paths = [p.resolve() for p in hypothesis_paths]
+    hypothesis_paths = [Path(p).resolve() for p in hypothesis_paths]
 
     if len(hypothesis_paths) == 1:
         parent, stem = hypothesis_paths[0].parent, hypothesis_paths[0].stem
@@ -246,13 +169,11 @@ def orcwer(
         hypothesis_sort='segment',
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
-    from meeteval.wer.wer.orc import orc_word_error_rate_multifile
-    reference, _, hypothesis, hypothesis_paths = _load_texts(
+    results = meeteval.wer.orcwer(
         reference, hypothesis, regex=regex,
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
     )
-    results = orc_word_error_rate_multifile(reference, hypothesis)
-    _save_results(results, hypothesis_paths, per_reco_out, average_out)
+    _save_results(results, hypothesis, per_reco_out, average_out)
 
 
 def cpwer(
@@ -264,13 +185,11 @@ def cpwer(
         hypothesis_sort='segment',
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
-    from meeteval.wer.wer.cp import cp_word_error_rate_multifile
-    reference, _, hypothesis, hypothesis_paths = _load_texts(
-        reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
-    )
-    results = cp_word_error_rate_multifile(reference, hypothesis)
-    _save_results(results, hypothesis_paths, per_reco_out, average_out)
+    results = meeteval.wer.cpwer(reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort)
+    _save_results(results, hypothesis, per_reco_out, average_out)
+
+
 
 
 def mimower(
@@ -282,13 +201,11 @@ def mimower(
         hypothesis_sort='segment',
 ):
     """Computes the MIMO WER"""
-    from meeteval.wer.wer.mimo import mimo_word_error_rate_multifile
-    reference, _, hypothesis, hypothesis_paths = _load_texts(
+    results = meeteval.wer.mimower(
         reference, hypothesis, regex=regex,
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
     )
-    results = mimo_word_error_rate_multifile(reference, hypothesis)
-    _save_results(results, hypothesis_paths, per_reco_out, average_out)
+    _save_results(results, hypothesis, per_reco_out, average_out)
 
 
 def tcpwer(
@@ -303,21 +220,15 @@ def tcpwer(
         hypothesis_sort='segment',
 ):
     """Computes the time-constrained minimum permutation WER"""
-    from meeteval.wer.wer.time_constrained import tcp_word_error_rate_multifile
-    reference, _, hypothesis, hypothesis_paths = _load_texts(
-        reference, hypothesis, regex=regex)
-    results = tcp_word_error_rate_multifile(
-        reference, hypothesis,
-        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
-        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+    results = meeteval.wer.tcpwer(
+        reference, hypothesis, regex=regex,
+        ref_pseudo_word_timing=ref_pseudo_word_timing,
+        hyp_pseudo_word_timing=hyp_pseudo_word_timing,
         collar=collar,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
     )
-
-    average = _save_results(results, hypothesis_paths, per_reco_out, average_out)
-    average.hypothesis_self_overlap.warn('hypothesis')
-    average.reference_self_overlap.warn('reference')
+    _save_results(results, hypothesis, per_reco_out, average_out)
 
 
 def tcorcwer(
@@ -405,6 +316,7 @@ class SmartFormatter(argparse.ArgumentDefaultsHelpFormatter):
             for i, t in enumerate(text.split('\n'))
             for tt in textwrap.wrap(t, width, subsequent_indent='  ' if i > 0 else '')
         ]
+
 
 class CLI:
     def __init__(self):
