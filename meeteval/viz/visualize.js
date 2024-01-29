@@ -41,7 +41,8 @@ function alignment_visualization(
         font_size: 12,
         search_bar: {
             initial_query: null
-        }
+        },
+        recording_file: "",
     }
 ) {
     // Validate settings
@@ -519,6 +520,7 @@ class CanvasPlot {
             "Extreme self-overlap can lead to unexpected WERs!")
         ).classed("warn", true);
     }
+
 
     /**
      * Search bar component. Modifies "words" in-place.
@@ -1489,6 +1491,45 @@ class CanvasPlot {
         }
     }
 
+    function drawRecordingAudioButton(container, rangeSelector, name, recording_file) {
+        let update_audio = function (){
+            // Note: Deleting and adding an audio with the same content doesn't
+            //       trigger a load. Hence, no optimization necessary.
+            audio_div.selectAll("*").remove();
+            let lower = rangeSelector.lower_input.node().value;
+            let upper = rangeSelector.upper_input.node().value;
+            let value = "[" + lower + ":" + upper + "]";
+            let path = server_path.node().value + "/" + file_path.node().value + "::" + value;
+            if ( parseFloat(lower) < parseFloat(upper) ){
+                audio_div.append("div").text(value);
+                audio_div.append("audio")
+                    .on("error", () => {audio_div.append("div").text("Issue while loading the audio")})
+                    .attr("controls", "true")
+                    .attr("src", path).text(path);
+            } else {
+                audio_div.append("div").text("Invalid range: " + lower + " - " + upper);
+            }
+        };
+
+        let pill = container.append("div").classed("pill", true);
+        let audio_tooltip = addTooltip(pill);
+
+        pill.append("span").text((name.trim() !== "") ? "🔊 " + name : "🔊");
+
+        let input = audio_tooltip.append("div").style("display", "flex");
+        let server_path = input.append("input").attr("type", "text").attr("placeholder", "e.g. http://localhost:7777").property("value", "http://localhost:7777");
+        let file_path = input.append("input").attr("type", "text").style("width", "30em").attr("placeholder", "e.g. /path/to/file.wav").property("value", recording_file);
+
+        let audio_div = audio_tooltip.append("div").style("display", "flex");
+
+        input.append("button").text("Load").on("click", () => update_audio());
+        server_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
+        file_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
+        pill.on("click", () => {update_audio(); audio_div.select("audio").node().play()});
+
+        update_audio()
+    }
+
     // Data preprocessing
     const time_domain = [0, Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
     const speakers = data.utterances .map(d => d.speaker)
@@ -1513,6 +1554,10 @@ class CanvasPlot {
     });
     const selectedUtteranceDetails = new SelectedDetailsView(root_element.append("div").classed("top-row", true));
     // const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
+
+    for (const [key, value] of Object.entries(settings.recording_file)) {
+        drawRecordingAudioButton(top_row_container, rangeSelector, key, value);
+    }
 
     const plot_container = root_element.append("div").style("margin", "10px")
     const plot_div = plot_container.append("div").style("position", "relative")
