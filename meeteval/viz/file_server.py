@@ -1,13 +1,17 @@
 """
-A file server, that exposes wav files from the filesystem:
+A file server that exposes wav files from the filesystem:
  - Only delivers wav files
- - Normalizes the audio files (Useful for far files, that is typically low volumn)
+    - Support slices (int -> samples, float -> seconds)
+        - server_url/file.wav?start=0&stop=16000
+        - server_url/file.wav::[0:16000]
+ - Normalizes the audio files (Useful for far-field recordings that typically have a low volume)
  - Supports slicing
 
 python -m meeteval.viz.file_server
 """
 
 import io
+import functools
 from pathlib import Path
 from aiohttp import web
 
@@ -15,24 +19,38 @@ import numpy as np
 import soundfile
 
 
-def _parse_audio_slice(path):
+def _parse_audio_slice(path, start, stop):
     """
     See from paderbox.io.audioread.py::_parse_audio_slice for advanced parser.
 
-    >>> _parse_audio_slice('file.wav::[1:2]')
+    >>> _parse_audio_slice('file.wav::[1:2]', None, None)
+    ('file.wav', 1, 2)
+    >>> _parse_audio_slice('file.wav', '1', '2')
     ('file.wav', 1, 2)
     """
-    start = stop = None
+    @functools.lru_cache()
+    def samplerate(path):
+        return soundfile.info(path).samplerate
+
     if '::' in path:
+        assert start is None and stop is None, (path, start, stop)
         path, slice = path.split('::')
         assert slice[0] == '[' and slice[-1] == ']', slice
         start, stop = slice[1:-1].split(':')
+
+    if start is None and stop is None:
+        pass
+    else:
+        assert start is not None and stop is not None, (path, start, stop)
+
         if '.' in start or '.' in stop:
-            samplerate = soundfile.info(path).samplerate
-            start = round(float(start) * samplerate)
-            stop = round(float(stop) * samplerate)
+            start = round(float(start) * samplerate(path))
+            stop = round(float(stop) * samplerate(path))
+            assert (stop - start) < samplerate(path) * 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
         else:
             start, stop = int(start), int(stop)
+            assert (stop - start) < 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
+
     return path, start, stop
 
 
@@ -42,11 +60,13 @@ class Backend:
 
     async def handle(self, request: web.Request):
         try:
-            print('request:', request)
             name = request.match_info.get('name', "Anonymous")
             name = '/' + name
-            # assert name.startswith('/net/'), name
-            name, start, stop = _parse_audio_slice(name)
+
+            start = request.query.get('start', None)
+            stop = request.query.get('stop', None)
+
+            name, start, stop = _parse_audio_slice(name, start, stop)
             name = Path(name)
 
             if name.suffix in ['.wav']:
