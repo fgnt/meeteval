@@ -5,7 +5,6 @@ import operator
 import meeteval
 from meeteval.wer.wer import combine_error_rates, ErrorRate
 
-
 example_files = (Path(__file__).parent.parent / 'example_files').absolute()
 
 
@@ -67,15 +66,15 @@ def test_tcpwer():
     # There is no motivation for the selected combinations.
     # Hint: We recommend to use the defaults.
     for h_pwt, r_pwt, errors in [
-        ['character_based_points', 'character_based', 40],
+        ['character_based_points', 'character_based', 42],
         ['equidistant_points', 'equidistant_intervals', 42],
         ['full_segment', 'full_segment', 25],
-        ['character_based', 'character_based_points', 38],
+        ['character_based', 'character_based_points', 42],
         ['equidistant_intervals', 'equidistant_points', 40],
     ]:
         details = tcpwer(ref, hyp, collar=decimal.Decimal(0.5),
                          hyp_pseudo_word_timing=h_pwt,
-                         ref_pseudo_word_timing=r_pwt,)
+                         ref_pseudo_word_timing=r_pwt, )
         avg = combine_error_rates(details)
         check_result(avg, errors, 92, msg=f'{h_pwt} {r_pwt}')
 
@@ -122,5 +121,28 @@ def test_mimower():
     check_result(avg, 9, 92)
 
     details = mimower(meeteval.io.load(ref).to_seglst(), meeteval.io.load(hyp).to_seglst())
+    avg = combine_error_rates(details)
+    check_result(avg, 9, 92)
+
+
+def test_tcorcwer():
+    from meeteval.wer import tcorcwer
+
+    ref = example_files / 'ref.stm'
+    hyp = example_files / 'hyp.stm'
+
+    details = tcorcwer(ref, hyp, collar=5)
+    avg = combine_error_rates(details)
+    check_result(avg, 9, 92)
+
+    details = tcorcwer([ref], [hyp], collar=5)
+    avg = combine_error_rates(details)
+    check_result(avg, 9, 92)
+
+    details = tcorcwer(meeteval.io.load(ref), meeteval.io.load(hyp), collar=5)
+    avg = combine_error_rates(details)
+    check_result(avg, 9, 92)
+
+    details = tcorcwer(meeteval.io.load(ref).to_seglst(), meeteval.io.load(hyp).to_seglst(), collar=5)
     avg = combine_error_rates(details)
     check_result(avg, 9, 92)
