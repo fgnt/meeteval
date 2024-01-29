@@ -1498,16 +1498,16 @@ class CanvasPlot {
             audio_div.selectAll("*").remove();
             let lower = rangeSelector.lower_input.node().value;
             let upper = rangeSelector.upper_input.node().value;
-            let value = "[" + lower + ":" + upper + "]";
-            let path = server_path.node().value + "/" + file_path.node().value + "::" + value;
+            let range = lower + " - " + upper;
+            let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             if ( parseFloat(lower) < parseFloat(upper) ){
-                audio_div.append("div").text(value);
+                audio_div.append("div").text(range);
                 audio_div.append("audio")
                     .on("error", () => {audio_div.append("div").text("Issue while loading the audio")})
                     .attr("controls", "true")
                     .attr("src", path).text(path);
             } else {
-                audio_div.append("div").text("Invalid range: " + lower + " - " + upper);
+                audio_div.append("div").text("Invalid range: " + range);
             }
         };
 
