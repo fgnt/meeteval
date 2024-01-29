@@ -22,6 +22,7 @@ def time_constrained_orc_wer(
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         hypothesis_sort='segment',
+        reference_sort='segment',
 ):
     """
     The time-constrained version of the ORC-WER (tcORC-WER).
@@ -34,6 +35,13 @@ def time_constrained_orc_wer(
     >>> time_constrained_orc_wer([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}], [])
     OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=1, substitutions=0, assignment=())
     """
+    if reference_sort == 'word':
+        raise ValueError(
+            'reference_sort="word" is not supported for time-constrained '
+            'ORC-WER because the ORC-WER assumes that an utterance appears'
+            'continuously in the reference.'
+        )
+
     # Convert to seglst
     reference = meeteval.io.asseglst(reference)
     hypothesis = meeteval.io.asseglst(hypothesis)
@@ -55,7 +63,7 @@ def time_constrained_orc_wer(
     from meeteval.wer.wer.time_constrained import sort_and_validate, apply_collar
     reference = sort_and_validate(
         reference,
-        'segment',
+        reference_sort,
         reference_pseudo_word_level_timing,
         f'reference'
     )
@@ -123,6 +131,7 @@ def time_constrained_orc_wer_multifile(
         hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
         hypothesis_sort='segment',
+        reference_sort='segment',
 ) -> 'dict[str, CPErrorRate]':
     from meeteval.io.seglst import apply_multi_file
     r = apply_multi_file(lambda r, h: time_constrained_orc_wer(
@@ -131,5 +140,6 @@ def time_constrained_orc_wer_multifile(
         hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
         collar=collar,
         hypothesis_sort=hypothesis_sort,
+        reference_sort=reference_sort,
     ), reference, hypothesis)
     return r
