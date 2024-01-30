@@ -139,20 +139,14 @@ Layout inline make_layout(
  *
  * begin_time: The begin time of the utterance (earliest begin time of all words)
  * end_time: The end time of the utterance (latest end time of all words)
- * timings: The timings of all words in the utterance
- * words: The words in the utterance: TODO: is this used?
  */
 struct Utterance {
     double begin_time;
     double end_time;
-//    std::vector<std::pair<double, double>> timings;
-//    std::vector<unsigned int> words;
 };
 
 /*
  * Bundles all timing information needed for one word
- *
- * TODO: rename members?
  */
 struct Timing {
     double begin_time;
@@ -181,10 +175,10 @@ std::vector<Timing> make_extended_timing(const std::vector<std::pair<double, dou
     for (size_t i = 0; i < timings.size(); i++) {
         end_time = std::max(end_time, timings.at(i).second);
         extended_timings.at(i) = {
-            .begin_time=timings.at(i).first,
-            .end_time=timings.at(i).second,
-            // latest_begin_time is filled below
-            .earliest_end_time=end_time,
+            timings.at(i).first,
+            timings.at(i).second,
+            0, // latest_begin_time is filled below
+            end_time,
         };
     }
 
@@ -339,10 +333,8 @@ std::vector<Utterance> make_utterances(std::vector<std::vector<std::pair<double,
             })->second, end_time
         );
         utterances[i] = {
-            .begin_time=begin,
-            .end_time=end_time,
-//            .timings=timings[i],
-//            .words=reference[d][i],
+            begin,
+            end_time,
         };
     }
 
@@ -396,9 +388,9 @@ std::pair<unsigned int, std::vector<unsigned int>> time_constrained_orc_levensht
     // State: We only need one state here because we only have a single speaker,
     // i.e., only a single possible path through the reference space
     StateEntry state = {
-        .cost=std::vector<HypStateEntry>(1),
-        .layout=make_layout(std::vector<unsigned int>(num_hypothesis_streams), std::vector<unsigned int>(num_hypothesis_streams)),
-        .offset=std::vector<unsigned int>(hypothesis.size())
+        std::vector<HypStateEntry>(1),
+        make_layout(std::vector<unsigned int>(num_hypothesis_streams), std::vector<unsigned int>(num_hypothesis_streams)),
+        std::vector<unsigned int>(hypothesis.size())
     };
     double ref_block_begin_time = 0;
     double ref_block_end_time = 0;
@@ -450,9 +442,9 @@ std::pair<unsigned int, std::vector<unsigned int>> time_constrained_orc_levensht
         Layout target_layout = make_layout(new_state_offset, new_state_end);
         auto first_update = true;
         StateEntry new_state = {
-            .cost=std::vector<HypStateEntry>(target_layout.total_size),
-            .layout=target_layout,
-            .offset=new_state_offset,
+            std::vector<HypStateEntry>(target_layout.total_size),
+            target_layout,
+            new_state_offset,
         };
 
         // Compute the update for every hypothesis stream and min over that
@@ -539,9 +531,9 @@ std::pair<unsigned int, std::vector<unsigned int>> time_constrained_orc_levensht
                     if (first_update || tmp_row.at(s_).cost < new_state.cost[_index].cost) {
                         new_state.cost[_index].cost = tmp_row.at(s_).cost;
                         new_state.cost[_index].path = std::make_shared<struct Path>(Path{
-                            .previous=state.cost.at(tmp_row.at(s_).index).path,
-                            .utterance=u,
-                            .stream=s
+                            state.cost.at(tmp_row.at(s_).index).path,
+                            u,
+                            s
                         });
                     }
                     new_state_index[s]++;
