@@ -2,6 +2,7 @@ import dataclasses
 import decimal
 import functools
 import io
+import logging
 import typing
 from pathlib import Path
 import decimal
@@ -13,6 +14,7 @@ from meeteval._typing import Literal
 
 if typing.TYPE_CHECKING:
     from meeteval.wer.wer.error_rate import ErrorRate
+    from meeteval.io.uem import UEM
     from typing import Callable, Iterable, Any, Self
 
 __all__ = [
@@ -299,6 +301,49 @@ class SegLST(BaseABC):
                 p.text('...')
             else:
                 p.pretty(list(self.segments))
+
+    def filter_by_uem(self, uem: 'UEM'):
+        """
+        Remove segments that are outside of the region that is specified by the
+        uem.
+
+        Speciall cases:
+         - Partial inside: Keep
+         - Missing filename in uem: Keep
+
+        >>> from pprint import pprint
+        >>> from meeteval.io.uem import UEM, UEMLine
+        >>> from meeteval.io.stm import STM, STMLine
+        >>> uem = UEM([UEMLine('file', 1, 10, 20)])
+        >>> stm = SegLST([
+        ...     {'session_id': 'file', 'speaker': 'A', 'start_time': 2, 'end_time': 6, 'words': 'words'},  # dropped
+        ...     {'session_id': 'file', 'speaker': 'A', 'start_time': 8, 'end_time': 12, 'words': 'words'},
+        ...     {'session_id': 'file', 'speaker': 'B', 'start_time': 14, 'end_time': 16, 'words': 'words'},
+        ...     {'session_id': 'file', 'speaker': 'A', 'start_time': 18, 'end_time': 22, 'words': 'words'},
+        ...     {'session_id': 'file', 'speaker': 'A', 'start_time': 24, 'end_time': 28, 'words': 'words'},  # dropped
+        ...     {'session_id': 'file2', 'speaker': 'A', 'start_time': 24, 'end_time': 28, 'words': 'words'},
+        ... ])
+        >>> for line in stm.filter_by_uem(uem): print(line)
+        {'session_id': 'file', 'speaker': 'A', 'start_time': 8, 'end_time': 12, 'words': 'words'}
+        {'session_id': 'file', 'speaker': 'B', 'start_time': 14, 'end_time': 16, 'words': 'words'}
+        {'session_id': 'file', 'speaker': 'A', 'start_time': 18, 'end_time': 22, 'words': 'words'}
+        {'session_id': 'file2', 'speaker': 'A', 'start_time': 24, 'end_time': 28, 'words': 'words'}
+        """
+        uem = {line.filename: line for line in uem}
+
+        new = SegLST([
+            s
+            for s in self.segments
+            if s['session_id'] not in uem or (
+                uem[s['session_id']].begin_time <= s['end_time']
+                and s['start_time'] <= uem[s['session_id']].end_time
+            )
+        ])
+        logging.info(
+            f'Applied uem and reduced SegLST from {len(self)} to {len(new)} '
+            f'segments.'
+        )
+        return new
 
 
 def asseglistconvertible(d, *, py_convert=NestedStructure):

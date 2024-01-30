@@ -43,6 +43,7 @@ def _load_texts(
         reference_sort: 'bool | str' = False,
         hypothesis_sort: 'bool | str' = False,
         file_format=None,
+        uem=None,
 ) -> 'tuple[meeteval.io.SegLST, meeteval.io.SegLST]':
     """Load and validate reference and hypothesis texts.
 
@@ -64,6 +65,26 @@ def _load_texts(
 
         reference = filter(reference)
         hypothesis = filter(hypothesis)
+
+    # Filter by uem
+    if uem is not None:
+        from meeteval.io.uem import UEM
+        if isinstance(uem, (str, Path)):
+            uem = UEM.load(uem)
+        if 'start_time' not in reference.T.keys() or 'end_time' not in reference.T.keys():
+            required_keys = {'start_time', 'end_time'}
+            raise ValueError(
+                f'UEM is only supported when the data contains timestamps,'
+                f'but the reference is missing {required_keys - reference.T.keys()}.'
+            )
+        if 'start_time' not in hypothesis.T.keys() or 'end_time' not in hypothesis.T.keys():
+            required_keys = {'start_time', 'end_time'}
+            raise ValueError(
+                f'UEM is only supported when the data contains timestamps, but '
+                f'the hypothesis is missing {required_keys - hypothesis.T.keys()}.'
+            )
+        reference = reference.filter_by_uem(uem)
+        hypothesis = hypothesis.filter_by_uem(uem)
 
     # Sort
     if reference_sort == 'segment':
@@ -113,12 +134,14 @@ def orcwer(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     from meeteval.wer.wer.orc import orc_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
     )
     results = orc_word_error_rate_multifile(reference, hypothesis)
     return results
@@ -129,12 +152,14 @@ def cpwer(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
     from meeteval.wer.wer.cp import cp_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
     )
     results = cp_word_error_rate_multifile(reference, hypothesis)
     return results
@@ -145,12 +170,14 @@ def mimower(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the MIMO WER"""
     from meeteval.wer.wer.mimo import mimo_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
     )
     results = mimo_word_error_rate_multifile(reference, hypothesis)
     return results
@@ -164,10 +191,11 @@ def tcpwer(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer.time_constrained import tcp_word_error_rate_multifile
-    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex)
+    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex, uem=uem)
     results = tcp_word_error_rate_multifile(
         reference, hypothesis,
         reference_pseudo_word_level_timing=ref_pseudo_word_timing,
@@ -193,10 +221,11 @@ def tcorcwer(
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
         reference_sort='segment',
+        uem=None,
 ):
     """Computes the time-constrained ORC WER"""
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer_multifile
-    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex)
+    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex, uem=uem)
     results = time_constrained_orc_wer_multifile(
         reference, hypothesis,
         reference_pseudo_word_level_timing=ref_pseudo_word_timing,

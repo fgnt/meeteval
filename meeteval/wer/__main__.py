@@ -167,11 +167,13 @@ def orcwer(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     results = meeteval.wer.orcwer(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -183,13 +185,15 @@ def cpwer(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
-    results = meeteval.wer.cpwer(reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort)
+    results = meeteval.wer.cpwer(
+        reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
+    )
     _save_results(results, hypothesis, per_reco_out, average_out)
-
-
 
 
 def mimower(
@@ -199,11 +203,13 @@ def mimower(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the MIMO WER"""
     results = meeteval.wer.mimower(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -218,6 +224,7 @@ def tcpwer(
         regex=None,
         reference_sort='segment',
         hypothesis_sort='segment',
+        uem=None,
 ):
     """Computes the time-constrained minimum permutation WER"""
     results = meeteval.wer.tcpwer(
@@ -227,6 +234,7 @@ def tcpwer(
         collar=collar,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
+        uem=uem,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -241,6 +249,7 @@ def tcorcwer(
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
         reference_sort='segment',
+        uem=None,
 ):
     """Computes the time-constrained ORC WER (tcORC WER)"""
     results = meeteval.wer.tcorcwer(
@@ -250,6 +259,7 @@ def tcorcwer(
         ref_pseudo_word_timing=ref_pseudo_word_timing,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
+        uem=uem,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -309,6 +319,7 @@ class SmartFormatter(argparse.ArgumentDefaultsHelpFormatter):
     """
     https://stackoverflow.com/a/22157136/5766934
     """
+
     def _split_lines(self, text, width):
         import textwrap
         return [
@@ -470,6 +481,12 @@ class CLI:
                      '- True: Sort by segment start time and assert that the word-level timings are sorted by start '
                      'time. Only supported for time-constrained WERs\n'
                      '- word: sort words by start time. Only supported for time-constrained WERs'
+            )
+        elif name == 'uem':
+            command_parser.add_argument(
+                '--uem',
+                help='UEM file that defines the scoring regions. Only supported for file formats that contain'
+                     'segment-level or word-level time-stamps.',
             )
         elif name == 'files':
             command_parser.add_argument('files', nargs='+')

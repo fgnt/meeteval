@@ -80,7 +80,7 @@ class UEM(Base):
     def parse(cls, s: str, parse_float=decimal.Decimal) -> 'UEM':
         return cls([
             UEMLine.parse(line, parse_float)
-            for line in s.spilt('\n')
+            for line in s.split('\n')
             if len(line.strip()) > 0  # and not line.strip().startswith(';')  # Does uem allow comments?
         ])
 
