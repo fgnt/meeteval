@@ -238,6 +238,8 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     ErrorRate(error_rate=1.0, errors=10, length=10, insertions=0, deletions=0, substitutions=10)
     >>> combine_error_rates(*([ErrorRate(10, 10, 0, 0, 10, None, None)]*10))
     ErrorRate(error_rate=1.0, errors=100, length=100, insertions=0, deletions=0, substitutions=100)
+    >>> combine_error_rates()
+    ErrorRate(errors=0, length=0, insertions=0, deletions=0, substitutions=0)
     """
     if isinstance(error_rates, (tuple, list)) and len(error_rates) == 1:
         if dataclasses.is_dataclass(error_rates[0]):
@@ -246,6 +248,11 @@ def combine_error_rates(*error_rates: ErrorRate) -> ErrorRate:
     if isinstance(error_rates, dict):
         error_rates = error_rates.values()
     assert all([dataclasses.is_dataclass(er) for er in error_rates]), ([dataclasses.is_dataclass(er) for er in error_rates], error_rates)
+
+    # Sum returns an int when the operand is empty.
+    # sum(..., start=...) is supported only from Python 3.8+
+    if len(error_rates) == 0:
+        return ErrorRate.zero()
     return sum(error_rates)
 
 
@@ -278,4 +285,3 @@ class CombinedErrorRate(ErrorRate):
                     if getattr(self, f.name) is not None
                 ]) + ')'
         )
-    

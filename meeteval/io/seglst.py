@@ -167,6 +167,8 @@ class SegLST(BaseABC):
             """
             The keys that are common among all segments
             """
+            if len(self._outer) == 0:
+                return set()
             return set.intersection(
                 *[set(s.keys()) for s in self._outer.segments]
             )

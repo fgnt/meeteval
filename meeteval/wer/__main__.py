@@ -231,6 +231,29 @@ def tcpwer(
     _save_results(results, hypothesis, per_reco_out, average_out)
 
 
+def tcorcwer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_tcorcwer.json',
+        per_reco_out='{parent}/{stem}_tcorcwer_per_reco.json',
+        regex=None,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        hypothesis_sort='segment',
+        reference_sort='segment',
+):
+    """Computes the time-constrained ORC WER (tcORC WER)"""
+    results = meeteval.wer.tcorcwer(
+        reference, hypothesis, regex=regex,
+        collar=collar,
+        hyp_pseudo_word_timing=hyp_pseudo_word_timing,
+        ref_pseudo_word_timing=ref_pseudo_word_timing,
+        hypothesis_sort=hypothesis_sort,
+        reference_sort=reference_sort,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out)
+
+
 def _merge(
         files: 'list[str]',
         out: str = None,
@@ -525,6 +548,7 @@ def cli():
     cli.add_command(orcwer)
     cli.add_command(mimower)
     cli.add_command(tcpwer)
+    cli.add_command(tcorcwer)
     cli.add_command(merge)
     cli.add_command(average)
 

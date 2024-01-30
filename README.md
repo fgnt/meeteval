@@ -12,6 +12,7 @@ MeetEval supports the following metrics for meeting transcription evaluation:
 - Optimal Reference Combination Word Error Rate (ORC WER)
 - Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER)
 - [Time-Constrained minimum-Permutation Word Error Rate (tcpWER)](/doc/tcpwer.md)
+- Time-Constrained Optimal Reference Combination Word Error Rate (tcORC WER)
 
 WIP: MeetEval supports visualization for cpWER and tcpWER
 

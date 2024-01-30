@@ -3,7 +3,7 @@ import dataclasses
 from typing import Iterable, Any
 
 from meeteval.io.seglst import asseglst, SegLST
-from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.error_rate import ErrorRate, combine_error_rates
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _items, _keys, _values, _map
 from meeteval.io.stm import STM
@@ -75,7 +75,8 @@ def orc_error_rate(
 
     from meeteval.wer.matching.mimo_matching import mimo_matching
     distance, assignment = mimo_matching([reference], _values(hypothesis))
-    assignment = tuple([_keys(hypothesis)[x[1]] for x in assignment])
+    hypothesis_keys = list(_keys(hypothesis))
+    assignment = tuple([hypothesis_keys[x[1]] for x in assignment])
 
     reference_new, hypothesis = apply_orc_assignment(
         assignment,
@@ -83,7 +84,7 @@ def orc_error_rate(
         hypothesis=hypothesis,
     )
 
-    er = sum([
+    er = combine_error_rates(*[
         _siso_error_rate(
             [t for r_ in r for t in r_],  # Create list with all words from one speaker
             hypothesis[speaker],
