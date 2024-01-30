@@ -1,6 +1,8 @@
 import meeteval
 from meeteval.wer import ErrorRate, combine_error_rates
+from meeteval.wer.wer.error_rate import SelfOverlap
 from meeteval.wer.wer.orc import OrcErrorRate
+from meeteval.wer.wer.time_constrained import get_self_overlap
 from meeteval.wer.wer.utils import check_single_filename
 
 import typing
@@ -31,9 +33,9 @@ def time_constrained_orc_wer(
     >>> time_constrained_orc_wer([], [])
     OrcErrorRate(errors=0, length=0, insertions=0, deletions=0, substitutions=0, assignment=())
     >>> time_constrained_orc_wer([], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
-    OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, assignment=())
+    OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=0.5), assignment=())
     >>> time_constrained_orc_wer([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}], [])
-    OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=1, substitutions=0, assignment=())
+    OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=1, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=())
     """
     if reference_sort == 'word':
         raise ValueError(
@@ -75,8 +77,6 @@ def time_constrained_orc_wer(
             f'hypothesis speaker "{k}"'
         ), collar) for k, h in hypothesis.items()
     }
-
-    # TODO: compute self-overlap
 
     from meeteval.wer.matching.cy_time_constrained_orc_matching import time_constrained_orc_levenshtein_distance
 
@@ -120,8 +120,12 @@ def time_constrained_orc_wer(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=tuple(assignment),
-        reference_self_overlap=None,
-        hypothesis_self_overlap=None,
+        reference_self_overlap=sum(
+            [get_self_overlap(h) for h in reference.groupby('speaker').values()]
+        ) if len(reference) > 0 else None,
+        hypothesis_self_overlap=sum(
+            [get_self_overlap(h) for h in hypothesis.values()]
+        ) if len(hypothesis) > 0 else None,
     )
 
 
