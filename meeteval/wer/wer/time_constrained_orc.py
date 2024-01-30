@@ -63,11 +63,17 @@ def time_constrained_orc_wer(
 
     # Time-constrained preprocessing
     from meeteval.wer.wer.time_constrained import sort_and_validate, apply_collar
+
+    # Note: We will very likely have overlaps that result in word-order changes
+    # in the reference because we treat all speakers as one stream. This is no
+    # issue for the ORC alignment algorithm! We do not want to spam the user
+    # with meaningless warnings here, thus warn=False.
     reference = sort_and_validate(
         reference,
         reference_sort,
         reference_pseudo_word_level_timing,
-        f'reference'
+        f'reference',
+        warn=False,
     )
     hypothesis = {
         k: apply_collar(sort_and_validate(

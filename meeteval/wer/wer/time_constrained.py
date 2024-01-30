@@ -486,7 +486,7 @@ def remove_overlaps(
     return t.sorted('start_time').map(correct)
 
 
-def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
+def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name, warn=True):
     """
     Args:
         segments:
@@ -532,7 +532,7 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name):
 
     # Check whether words are sorted by start time
     words_sorted = words.sorted('start_time')
-    if words_sorted != words:
+    if warn and words_sorted != words:
         # This check should be fast because `sorted` doesn't change the identity
         # of the contained objects (so `words_sorted[0] is words[0] == True`
         # when they are sorted).
