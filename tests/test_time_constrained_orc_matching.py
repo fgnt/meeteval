@@ -80,6 +80,22 @@ def test_orc_bound_by_tcorc(reference, hypothesis):
 
 
 @given(
+    seglst(max_speakers=1, min_segments=1),
+    seglst(max_speakers=2, min_segments=1),
+)
+def test_tcorc_bound_by_tcp(reference, hypothesis):
+    """Tests that tcORC-WER is never larger than tcpWER"""
+    from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
+    from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
+
+    tcp = time_constrained_minimum_permutation_word_error_rate(reference, hypothesis)
+    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=0.1)
+
+    # error_rate can be None when length is None
+    assert tcp.error_rate is None and tcorc.error_rate is None or tcorc.error_rate <= tcp.error_rate
+
+
+@given(
     seglst(max_speakers=1),
     seglst(max_speakers=1),
     st.floats(min_value=0, max_value=100)
