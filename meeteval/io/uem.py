@@ -48,12 +48,16 @@ class UEMLine(BaseLine):
             def parse_float(x):
                 return int(x) if x.isdigit() else float(x)
 
-        return UEMLine(
+        uem_line = UEMLine(
             filename=filename,
             channel=int(channel) if begin_time.isdigit() else channel,
             begin_time=parse_float(begin_time),  # Keep type, int or float,
             end_time=parse_float(end_time),  # Keep type, int or float,
         )
+
+        assert uem_line.begin_time <= uem_line.end_time, uem_line
+
+        return uem_line
 
     def serialize(self):
         """
@@ -78,11 +82,17 @@ class UEM(Base):
 
     @classmethod
     def parse(cls, s: str, parse_float=decimal.Decimal) -> 'UEM':
-        return cls([
+        uem = cls([
             UEMLine.parse(line, parse_float)
             for line in s.split('\n')
             if len(line.strip()) > 0  # and not line.strip().startswith(';')  # Does uem allow comments?
         ])
+
+        # Check that there are no duplicate filenames because UEM only supports
+        # a single segment per file
+        assert len(set([l.filename for l in uem.lines])) == len(uem.lines), uem
+
+        return uem
 
     def __getitem__(self, item):
         if isinstance(item, str):
