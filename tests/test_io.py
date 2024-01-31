@@ -5,7 +5,7 @@ from hypothesis import given, strategies as st, example
 import decimal
 import pytest
 
-from meeteval.io import RTTM
+from meeteval.io import RTTM, UEM, UEMLine
 from meeteval.io.keyed_text import KeyedText
 from meeteval.io.stm import STM, STMLine
 from meeteval.io.ctm import CTM, CTMLine
@@ -80,6 +80,26 @@ def test_stm_load():
                     end_time=decimal.Decimal('3.04'), transcript='dog walking is a very'),
             STMLine(filename='2345', channel='A', speaker_id='2345-a', begin_time=decimal.Decimal('3.5'),
                     end_time=decimal.Decimal('4.59'), transcript="yes but it's worth it")
+        ]
+
+
+uem_example = '''
+recordingA 1 0 10
+recordingB 1 0 0
+recordingC 1 1.5 2.30
+'''
+
+def test_uem_load():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        file = tmpdir / 'file.uem'
+        file.write_text(uem_example)
+        uem = UEM.load(file)
+
+        assert uem.lines == [
+            UEMLine(filename='recordingA', channel=1, begin_time=decimal.Decimal('0'), end_time=decimal.Decimal('10')),
+            UEMLine(filename='recordingB', channel=1, begin_time=decimal.Decimal('0'), end_time=decimal.Decimal('0')),
+            UEMLine(filename='recordingC', channel=1, begin_time=decimal.Decimal('1.5'), end_time=decimal.Decimal('2.30')),
         ]
 
 

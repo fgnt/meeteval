@@ -40,7 +40,7 @@ class UEMLine(BaseLine):
     def parse(cls, line: str, parse_float=decimal.Decimal) -> 'UEMLine':
         """
         >>> UEMLine.parse('S01 1 60.001 79.003')
-        UEMLine(filename='S01', channel='1', begin_time=Decimal('60.001'), end_time=Decimal('79.003'))
+        UEMLine(filename='S01', channel=1, begin_time=Decimal('60.001'), end_time=Decimal('79.003'))
         """
         filename, channel, begin_time, end_time = line.split()
 
@@ -50,7 +50,7 @@ class UEMLine(BaseLine):
 
         uem_line = UEMLine(
             filename=filename,
-            channel=int(channel) if begin_time.isdigit() else channel,
+            channel=int(channel) if channel.isdigit() else channel,
             begin_time=parse_float(begin_time),  # Keep type, int or float,
             end_time=parse_float(end_time),  # Keep type, int or float,
         )
