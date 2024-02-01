@@ -7,17 +7,22 @@
 ## Features
 MeetEval supports the following metrics for meeting transcription evaluation:
 
-- Standard WER for single utterances (Called SISO WER in MeetEval)
+- **Standard WER** for single utterances (Called SISO WER in MeetEval)<br>
   `meeteval-wer wer -r ref -h hyp`
-- Concatenated minimum-Permutation Word Error Rate (cpWER)
+- **Concatenated minimum-Permutation Word Error Rate (cpWER)**<br>
   `meeteval-wer cpwer -r ref.stm -h hyp.stm`
-- Optimal Reference Combination Word Error Rate (ORC WER) `meeteval-wer orcwer -r ref.stm -h hyp.stm`
-- Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER) `meeteval-wer mimower -r ref.stm -h hyp.stm`
-- [Time-Constrained minimum-Permutation Word Error Rate (tcpWER)](/doc/tcpwer.md) `meeteval-wer tcpwer -r ref.stm -h hyp.stm`
-- Time-Constrained Optimal Reference Combination Word Error Rate (tcORC WER) `meeteval-wer tcorcwer -r ref.stm -h hyp.stm`
-- Diarization Error Rate (DER) by wrapping [mdeval](https://github.com/nryant/dscore/raw/master/scorelib/md-eval-22.pl) `meeteval-der md_eval_22 -r ref.stm -h hyp.stm`
+- **Optimal Reference Combination Word Error Rate (ORC WER)**<br>
+  `meeteval-wer orcwer -r ref.stm -h hyp.stm`
+- **Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER)**<br>
+  `meeteval-wer mimower -r ref.stm -h hyp.stm`
+- **Time-Constrained minimum-Permutation Word Error Rate (tcpWER)**<br>
+  `meeteval-wer tcpwer -r ref.stm -h hyp.stm --collar 5`
+- **Time-Constrained Optimal Reference Combination Word Error Rate (tcORC WER)**<br>
+  `meeteval-wer tcorcwer -r ref.stm -h hyp.stm --collar 5`
+- **Diarization Error Rate (DER)** by wrapping [mdeval](https://github.com/nryant/dscore/raw/master/scorelib/md-eval-22.pl)<br>
+  `meeteval-der md_eval_22 -r ref.stm -h hyp.stm --collar .25`
 
-WIP: MeetEval supports visualization for cpWER and tcpWER
+Additionally (WIP), MeetEval contains a [visualization](#visualization-wip) tool for cpWER and tcpWER alignments that help spot errors in system outputs.
 
 ## Installation
 
