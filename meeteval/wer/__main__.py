@@ -374,19 +374,29 @@ class CLI:
         else:
             return x
 
+    class extend_action(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string):
+            """Extend action for argparse to allow multiple arguments.
+            Equal to the "extend" action in argparse that was added in Python 3.8
+            """
+            if not isinstance(values, list):
+                values = [values]
+            current = getattr(namespace, self.dest, []) or []
+            setattr(namespace, self.dest, current + values)
+
     def add_argument(self, command_parser, name, p):
         if name == 'reference':
             command_parser.add_argument(
                 '-r', '--reference',
                 help='Reference file(s) in STM or CTM format',
-                nargs='+', action='extend',
+                nargs='+', action=self.extend_action,
                 required=True,
             )
         elif name == 'hypothesis':
             command_parser.add_argument(
                 '-h', '--hypothesis',
                 help='Hypothesis file(s) in STM or CTM format',
-                nargs='+', action='extend',
+                nargs='+', action=self.extend_action,
                 required=True,
             )
         elif name == 'average_out':
@@ -487,7 +497,7 @@ class CLI:
                 '--uem',
                 help='UEM file that defines the scoring regions. Only supported when reference and hypothesis files'
                      'contain time-stamps.',
-                nargs='+', action='extend',
+                nargs='+', action=self.extend_action,
             )
         elif name == 'files':
             command_parser.add_argument('files', nargs='+')
