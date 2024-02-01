@@ -44,12 +44,14 @@ pip install -e ./meeteval
 `MeetEval` supports the following file formats as input:
  - [Segmental Time Mark](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75) (`STM`)
  - [Time Marked Conversation](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L286) (`CTM`)
- - [SEGment-wise Long-form Speech Transcription annotation](#segment-wise-long-form-speech-transcription-annotation-seglst) (`SegLST`), the file format used in the CHiME challenges
+ - [SEGment-wise Long-form Speech Transcription annotation](#segment-wise-long-form-speech-transcription-annotation-seglst) (`SegLST`), the file format used in the [CHiME challenges](https://www.chimechallenge.org)
  - [Rich Transcription Time Marked](https://github.com/nryant/dscore?tab=readme-ov-file#rttm) (`RTTM`) files (only for Diarizaiton Error Rate)
 
 
 > [!NOTE]
 > `MeetEval` does not support alternate transcripts (e.g., `"i've { um / uh / @ } as far as i'm concerned"`).
+
+The command-line interface is available as `meeteval-wer` or `python -m meeteval.wer` with the following signature:
 
 ```shell
 python -m meeteval.wer [orcwer|mimower|cpwer|tcpwer|tcorcwer] -h example_files/hyp.stm -r example_files/ref.stm
@@ -57,6 +59,7 @@ python -m meeteval.wer [orcwer|mimower|cpwer|tcpwer|tcorcwer] -h example_files/h
 meeteval-wer [orcwer|mimower|cpwer|tcpwer|tcorcwer] -h example_files/hyp.stm -r example_files/ref.stm
 ```
 
+You can add `--help` to any command to get more information about the available options.
 The command name `orcwer`, `mimower`, `cpwer` and `tcpwer` selects the metric to use.
 By default, the hypothesis files is used to create the template for the average
 (e.g. `hypothesis.json`) and per_reco `hypothesis_per_reco.json` file.
@@ -69,7 +72,7 @@ More examples can be found in [tests/test_cli.py](tests/test_cli.py).
 
 #### SEGment-wise Long-form Speech Transcription annotation (SegLST)
 
-The SegLST format was used in the CHiME-7 challenge and is the default format for `MeetEval`.
+The SegLST format was used in the [CHiME-7 challenge](https://www.chimechallenge.org/challenges/chime7/task1/index) and is the default format for `MeetEval`.
 
 The SegLST format is stored in JSON format and contains a list of segments.
 Each segment should have a minimum set of keys `"session_id"` and `"words"`.
@@ -117,11 +120,6 @@ recording2 1 Alice 0 0 Hello Carol.
 
 An example `STM` file can be found in [the example_files](example_files/ref.stm).
 
-We chose the `STM` format as the default because it contains all information required to compute the cpWER, ORC WER and MIMO WER.
-Most metrics in `MeetEval` (all except tcpWER) currently do not support use of detailed timing information.
-For those metrics, `begin_time` is only used to determine the correct utterance order and `end_time` is ignored.
-The speaker-ID field in the hypothesis encodes the output channel for MIMO and ORC WER.
-
 #### [Time Marked Conversation (CTM)](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L286)
 The CTM format is defined as
 
@@ -140,12 +138,16 @@ meeteval-wer orcwer -h hyp1.ctm -h hyp2.ctm -r reference.stm
 ```
 
 > [!NOTE]
-> Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away. We recommend to use `STM` files.
+> Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away. We recommend to use `STM` or `SegLST` files.
 
 
 ## Python interface
 
 For all metrics a [Low-level](#low-level-interface) and [high-level](#high-level-interface) interface is available.
+
+> [!INFO]
+> You want to use the [high-level](#high-level-interface) for computing metrics over a full dataset. <br>
+> You want to use the [low-level](#low-level-interface) interface for computing metrics for single examples or when your data is represented as Python structures, e.g., nested lists of strings.
 
 ### Low-level interface
 
@@ -194,35 +196,35 @@ print(wer)
 ```
 
 All low-level interfaces come with a single-example function (as show above) and a batch function that computes the WER for multiple examples at once.
-The batch function is postfixed with `_multifile`.
+The batch function is postfixed with `_multifile` and is similar to the high-level interface without fancy input format handling.
 To compute the average over multiple `ErrorRate`s, use `meeteval.wer.combine_error_rates`.
 Note that the combined WER is _not_ the average over the error rates, but the error rate that results from combining the errors and lengths of all error rates.
 `combine_error_rates` also discards any information that cannot be aggregated over multiple examples (such as the ORC WER assignment).
 
-
+For example with the cpWER:
 ```python
 import meeteval.wer.wer.siso
 
-wers = meeteval.wer.wer.siso.siso_word_error_rate_multifile(
-    reference=[
-        'First example', 
-        'Second example',
-    ],
-    hypothesis=[
-        'First example with errors',
-        'Second example',
-    ]
+wers = meeteval.wer.wer.cp.cp_word_error_rate_multifile(
+    reference={
+        'recordingA': {'speakerA': 'First example', 'speakerB': 'First example second speaker'}, 
+        'recordingB': {'speakerA': 'Second example'},
+    },
+    hypothesis={
+        'recordingA': ['First example with errors', 'First example second speaker'],
+        'recordingB': ['Second example', 'Overestimated speaker'],
+    }
 )
 print(wers)
 # {
-#   0: ErrorRate(error_rate=1.0, errors=2, length=2, insertions=2, deletions=0, substitutions=0), 
-#   1: ErrorRate(error_rate=0.0, errors=0, length=2, insertions=0, deletions=0, substitutions=0)
+#   'recordingA': CPErrorRate(error_rate=0.3333333333333333, errors=2, length=6, insertions=2, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=(('speakerA', 0), ('speakerB', 1))), 
+#   'recordingB': CPErrorRate(error_rate=1.0, errors=2, length=2, insertions=2, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('speakerA', 0), (None, 1)))
 # }
 
 # Use combine_error_rates to compute an "overall" WER over multiple examples
 avg = meeteval.wer.combine_error_rates(wers)
 print(avg)
-# ErrorRate(error_rate=0.5, errors=2, length=4, insertions=2, deletions=0, substitutions=0)
+# CPErrorRate(error_rate=0.5, errors=4, length=8, insertions=4, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=1, scored_speaker=3)
 ```
 
 ### High-level interface
@@ -236,9 +238,8 @@ import meeteval
 # File Paths
 wers = meeteval.wer.tcpwer('example_files/ref.stm', 'example_files/hyp.stm', collar=5)
 
-# Loaded objects
+# Loaded files
 wers = meeteval.wer.tcpwer(meeteval.io.load('example_files/ref.stm'), meeteval.io.load('example_files/hyp.stm'), collar=5)
-
 
 # Objects
 wers = meeteval.wer.tcpwer(
@@ -249,7 +250,7 @@ wers = meeteval.wer.tcpwer(
     hypothesis=meeteval.io.STM.parse('''
         recordingA 1 spk-1 0 1 The kwick brown fox jump over lazy
         recordingB 1 spk-1 0 1 The kwick brown fox jump over lazy
-        '''),
+    '''),
     collar=5,
 )
 print(wers)
@@ -274,6 +275,7 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 
 ## Visualization [WIP]
 
+> ![WARN] The visualization is under development! <br>
 Preview: https://groups.uni-paderborn.de/nt/meeteval/viz.html
 
 ```python
