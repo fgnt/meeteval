@@ -540,7 +540,7 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name, wa
         msg = (
             f'The order of word-level timings contradicts the segment-level '
             f'order in {name}: {sum(contradictions)} of {len(contradictions)} '
-            f'times.'
+            f'times. (session ids: {sorted(set(segments.T["session_id"]))})'
         )
         if sort is not True:
             logger.warning(msg)
