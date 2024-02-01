@@ -1510,6 +1510,18 @@ class CanvasPlot {
                 audio_div.append("div").text("Invalid range: " + range);
             }
         };
+        let maybe_remove_audio = function (){
+            let lower = rangeSelector.lower_input.node().value;
+            let upper = rangeSelector.upper_input.node().value;
+            let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
+            let audio = audio_div.select("audio")
+            if ( ! audio.empty() ){
+                if ( audio.attr("src") !== path ){
+                    audio_div.selectAll("*").remove();
+                }
+                console.log(audio.attr("src") +  " vs " + path);
+            }
+        };
 
         let pill = container.append("div").classed("pill", true);
         let audio_tooltip = addTooltip(pill);
@@ -1526,6 +1538,8 @@ class CanvasPlot {
         server_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
         file_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
         pill.on("click", () => {update_audio(); audio_div.select("audio").node().play()});
+
+        pill.on("mouseenter", maybe_remove_audio);
 
         update_audio()
     }
