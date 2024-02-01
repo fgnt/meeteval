@@ -379,14 +379,14 @@ class CLI:
             command_parser.add_argument(
                 '-r', '--reference',
                 help='Reference file(s) in STM or CTM format',
-                nargs='+', action='append',
+                nargs='+', action='extend',
                 required=True,
             )
         elif name == 'hypothesis':
             command_parser.add_argument(
                 '-h', '--hypothesis',
                 help='Hypothesis file(s) in STM or CTM format',
-                nargs='+', action='append',
+                nargs='+', action='extend',
                 required=True,
             )
         elif name == 'average_out':
@@ -487,6 +487,7 @@ class CLI:
                 '--uem',
                 help='UEM file that defines the scoring regions. Only supported when reference and hypothesis files'
                      'contain time-stamps.',
+                nargs='+', action='extend',
             )
         elif name == 'files':
             command_parser.add_argument('files', nargs='+')
@@ -539,14 +540,6 @@ class CLI:
             kwargs.pop('func')
             kwargs.pop('version')
             kwargs.pop('log_level')
-            if 'reference' in kwargs:
-                kwargs['reference'] = [
-                    r for reference in kwargs['reference'] for r in reference
-                ]
-            if 'hypothesis' in kwargs:
-                kwargs['hypothesis'] = [
-                    h for hypothesis in kwargs['hypothesis'] for h in hypothesis
-                ]
             return fn(**kwargs)
 
         if getattr(args, 'version', False):

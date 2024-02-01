@@ -69,7 +69,7 @@ def _load_texts(
     # Filter by uem
     if uem is not None:
         from meeteval.io.uem import UEM
-        if isinstance(uem, (str, Path)):
+        if isinstance(uem, (str, Path, list, tuple)):
             uem = UEM.load(uem)
         if 'start_time' not in reference.T.keys() or 'end_time' not in reference.T.keys():
             required_keys = {'start_time', 'end_time'}

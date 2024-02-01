@@ -1,5 +1,8 @@
 import decimal
+import io
 from dataclasses import dataclass
+from pathlib import Path
+
 from meeteval.io.base import Base, BaseLine
 
 try:
@@ -81,6 +84,20 @@ class UEM(Base):
         return {k: v for v, k in enumerate(keys)}
 
     @classmethod
+    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=decimal.Decimal) -> 'Self':
+        uem = super().load(file, parse_float)
+
+        # Check that there are no duplicate filenames because UEM only supports
+        # a single segment per file
+        if len(set([l.filename for l in uem.lines])) < len(uem.lines):
+            raise ValueError(
+                f'UEM file contains duplicate filenames, but only a single '
+                f'scoring region per filename is supported: {uem}'
+            )
+
+        return uem
+
+    @classmethod
     def parse(cls, s: str, parse_float=decimal.Decimal) -> 'UEM':
         uem = cls([
             UEMLine.parse(line, parse_float)
@@ -90,7 +107,11 @@ class UEM(Base):
 
         # Check that there are no duplicate filenames because UEM only supports
         # a single segment per file
-        assert len(set([l.filename for l in uem.lines])) == len(uem.lines), uem
+        if len(set([l.filename for l in uem.lines])) < len(uem.lines):
+            raise ValueError(
+                f'UEM file contains duplicate filenames, but only a single '
+                f'scoring region per filename is supported: {uem}'
+            )
 
         return uem
 
