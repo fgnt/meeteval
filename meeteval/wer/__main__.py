@@ -485,8 +485,8 @@ class CLI:
         elif name == 'uem':
             command_parser.add_argument(
                 '--uem',
-                help='UEM file that defines the scoring regions. Only supported for file formats that contain'
-                     'segment-level or word-level time-stamps.',
+                help='UEM file that defines the scoring regions. Only supported when reference and hypothesis files'
+                     'contain time-stamps.',
             )
         elif name == 'files':
             command_parser.add_argument('files', nargs='+')
