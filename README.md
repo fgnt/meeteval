@@ -93,7 +93,7 @@ An example is shown below:
     ...
 ]
 ```
-Another example can be found in [the example_files](example_files/hyp.seglst.json).
+Another example can be found [here](example_files/hyp.seglst.json).
 
 #### [Segmental Time Mark (STM)](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75)
 Each line in an `STM` file represents one "utterance" and is defined as
@@ -129,9 +129,7 @@ CTM :== <filename> <channel> <begin_time> <duration> <word> [<confidence>]
 ```
 
 for the hypothesis (one file per speaker).
-The time marks in the `CTM` file are only used to find the order of words.
-Detailed timing information is not used.
-You have to supply one `CTM` file for each system output channel using multiple `-h` arguments since `CTM` files don't encode speaker or system output channel information (the `channel` field has a different meaning: microphone).
+You have to supply one `CTM` file for each system output channel using multiple `-h` arguments since `CTM` files don't encode speaker or system output channel information (the `channel` field has a different meaning: left or right microphone).
 For example:
 
 ```shell
@@ -265,7 +263,7 @@ print(avg)
 # CPErrorRate(error_rate=0.4444444444444444, errors=8, length=18, insertions=0, deletions=4, substitutions=4, reference_self_overlap=SelfOverlap(overlap_rate=Decimal('0'), overlap_time=0, total_time=Decimal('2')), hypothesis_self_overlap=SelfOverlap(overlap_rate=Decimal('0'), overlap_time=0, total_time=Decimal('2')), missed_speaker=0, falarm_speaker=0, scored_speaker=2)
 ```
 
-#### Aligning sequences
+### Aligning sequences
 
 Sequences can be aligned, similar to `kaldialign.align`, using the tcpWER matching:
 ```python
@@ -278,7 +276,8 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 
 > [!IMPORTANT]
 > The visualization is under development! <br>
-Preview: https://groups.uni-paderborn.de/nt/meeteval/viz.html
+> Preview: https://groups.uni-paderborn.de/nt/meeteval/viz.html<br>
+> Interactive notebook: https://fgnt.github.io/meeteval_jupyterlite/lab?path=Demo.ipynb
 
 ```python
 import meeteval
