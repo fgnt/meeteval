@@ -537,10 +537,14 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name, wa
         # of the contained objects (so `words_sorted[0] is words[0] == True`
         # when they are sorted).
         contradictions = [a != b for a, b in zip(words_sorted, words)]
+        try:
+            session_ids = f' (session ids: {sorted(set(segments.T["session_id"]))})'
+        except KeyError:
+            session_ids = ''
         msg = (
             f'The order of word-level timings contradicts the segment-level '
             f'order in {name}: {sum(contradictions)} of {len(contradictions)} '
-            f'times.'
+            f'times.{session_ids}'
         )
         if sort is not True:
             logger.warning(msg)
