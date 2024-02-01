@@ -18,6 +18,7 @@ def test_cpwer():
 
     ref = example_files / 'ref.stm'
     hyp = example_files / 'hyp.stm'
+    uem = example_files / 'uem.uem'
 
     details = cpwer(ref, hyp)
     avg = combine_error_rates(details)
@@ -35,12 +36,21 @@ def test_cpwer():
     avg = combine_error_rates(details)
     check_result(avg, 25, 92)
 
+    details = cpwer(ref, hyp, uem=uem)
+    avg = combine_error_rates(details)
+    check_result(avg, 25, 61)
+
+    details = cpwer(ref, hyp, uem=meeteval.io.UEM.load(uem))
+    avg = combine_error_rates(details)
+    check_result(avg, 25, 61)
+
 
 def test_tcpwer():
     from meeteval.wer import tcpwer
 
     ref = example_files / 'ref.stm'
     hyp = example_files / 'hyp.stm'
+    uem = example_files / 'uem.uem'
 
     details = tcpwer(ref, hyp, collar=5)
     avg = combine_error_rates(details)
@@ -61,6 +71,19 @@ def test_tcpwer():
     details = tcpwer(ref, hyp, collar=0)
     avg = combine_error_rates(details)
     check_result(avg, 88, 92)
+
+    details = tcpwer(ref, hyp, uem=uem, collar=5)
+    avg = combine_error_rates(details)
+    check_result(avg, 25, 61)
+
+    details = tcpwer(ref, hyp, uem=uem, collar=0)
+    avg = combine_error_rates(details)
+    check_result(avg, 88, 61)
+
+    details = tcpwer(ref, hyp, uem=meeteval.io.UEM.load(uem), collar=5)
+    avg = combine_error_rates(details)
+    check_result(avg, 25, 61)
+
 
     # Try different pseudo_word_timing values.
     # There is no motivation for the selected combinations.

@@ -1,6 +1,14 @@
 import decimal
+import io
 from dataclasses import dataclass
+from pathlib import Path
+
 from meeteval.io.base import Base, BaseLine
+
+import typing
+
+if typing.TYPE_CHECKING:
+    from typing import Self
 
 try:
     from functools import cached_property
@@ -40,7 +48,7 @@ class UEMLine(BaseLine):
     def parse(cls, line: str, parse_float=decimal.Decimal) -> 'UEMLine':
         """
         >>> UEMLine.parse('S01 1 60.001 79.003')
-        UEMLine(filename='S01', channel='1', begin_time=Decimal('60.001'), end_time=Decimal('79.003'))
+        UEMLine(filename='S01', channel=1, begin_time=Decimal('60.001'), end_time=Decimal('79.003'))
         """
         filename, channel, begin_time, end_time = line.split()
 
@@ -48,12 +56,16 @@ class UEMLine(BaseLine):
             def parse_float(x):
                 return int(x) if x.isdigit() else float(x)
 
-        return UEMLine(
+        uem_line = UEMLine(
             filename=filename,
-            channel=int(channel) if begin_time.isdigit() else channel,
+            channel=int(channel) if channel.isdigit() else channel,
             begin_time=parse_float(begin_time),  # Keep type, int or float,
             end_time=parse_float(end_time),  # Keep type, int or float,
         )
+
+        assert uem_line.begin_time <= uem_line.end_time, uem_line
+
+        return uem_line
 
     def serialize(self):
         """
@@ -77,12 +89,36 @@ class UEM(Base):
         return {k: v for v, k in enumerate(keys)}
 
     @classmethod
+    def load(cls, file: [Path, str, io.TextIOBase, tuple, list], parse_float=decimal.Decimal) -> 'Self':
+        uem = super().load(file, parse_float)
+
+        # Check that there are no duplicate filenames because UEM only supports
+        # a single segment per file
+        if len(set([l.filename for l in uem.lines])) < len(uem.lines):
+            raise ValueError(
+                f'UEM file contains duplicate filenames, but only a single '
+                f'scoring region per filename is supported: {uem}'
+            )
+
+        return uem
+
+    @classmethod
     def parse(cls, s: str, parse_float=decimal.Decimal) -> 'UEM':
-        return cls([
+        uem = cls([
             UEMLine.parse(line, parse_float)
-            for line in s.spilt('\n')
+            for line in s.split('\n')
             if len(line.strip()) > 0  # and not line.strip().startswith(';')  # Does uem allow comments?
         ])
+
+        # Check that there are no duplicate filenames because UEM only supports
+        # a single segment per file
+        if len(set([l.filename for l in uem.lines])) < len(uem.lines):
+            raise ValueError(
+                f'UEM file contains duplicate filenames, but only a single '
+                f'scoring region per filename is supported: {uem}'
+            )
+
+        return uem
 
     def __getitem__(self, item):
         if isinstance(item, str):

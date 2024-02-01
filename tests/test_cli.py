@@ -93,6 +93,7 @@ def test_burn_cp():
     run(f"python -m meeteval.wer cpwer -h 'hyp?.stm' -r 'ref?.stm'")
     run(f'python -m meeteval.wer cpwer -h hyp.seglst.json -r ref.seglst.json')
     run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
+    run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --uem uem.uem')
 
 
 def test_burn_tcp():
