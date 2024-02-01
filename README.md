@@ -145,7 +145,7 @@ meeteval-wer orcwer -h hyp1.ctm -h hyp2.ctm -r reference.stm
 
 For all metrics a [Low-level](#low-level-interface) and [high-level](#high-level-interface) interface is available.
 
-> [!INFO]
+> [!TIP]
 > You want to use the [high-level](#high-level-interface) for computing metrics over a full dataset. <br>
 > You want to use the [low-level](#low-level-interface) interface for computing metrics for single examples or when your data is represented as Python structures, e.g., nested lists of strings.
 
@@ -275,7 +275,7 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 
 ## Visualization [WIP]
 
-> ![WARN] The visualization is under development! <br>
+> [!WARNING] The visualization is under development! <br>
 Preview: https://groups.uni-paderborn.de/nt/meeteval/viz.html
 
 ```python
