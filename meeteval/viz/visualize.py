@@ -354,7 +354,7 @@ class AlignmentVisualization:
             highlight_regex=None,
             alignment_transform=None,
             markers=None,
-            recording_file: 'str | path | dict[str, str | Path]' = None,
+            recording_file: 'str | Path | dict[str, str | Path]' = None,
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
