@@ -119,7 +119,7 @@ recording2 1 Alice 0 0 Hello Carol.
 ...
 ```
 
-An example `STM` file can be found in [the example_files](example_files/ref.stm).
+An example `STM` file can be found in [here](example_files/ref.stm).
 
 #### [Time Marked Conversation (CTM)](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L286)
 The CTM format is defined as
