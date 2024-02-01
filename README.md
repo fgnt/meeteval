@@ -1,6 +1,7 @@
 <h1 align="center">MeetEval</h1> 
 <h3 align="center">A meeting transcription evaluation toolkit</h3>
 <div align="center"><a href="#features">Features</a> | <a href="#installation">Installation</a> | <a href="#python-interface">Python Interface</a> | <a href="#command-line-interface">Command Line Interface</a> | <a href="#visualization-wip">Visualization (WIP)</a> | <a href="#cite">Cite</a></div>
+<br>
 <a href="https://github.com/fgnt/meeteval/actions"><img src="https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg"/></a>
 
 
