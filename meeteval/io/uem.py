@@ -5,6 +5,11 @@ from pathlib import Path
 
 from meeteval.io.base import Base, BaseLine
 
+import typing
+
+if typing.TYPE_CHECKING:
+    from typing import Self
+
 try:
     from functools import cached_property
 except ImportError:
