@@ -275,7 +275,8 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 
 ## Visualization [WIP]
 
-> [!WARNING] The visualization is under development! <br>
+> [!IMPORTANT]
+> The visualization is under development! <br>
 Preview: https://groups.uni-paderborn.de/nt/meeteval/viz.html
 
 ```python
