@@ -106,7 +106,7 @@ class CTMLine(BaseLine):
 @dataclass(frozen=True)
 class CTM(Base):
     lines: 'list[CTMLine]'
-    line_cls = 'CTMLine'
+    line_cls = CTMLine
 
     @classmethod
     def parse(cls, s: str, parse_float=decimal.Decimal) -> 'Self':
