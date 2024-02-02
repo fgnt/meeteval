@@ -56,10 +56,15 @@ class RTTMLine(BaseLine):
         """
         >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
         RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), orthography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
+        >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet')
+        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), orthography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
         """
+        line_args = list(line.split())
+        if len(line_args) < 10:
+            line_args  += ['<NA>' * (10 - len(line_args))]
         type_, filename, channel, begin_time, duration, orthography, \
         speaker_type, speaker_id, confidence, signal_look_ahead_time, \
-            = line.split()
+            = line_args
 
         if parse_float is float:
             def parse_float(x):
