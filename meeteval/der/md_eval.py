@@ -185,24 +185,3 @@ def md_eval_22(reference, hypothesis, collar=0, uem=None):
     assert reference.filenames() == hypothesis.filenames(), (reference.filenames(), hypothesis.filenames())
 
     return md_eval_22_multifile(reference, hypothesis, collar, uem=uem)[reference.filenames()[0]]
-
-
-def _md_eval_22(
-        reference,
-        hypothesis,
-        average_out='{parent}/{stem}_md_eval_22.json',
-        per_reco_out='{parent}/{stem}_md_eval_22_per_reco.json',
-        collar=0,
-        regex=None,
-        uem=None,
-):
-    from meeteval.wer.api import _load_texts
-
-    r, h = _load_texts(reference, hypothesis, regex)
-    if uem:
-        uem = meeteval.io.UEM.load(uem)
-
-    per_reco = md_eval_22_multifile(r, h, collar, uem=uem)
-
-    from meeteval.wer.__main__ import _save_results
-    _save_results(per_reco, hypothesis, per_reco_out, average_out)
