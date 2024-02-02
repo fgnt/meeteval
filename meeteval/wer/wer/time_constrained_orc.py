@@ -49,17 +49,25 @@ def time_constrained_orc_wer(
     hypothesis = meeteval.io.asseglst(hypothesis)
     check_single_filename(reference, hypothesis)
 
-    # Remove empty segments
-    reference = reference.filter(lambda s: s['words'] != '')
-    hypothesis = hypothesis.filter(lambda s: s['words'] != '')
-
     # Add a segment index to the reference so that we can later find words that
     # come from the same segment
     for i, s in enumerate(reference):
         s['segment_index'] = i
 
-    # Group by stream
+    # Group by stream. For ORC-WER, only hypothesis must be grouped
     hypothesis = hypothesis.groupby('speaker')
+
+    # Calculate self-overlap before modifying the segments
+    reference_self_overlap = sum(
+        [get_self_overlap(h) for h in reference.groupby('speaker').values()]
+    ) if len(reference) > 0 else None
+    hypothesis_self_overlap = sum(
+        [get_self_overlap(h) for h in hypothesis.values()]
+    ) if len(hypothesis) > 0 else None
+
+    # Remove empty segments
+    reference = reference.filter(lambda s: s['words'] != '')
+    hypothesis = hypothesis.filter(lambda s: s['words'] != '')
 
     # Time-constrained preprocessing
     from meeteval.wer.wer.time_constrained import sort_and_validate, apply_collar
@@ -84,8 +92,8 @@ def time_constrained_orc_wer(
         ), collar) for k, h in hypothesis.items()
     }
 
+    # Compute the time-constrained ORC distance
     from meeteval.wer.matching.cy_time_constrained_orc_matching import time_constrained_orc_levenshtein_distance
-
     distance, assignment = time_constrained_orc_levenshtein_distance(
         [segment.T['words'] for segment in reference.groupby('segment_index').values()],
         [stream.T['words'] for stream in hypothesis.values()],
@@ -94,6 +102,7 @@ def time_constrained_orc_wer(
         [list(zip(stream.T['start_time'], stream.T['end_time'])) for stream in hypothesis.values()],
     )
 
+    # Translate the assignment from hypothesis index to stream id
     hypothesis_keys = list(hypothesis.keys())
     assignment = [hypothesis_keys[h] for h in assignment]
 
@@ -108,6 +117,8 @@ def time_constrained_orc_wer(
     else:
         reference_new = reference.groupby('speaker')
 
+    # Consistency check: Compute WER with the siso algorithm after applying the
+    # assignment and compare the result with the distance from the ORC algorithm
     from meeteval.wer.wer.time_constrained import _time_constrained_siso_error_rate
     er = combine_error_rates(*[
         _time_constrained_siso_error_rate(
@@ -126,12 +137,8 @@ def time_constrained_orc_wer(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=tuple(assignment),
-        reference_self_overlap=sum(
-            [get_self_overlap(h) for h in reference.groupby('speaker').values()]
-        ) if len(reference) > 0 else None,
-        hypothesis_self_overlap=sum(
-            [get_self_overlap(h) for h in hypothesis.values()]
-        ) if len(hypothesis) > 0 else None,
+        reference_self_overlap=reference_self_overlap,
+        hypothesis_self_overlap=hypothesis_self_overlap,
     )
 
 
