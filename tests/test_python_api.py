@@ -169,3 +169,25 @@ def test_tcorcwer():
     details = tcorcwer(meeteval.io.load(ref).to_seglst(), meeteval.io.load(hyp).to_seglst(), collar=5)
     avg = combine_error_rates(details)
     check_result(avg, 9, 92)
+
+
+def test_md_eval_22():
+    from meeteval.der import md_eval_22
+
+    ref = example_files / 'ref.stm'
+    hyp = example_files / 'hyp.stm'
+    uem = example_files / 'uem.uem'
+
+    details = md_eval_22(ref, hyp)
+    avg = combine_error_rates(details)
+    assert float(avg.error_rate) == 0.3
+    assert avg.scored_speaker_time == 6
+    assert float(avg.missed_speaker_time) == 0.8
+    assert float(avg.falarm_speaker_time) == 0.6
+
+    details = md_eval_22(ref, hyp, uem=uem)
+    avg = combine_error_rates(details)
+    assert float(avg.error_rate) == 0.36
+    assert avg.scored_speaker_time == 5
+    assert float(avg.missed_speaker_time) == 0.8
+    assert float(avg.falarm_speaker_time) == 0.6

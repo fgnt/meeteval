@@ -77,7 +77,7 @@ class DiaErrorRate:
         )
 
 
-def md_eval_22_multifile(reference, hypothesis, collar=0):
+def md_eval_22_multifile(reference, hypothesis, collar=0, uem=None):
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference)
     hypothesis = RTTM.new(hypothesis)
@@ -106,7 +106,7 @@ def md_eval_22_multifile(reference, hypothesis, collar=0):
             urllib.request.urlretrieve(url, md_eval_22)
             logging.info(f'Wrote {md_eval_22}')
 
-    def get_details(r, h, key, tmpdir):
+    def get_details(r, h, key, tmpdir, uem):
         r_file = tmpdir / f'{key}.ref.rttm'
         h_file = tmpdir / f'{key}.hyp.rttm'
         r.dump(r_file)
@@ -118,6 +118,11 @@ def md_eval_22_multifile(reference, hypothesis, collar=0):
             '-r', f'{r_file}',
             '-s', f'{h_file}',
         ]
+
+        if uem:
+            uem_file = tmpdir / f'{key}.uem'
+            uem.dump(uem_file)
+            cmd.extend(['-u', f'{uem_file}'])
 
         cp = subprocess.run(cmd, stdout=subprocess.PIPE,
                             check=True, universal_newlines=True)
@@ -149,13 +154,14 @@ def md_eval_22_multifile(reference, hypothesis, collar=0):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         for key in keys:
-            per_reco[key] = get_details(r[key], h[key], key, tmpdir)
+            per_reco[key] = get_details(r[key], h[key], key, tmpdir, uem)
 
         md_eval = get_details(
             meeteval.io.RTTM([line for key in keys for line in r[key]]),
             meeteval.io.RTTM([line for key in keys for line in h[key]]),
             '',
             tmpdir,
+            uem,
         )
         summary = sum(per_reco.values())
         error_rate = summary.error_rate.quantize(md_eval.error_rate)
@@ -169,7 +175,7 @@ def md_eval_22_multifile(reference, hypothesis, collar=0):
     return per_reco
 
 
-def md_eval_22(reference, hypothesis, collar=0):
+def md_eval_22(reference, hypothesis, collar=0, uem=None):
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference, filename='dummy')
     hypothesis = RTTM.new(hypothesis, filename='dummy')
@@ -178,23 +184,4 @@ def md_eval_22(reference, hypothesis, collar=0):
     assert len(hypothesis.filenames()) == 1, hypothesis.filenames()
     assert reference.filenames() == hypothesis.filenames(), (reference.filenames(), hypothesis.filenames())
 
-    return md_eval_22_multifile(reference, hypothesis, collar)[reference.filenames()[0]]
-
-
-def _md_eval_22(
-        reference,
-        hypothesis,
-        average_out='{parent}/{stem}_md_eval_22.json',
-        per_reco_out='{parent}/{stem}_md_eval_22_per_reco.json',
-        collar=0,
-        regex=None,
-):
-    from meeteval.wer.api import _load_texts
-
-    r, h = _load_texts(
-        reference, hypothesis, regex)
-
-    per_reco = md_eval_22_multifile(r, h, collar)
-
-    from meeteval.wer.__main__ import _save_results
-    _save_results(per_reco, hypothesis, per_reco_out, average_out)
+    return md_eval_22_multifile(reference, hypothesis, collar, uem=uem)[reference.filenames()[0]]
