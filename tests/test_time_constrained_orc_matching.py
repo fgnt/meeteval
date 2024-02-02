@@ -123,6 +123,7 @@ def test_tcorc_zero_vs_self(reference):
 
     tcorc = time_constrained_orc_wer(reference, reference, collar=0.1)
     assert tcorc.error_rate == 0 or tcorc.error_rate is None
+    assert tcorc.reference_self_overlap == tcorc.hypothesis_self_overlap
 
 
 def test_examples_zero_self_overlap():
