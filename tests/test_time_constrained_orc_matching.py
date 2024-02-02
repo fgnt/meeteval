@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from hypothesis import assume, settings, given, strategies as st
 
@@ -110,3 +112,26 @@ def test_tcorc_vs_tcsiso(reference, hypothesis, collar):
     tcsiso = time_constrained_siso_word_error_rate(reference, hypothesis, collar=collar)
 
     assert tcorc.error_rate == tcsiso.error_rate
+
+
+@given(
+    seglst(max_speakers=3)
+)
+def test_tcorc_zero_vs_self(reference):
+    """Tests that the tcORC-WER is zero when the hypothesis is equal to reference"""
+    from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
+
+    tcorc = time_constrained_orc_wer(reference, reference, collar=0.1)
+    assert tcorc.error_rate == 0 or tcorc.error_rate is None
+    assert tcorc.reference_self_overlap == tcorc.hypothesis_self_overlap
+
+
+def test_examples_zero_self_overlap():
+    """Tests that self-overlap is measured correctly (0) for the example files"""
+    example_files = (Path(__file__).parent.parent / 'example_files').absolute()
+
+    from meeteval.wer import tcorcwer
+    wers = tcorcwer(example_files / 'ref.stm', example_files / 'hyp.stm', collar=5)
+    for k, wer in wers.items():
+        assert wer.reference_self_overlap.overlap_time == 0, (k, wer)
+        assert wer.hypothesis_self_overlap.overlap_time == 0, (k, wer)
