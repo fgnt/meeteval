@@ -67,7 +67,10 @@ def time_constrained_orc_wer(
 
     # Remove empty segments
     reference = reference.filter(lambda s: s['words'] != '')
-    hypothesis = hypothesis.filter(lambda s: s['words'] != '')
+    hypothesis = {
+        k: h.filter(lambda s: s['words'] != '')
+        for k, h in hypothesis.items()
+    }
 
     # Time-constrained preprocessing
     from meeteval.wer.wer.time_constrained import sort_and_validate, apply_collar
