@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from hypothesis import settings, given, strategies as st
 
@@ -232,3 +234,14 @@ def test_time_constrained_sorting_options():
         r1, r2, reference_sort=False, hypothesis_sort=False,
     )
     assert er.error_rate == 1
+
+
+def test_examples_zero_self_overlap():
+    """Tests that self-overlap is measured correctly (0) for the example files"""
+    example_files = (Path(__file__).parent.parent / 'example_files').absolute()
+
+    from meeteval.wer import tcpwer
+    wers = tcpwer(example_files / 'ref.stm', example_files / 'hyp.stm', collar=5)
+    for k, wer in wers.items():
+        assert wer.reference_self_overlap.overlap_time == 0, (k, wer)
+        assert wer.hypothesis_self_overlap.overlap_time == 0, (k, wer)
