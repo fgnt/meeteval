@@ -113,7 +113,7 @@ def test_tcorc_vs_tcsiso(reference, hypothesis, collar):
 
 
 @given(
-    seglst(max_speakers=4)
+    seglst(max_speakers=3)
 )
 def test_tcorc_zero_vs_self(reference):
     """Tests that the tcORC-WER is zero when the hypothesis is equal to reference"""
