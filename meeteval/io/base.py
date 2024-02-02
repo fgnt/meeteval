@@ -138,7 +138,7 @@ class BaseLine:
 
 class Base(BaseABC):
     lines: 'list[LineSubclasses]'
-    line_cls = 'LineSubclasses'
+    line_cls: 'LineSubclasses'
 
     def __init__(self, data):
         self.lines = data
