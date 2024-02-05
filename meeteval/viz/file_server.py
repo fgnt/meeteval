@@ -27,29 +27,52 @@ def _parse_audio_slice(path, start, stop):
     ('file.wav', 1, 2)
     >>> _parse_audio_slice('file.wav', '1', '2')
     ('file.wav', 1, 2)
+    >>> _parse_audio_slice('file.wav::[1:10]', 2, 4)
+    ('file.wav', 3, 5)
     """
     @functools.lru_cache()
     def samplerate(path):
         return soundfile.info(path).samplerate
 
+    _last_type = None
+    def to_number(*numbers):
+        nonlocal _last_type
+        for num in numbers:
+            if num is None:
+                yield num
+                continue
+            if isinstance(num, str):
+                if '.' in num:
+                    num = round(float(num) * samplerate(path))
+                    cur_type = float
+                else:
+                    num = int(num)
+                    cur_type = int
+            else:
+                cur_type = type(num)
+
+            if _last_type is None:
+                _last_type = cur_type
+            else:
+                assert _last_type == cur_type, ('All numbers must have a common type (flot or int)', path, start, stop, _last_type, cur_type)
+            yield num
+
+    start, stop = to_number(start, stop)
+
     if '::' in path:
-        assert start is None and stop is None, (path, start, stop)
         path, slice = path.split('::')
         assert slice[0] == '[' and slice[-1] == ']', slice
-        start, stop = slice[1:-1].split(':')
-
-    if start is None and stop is None:
-        pass
-    else:
-        assert start is not None and stop is not None, (path, start, stop)
-
-        if '.' in start or '.' in stop:
-            start = round(float(start) * samplerate(path))
-            stop = round(float(stop) * samplerate(path))
-            assert (stop - start) < samplerate(path) * 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
+        start_, stop_ = to_number(*slice[1:-1].split(':'))
+        if start is None and stop is None:
+            start, stop = start_, stop_
         else:
-            start, stop = int(start), int(stop)
-            assert (stop - start) < 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
+            # Arguments are applied on the [...:...]
+            start, stop = start + start_, stop + start_
+
+    if _last_type is int:
+        assert (stop - start) < 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
+    if _last_type is float:
+        assert (stop - start) < samplerate(path) * 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
 
     return path, start, stop
 
