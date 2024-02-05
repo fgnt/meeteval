@@ -27,7 +27,7 @@ def _parse_audio_slice(path, start, stop):
           support for seconds. Hence, convert floats that are typically seconds
           to ints with sample resolution.
 
-    >>> import mock
+    >>> from unittest import mock
     >>> with mock.patch('soundfile.info', mock.MagicMock()) as patch:
     ...     patch.return_value.samplerate = 16000
     ...     _parse_audio_slice('file.wav::[1.0:2.0]', None, None)
