@@ -23,44 +23,40 @@ def _parse_audio_slice(path, start, stop):
     """
     See from paderbox.io.audioread.py::_parse_audio_slice for advanced parser.
 
-    >>> _parse_audio_slice('file.wav::[1:2]', None, None)
-    ('file.wav', 1, 2)
-    >>> _parse_audio_slice('file.wav', '1', '2')
-    ('file.wav', 1, 2)
-    >>> _parse_audio_slice('file.wav::[1:10]', 2, 4)
-    ('file.wav', 3, 5)
+    Note: soundfile has only samples (they call it frames) as unit and no
+          support for seconds. Hence, convert floats that are typically seconds
+          to ints with sample resolution.
+
+    >>> import mock
+    >>> with mock.patch('soundfile.info', mock.MagicMock()) as patch:
+    ...     patch.return_value.samplerate = 16000
+    ...     _parse_audio_slice('file.wav::[1.0:2.0]', None, None)
+    ('file.wav', 16000, 32000)
+    >>> with mock.patch('soundfile.info', mock.MagicMock()) as patch:
+    ...     patch.return_value.samplerate = 16000
+    ...     _parse_audio_slice('file.wav', '3.', '5.')
+    ('file.wav', 48000, 80000)
+    >>> with mock.patch('soundfile.info', mock.MagicMock()) as patch:
+    ...     patch.return_value.samplerate = 16000
+    ...     _parse_audio_slice('file.wav::[1.:10.]', 2., 4.)
+    ('file.wav', 48000, 80000)
     """
-    @functools.lru_cache()
-    def samplerate(path):
-        return soundfile.info(path).samplerate
-
-    _last_type = None
     def to_number(*numbers):
-        nonlocal _last_type
         for num in numbers:
-            if num is None:
-                yield num
-                continue
-            if isinstance(num, str):
-                if '.' in num:
-                    num = round(float(num) * samplerate(path))
-                    cur_type = float
-                else:
-                    num = int(num)
-                    cur_type = int
+            if num is None or isinstance(num, int):
+                pass
+            elif isinstance(num, float):
+                num = round(num * samplerate)
+            elif isinstance(num, str):
+                num = round(float(num) * samplerate) if '.' in num else int(num)
             else:
-                cur_type = type(num)
-
-            if _last_type is None:
-                _last_type = cur_type
-            else:
-                assert _last_type == cur_type, ('All numbers must have a common type (flot or int)', path, start, stop, _last_type, cur_type)
+                raise TypeError(type(num), num)
             yield num
-
-    start, stop = to_number(start, stop)
 
     if '::' in path:
         path, slice = path.split('::')
+        samplerate = soundfile.info(path).samplerate
+        start, stop = to_number(start, stop)
         assert slice[0] == '[' and slice[-1] == ']', slice
         start_, stop_ = to_number(*slice[1:-1].split(':'))
         if start is None and stop is None:
@@ -68,12 +64,11 @@ def _parse_audio_slice(path, start, stop):
         else:
             # Arguments are applied on the [...:...]
             start, stop = start + start_, stop + start_
+    else:
+        samplerate = soundfile.info(path).samplerate
+        start, stop = to_number(start, stop)
 
-    if _last_type is int:
-        assert (stop - start) < 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
-    if _last_type is float:
-        assert (stop - start) < samplerate(path) * 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate(path))
-
+    assert (stop - start) < samplerate * 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate)
     return path, start, stop
 
 
