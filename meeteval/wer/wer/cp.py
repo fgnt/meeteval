@@ -3,8 +3,9 @@ import itertools
 import string
 from typing import Optional, Any, Iterable
 
+import meeteval
 from meeteval._typing import Literal
-from meeteval.io.seglst import SegLST, asseglst
+from meeteval.io.seglst import SegLST, asseglst, asseglistconvertible
 
 from meeteval.wer.wer.error_rate import ErrorRate
 
@@ -279,8 +280,8 @@ def _cp_error_rate(
 
 def apply_cp_assignment(
         assignment: 'list[tuple[Any, ...]] | tuple[tuple[Any, ...], ...]',
-        reference: dict,
-        hypothesis: dict,
+        reference: 'dict | list | tuple | SegLST',
+        hypothesis: 'dict | list | tuple | SegLST',
         style: 'Literal["hyp", "ref"]' = 'ref',
         fallback_keys=string.ascii_letters,
         missing='',
@@ -353,8 +354,85 @@ def apply_cp_assignment(
     >>> test_list([(0, 0), (None, 1)])
     (['0ref', ''], ['0hyp', '1hyp'])
     (['0ref', ''], ['0hyp', '1hyp'])
+
+    Also works for anything convertible to SegLST
+    >>> r, h = apply_cp_assignment(
+    ...     [('rA', 'hB'), ('rB', 'hA')],
+    ...     meeteval.io.STM.parse(
+    ...         'file1 0 rA 0 1 Hello World\\n'
+    ...         'file1 0 rB 0 1 Goodbye'
+    ...     ),
+    ...     meeteval.io.STM.parse(
+    ...         'file1 0 hB 0 1 Hello World\\n'
+    ...         'file1 0 hA 0 1 Goodbye'
+    ...     ),
+    ...     style='ref'
+    ... )
+    >>> print(r.dumps())
+    file1 0 rA 0 1 Hello World
+    file1 0 rB 0 1 Goodbye
+    <BLANKLINE>
+    >>> print(h.dumps())
+    file1 0 rA 0 1 Hello World
+    file1 0 rB 0 1 Goodbye
+    <BLANKLINE>
     """
     assert assignment, assignment
+
+    try:
+        r_conv = asseglistconvertible(reference, py_convert=None)
+        h_conv = asseglistconvertible(hypothesis, py_convert=None)
+    except:
+        # This is a Python structure
+        pass
+    else:
+        reference = r_conv.to_seglst()
+        hypothesis = h_conv.to_seglst()
+
+        # Check for valid keys
+        r_keys, h_keys = zip(*assignment)
+        r_keys = set(r_keys) - {None}
+        h_keys = set(h_keys) - {None}
+        assert r_keys == reference.unique('speaker'), (r_keys, reference.unique('speaker'), assignment)
+        assert h_keys == hypothesis.unique('speaker'), (h_keys, hypothesis.unique('speaker'), assignment)
+
+        fallback_keys_iter = iter([
+            k
+            for k in fallback_keys
+            if k not in r_keys
+            if k not in h_keys
+        ])
+
+        try:
+            if style == 'hyp':
+                assignment = {
+                    r: h if h is not None else next(fallback_keys_iter)
+                    for r, h in assignment
+                    if r is not None
+                }
+                # Change the keys of the reference to those of the hypothesis
+                reference = reference.map(lambda s: {
+                    **s, 'speaker': assignment[s['speaker']]
+                })
+            elif style == 'ref':
+                assignment = {
+                    h: r if r is not None else next(fallback_keys_iter)
+                    for r, h in assignment
+                    if h is not None
+                }
+                hypothesis = hypothesis.map(lambda s: {
+                    **s, 'speaker': assignment[s['speaker']]
+                })
+            else:
+                raise ValueError(f'{style!r} not in ["ref", "hyp"]')
+        except StopIteration:
+            raise RuntimeError(
+                f'Too few fallback keys provided! '
+                f'There are more over-/under-estimated speakers '
+                f'than fallback_keys in {fallback_keys}'
+            )
+
+        return r_conv.new(reference), h_conv.new(hypothesis)
 
     if isinstance(reference, dict) and isinstance(hypothesis, dict):
         # Check for valid keys
