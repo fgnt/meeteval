@@ -41,11 +41,6 @@ def create_viz_folder(
             av.dump(out / f'{session_id}_{i}.html')
             avs.setdefault(i, {})[session_id] = av
 
-    # meeteval.wer.combine_error_rates([
-    #     meeteval.wer.ErrorRate.from_dict(av.data['info']['wer'] for av in avs.values())
-    #
-    # ])
-
     ###########################################################################
 
     from yattag import Doc
@@ -60,16 +55,12 @@ def create_viz_folder(
     for session_id, v in avs_T.items():
         doc, tag, text = Doc().tagtext()
         doc.asis('<!DOCTYPE html>')
-        with tag('html'):
-            with tag('style'):
-                doc.asis("""html, body {height: 100%; margin: 0;}""")
-                doc.asis(
-                    """.full-height {height: 100%; background: yellow;}""")
-            with tag('body',
-                     style="width: 100%; height: 100%; display: flex;"):
+
+        # With 100 % there is a scroll bar -> use 99 %
+        with tag('html', style="height: 99%; margin: 0;"):
+            with tag('body', style="width: 100%; height: 100%; margin: 0; display: flex;"):
                 for i, av in v.items():
-                    with tag('div',
-                             style=f"width: {100 // len(v)}%; height: 100%;"):
+                    with tag('div', style='flex-grow: 1'):
                         with tag('iframe', src=f'{session_id}_{i}.html',
                                  title="right", width="100%",
                                  height="100%"):
@@ -84,6 +75,14 @@ def create_viz_folder(
     from yattag import Doc
     from yattag import indent
 
+    def get_wer(v):
+        error_rate = meeteval.wer.combine_error_rates(*[
+            meeteval.wer.ErrorRate.from_dict(
+                av.data['info']['wer']['hypothesis'])
+            for av in v.values()
+        ]).error_rate
+        return f'{error_rate * 100:.2f} %'
+
     doc, tag, text = Doc().tagtext()
     doc.asis('<!DOCTYPE html>')
     with tag('html'):
@@ -96,13 +95,6 @@ def create_viz_folder(
         with tag('body'):
             with tag('table', klass='tablesorter', id='myTable'):
                 with tag('thead'), tag('tr'):
-                    def get_wer(v):
-                        error_rate = meeteval.wer.combine_error_rates(*[
-                            meeteval.wer.ErrorRate.from_dict(av.data['info']['wer']['hypothesis'])
-                           for av in v.values()
-                        ]).error_rate
-                        return f'{error_rate*100:.2f} %'
-
                     for s in [
                         'Session ID',
                         *[
@@ -125,8 +117,7 @@ def create_viz_folder(
                                              href=f'{session_id}_{i}.html'):
                                         doc.text('viz')
                                 with tag('td'):
-                                    wer = av.data['info']['wer']['hypothesis'][
-                                        'error_rate']
+                                    wer = av.data['info']['wer']['hypothesis']['error_rate']
                                     doc.text(f"{wer * 100:.2f} %")
 
                             with tag('td'):
@@ -191,6 +182,7 @@ def cli():
                          '- cp: Find the permutation that minimizes the cpWER and use the "classical" alignment.\n'
                          '- tcp: Find the permutation that minimizes the tcpWER and use a time constraint alignment.'
                 )
+            elif name == 'hypothesis':
                 command_parser.add_argument(
                     '-h', '--hypothesis',
                     help='Hypothesis file(s) in SegLST, STM or CTM format. '
