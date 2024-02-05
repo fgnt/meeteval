@@ -2,7 +2,8 @@ import collections
 import dataclasses
 from typing import Iterable, Any
 
-from meeteval.io.seglst import asseglst, SegLST
+import meeteval
+from meeteval.io.seglst import asseglst, SegLST, asseglistconvertible
 from meeteval.wer.wer.error_rate import ErrorRate, combine_error_rates
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _items, _keys, _values, _map
@@ -27,6 +28,38 @@ class OrcErrorRate(ErrorRate):
     assignment: 'tuple[int, ...]'
 
     def apply_assignment(self, reference, hypothesis):
+        """
+        >>> OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1)).apply_assignment(['a', 'b'], ['a', 'b'])
+        ([['a'], ['b']], ['a', 'b'])
+        >>> ref = meeteval.io.STM.parse('X 1 A 0.0 1.0 a b\\nX 1 A 1.0 2.0 c d\\nX 1 B 0.0 2.0 e f\\n')
+        >>> hyp = meeteval.io.STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n')
+        >>> ref, hyp = OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1, 1)).apply_assignment(ref, hyp)
+        >>> print(ref.dumps())
+        X 1 0 0.0 1.0 a b
+        X 1 1 1.0 2.0 c d
+        X 1 1 0.0 2.0 e f
+        <BLANKLINE>
+        >>> print(hyp.dumps())
+        X 1 1 0.0 2.0 c d
+        X 1 0 0.0 2.0 a b e f
+        <BLANKLINE>
+        """
+
+        try:
+            r_conv = asseglistconvertible(reference, py_convert=False)
+        except:
+            pass
+        else:
+            reference = r_conv.to_seglst()
+
+            assert len(reference) == len(self.assignment), (len(reference), len(self.assignment))
+            reference = meeteval.io.SegLST([
+                {**r, 'speaker': a}
+                for r, a in zip(reference, self.assignment)
+            ])
+
+            return r_conv.new(reference), hypothesis
+
         ref = collections.defaultdict(list)
 
         assert len(reference) == len(self.assignment), (len(reference), len(self.assignment))
