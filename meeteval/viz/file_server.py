@@ -3,9 +3,9 @@ A file server that exposes wav files from the filesystem:
  - Only delivers wav files
     - Support slices (int -> samples, float -> seconds)
         - server_url/file.wav?start=0&stop=16000
-        - server_url/file.wav::[0:16000]
+        - server_url/file.wav::[0:16_000]
+        - server_url/file.wav::[0:160_000]?start=0&stop=16000
  - Normalizes the audio files (Useful for far-field recordings that typically have a low volume)
- - Supports slicing
 
 python -m meeteval.viz.file_server
 """
