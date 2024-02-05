@@ -18,6 +18,14 @@ class SelfOverlap:
     overlap_time: float
     total_time: float
 
+    @classmethod
+    def zero(cls):
+        """
+        The "neutral element" for error rates.
+        Useful as a starting point in sum.
+        """
+        return SelfOverlap(0, 0)
+
     def __post_init__(self):
         if self.overlap_time < 0:
             raise ValueError()
