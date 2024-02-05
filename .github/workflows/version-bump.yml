@@ -1,0 +1,33 @@
+name: Bump Version
+# Workflow must be triggered manually
+on:
+  workflow_dispatch:
+    inputs:
+      part:
+        description: 'Part of the version to be bumped.'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+permissions:
+  contents: write
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          pip install bump2version
+      - name: Bump version
+        run: |
+          # Username taken from https://github.com/jqlang/jq/blob/13e02ba348b51b60350d142ab16f2ac6f4e5967a/.github/workflows/ci.yml#L399
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          bump2version ${PART} --tag --verbose
+          git push --tags
+        env:
+          PART: ${{ inputs.part }}
