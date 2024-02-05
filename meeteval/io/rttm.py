@@ -24,7 +24,7 @@ class RTTMLine(BaseLine):
             Speaker Type -- should always be <NA>
             Speaker Name -- name of speaker of turn; should be unique within scope of each file
             Confidence Score -- system confidence (probability) that information is correct; should always be <NA>
-            Signal Lookahead Time -- should always be <NA>
+            Signal Lookahead Time -- should always be <NA> (Will be added if missing)
 
         For instance:
 
@@ -33,11 +33,15 @@ class RTTMLine(BaseLine):
             SPEAKER CMU_20020319-1400_d01_NONE 1 130.490000 0.450 <NA> <NA> chek <NA> <NA>
 
     Note:
-        The RTTM definition (Appendix A in "The 2009 (RT-09) Rich Transcription
+      - The RTTM definition (Appendix A in "The 2009 (RT-09) Rich Transcription
         Meeting Recognition Evaluation Plan") doesn't say anything about the
         channel format or defaults, but dscore enforces a "1" for the channel
         (https://github.com/nryant/dscore#rttm),
         Hence, the default here is 1 for channel.
+      - In https://catalog.ldc.upenn.edu/docs/LDC2004T12/RTTM-format-v13.pdf 
+        the RTTM file is defined with 9 fields. Hence, we allow 9 and add a 10th
+        field. Kaldi also uses 9 fields:
+        https://github.com/kaldi-asr/kaldi/blob/master/egs/wsj/s5/steps/segmentation/convert_utt2spk_and_segments_to_rttm.py
 
     """
     type: str = 'SPEAKER'
@@ -56,10 +60,16 @@ class RTTMLine(BaseLine):
         """
         >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA> <NA>')
         RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), orthography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
+        >>> RTTMLine.parse('SPEAKER CMU_20020319-1400_d01_NONE 1 130.430000 2.350 <NA> <NA> juliet <NA>')
+        RTTMLine(type='SPEAKER', filename='CMU_20020319-1400_d01_NONE', channel='1', begin_time=Decimal('130.430000'), duration=Decimal('2.350'), orthography='<NA>', speaker_type='<NA>', speaker_id='juliet', confidence='<NA>', signal_look_ahead_time='<NA>')
         """
+        line_args = list(line.split())
+        assert len(line_args) in [9, 10], (len(line_args), line, line_args)
+        if len(line_args) < 10:
+            line_args  += ['<NA>' * (10 - len(line_args))]
         type_, filename, channel, begin_time, duration, orthography, \
         speaker_type, speaker_id, confidence, signal_look_ahead_time, \
-            = line.split()
+            = line_args
 
         if parse_float is float:
             def parse_float(x):
