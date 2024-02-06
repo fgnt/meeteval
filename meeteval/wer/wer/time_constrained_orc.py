@@ -1,7 +1,6 @@
 import meeteval
-from meeteval.wer import ErrorRate, combine_error_rates
-from meeteval.wer.wer.error_rate import SelfOverlap
-from meeteval.wer.wer.orc import OrcErrorRate
+from meeteval.wer import combine_error_rates
+from meeteval.wer.wer.orc import OrcErrorRate, apply_orc_assignment
 from meeteval.wer.wer.time_constrained import get_self_overlap
 from meeteval.wer.wer.utils import check_single_filename
 
@@ -35,7 +34,12 @@ def time_constrained_orc_wer(
     >>> time_constrained_orc_wer([], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
     OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=())
     >>> time_constrained_orc_wer([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}], [])
-    OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=1, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=())
+    OrcErrorRate(error_rate=1.0, errors=1, length=1, insertions=0, deletions=1, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=('dummy',))
+    >>> time_constrained_orc_wer([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': '', 'speaker': 'A'}], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
+    OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=('A',))
+    >>> time_constrained_orc_wer([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a b', 'speaker': 'A'}], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a d', 'speaker': 'A'}])
+    OrcErrorRate(error_rate=0.5, errors=1, length=2, insertions=0, deletions=0, substitutions=1, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=('A',))
+
     """
     if reference_sort == 'word':
         raise ValueError(
@@ -50,7 +54,9 @@ def time_constrained_orc_wer(
     check_single_filename(reference, hypothesis)
 
     # Add a segment index to the reference so that we can later find words that
-    # come from the same segment
+    # come from the same segment. Do this before removing empty segments so that
+    # we can still find the original segments in the reference after the
+    # assignment.
     for i, s in enumerate(reference):
         s['segment_index'] = i
 
@@ -66,6 +72,7 @@ def time_constrained_orc_wer(
     ) if len(hypothesis) > 0 else None
 
     # Remove empty segments
+    reference_missing_segments = reference.filter(lambda s: s['words'] == '')
     reference = reference.filter(lambda s: s['words'] != '')
     hypothesis = {
         k: h.filter(lambda s: s['words'] != '')
@@ -106,19 +113,28 @@ def time_constrained_orc_wer(
     )
 
     # Translate the assignment from hypothesis index to stream id
-    hypothesis_keys = list(hypothesis.keys())
+    hypothesis_keys = list(hypothesis.keys()) or ['dummy']
     assignment = [hypothesis_keys[h] for h in assignment]
 
-    # Apply assignment in seglst format
-    r_ = list(reference.groupby('segment_index').values())  # Shallow copy because we pop later
-    if assignment:
-        reference_new = []
-        for h in assignment:
-            for w in r_.pop(0):
-                reference_new.append({**w, 'speaker': h})
-        reference_new = meeteval.io.SegLST(reference_new).groupby('speaker')
-    else:
-        reference_new = reference.groupby('speaker')
+    # Apply assignment
+    reference_new, _ = apply_orc_assignment(assignment, reference, hypothesis)
+
+    # Put the original segments back by inserting empty segments that were
+    # removed in the beginning
+    # TODO: Estimate the stream for the missing segments
+    reference_missing_segments = reference_missing_segments.map(
+        lambda s: {**s, 'speaker': hypothesis_keys[0]}
+    )
+    reference_new = meeteval.io.SegLST.merge(
+        reference_new, reference_missing_segments
+    ).sorted('start_time')
+    assignment = tuple([
+        v[0]['speaker']
+        for v in reference_new.groupby('segment_index').values()
+    ])
+
+    # Group by speaker
+    reference_new = reference_new.groupby('speaker')
 
     # Consistency check: Compute WER with the siso algorithm after applying the
     # assignment and compare the result with the distance from the ORC algorithm

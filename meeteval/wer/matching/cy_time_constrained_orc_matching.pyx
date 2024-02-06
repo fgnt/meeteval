@@ -31,7 +31,7 @@ def time_constrained_orc_levenshtein_distance(
     if len(reference) == 0:
         return sum(len(h) for h in hypothesis), []
     if len(hypothesis) == 0:
-        return sum(len(r) for r in reference), []
+        return sum(len(r) for r in reference), [0] * len(reference)
 
     # Translate symbols/words to integers for the cpp code
     all_symbols = set()

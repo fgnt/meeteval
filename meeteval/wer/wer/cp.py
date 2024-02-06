@@ -287,8 +287,7 @@ def apply_cp_assignment(
         missing='',
 ):
     """
-    Apply the assignment, so that reference and hypothesis have the same
-    keys.
+    Apply the assignment so that reference and hypothesis have the same keys.
 
     The code is roughly:
         if style == 'ref':
