@@ -266,7 +266,7 @@ def tcorcwer(
 
 def _merge(
         files: 'list[str]',
-        out: str = None,
+        out: str = '-',
         average: bool = None,
         regex: str = None,
 ):
@@ -305,12 +305,12 @@ def _merge(
     _dump(out_data, Path(out), default_suffix=files[0].suffix)
 
 
-def merge(files, out):
+def merge(files, out='-'):
     """Merges multiple (per-reco or averaged) files"""
     return _merge(files, out, average=None)
 
 
-def average(files, out, regex=None):
+def average(files, out='-', regex=None):
     """Computes the average over one or multiple per-reco files"""
     return _merge(files, out, average=True, regex=regex)
 
@@ -388,14 +388,14 @@ class CLI:
         if name == 'reference':
             command_parser.add_argument(
                 '-r', '--reference',
-                help='Reference file(s) in STM or CTM format',
+                help='Reference file(s) in SegLST, STM or CTM format',
                 nargs='+', action=self.extend_action,
                 required=True,
             )
         elif name == 'hypothesis':
             command_parser.add_argument(
                 '-h', '--hypothesis',
-                help='Hypothesis file(s) in STM or CTM format',
+                help='Hypothesis file(s) in SegLST, STM or CTM format',
                 nargs='+', action=self.extend_action,
                 required=True,
             )
@@ -418,7 +418,7 @@ class CLI:
         elif name == 'out':
             command_parser.add_argument(
                 '-o', '--out',
-                required=False, default='-',
+                required=False,
             )
         elif name == 'collar':
             command_parser.add_argument(
