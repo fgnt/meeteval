@@ -443,6 +443,8 @@ def _get_key(key):
         return key
     elif isinstance(key, (str, int)):
         return operator.itemgetter(key)
+    elif isinstance(key, (tuple, list)) and len(key) and isinstance(key[0], (str, int)):
+        return operator.itemgetter(*key)
     else:
         raise TypeError(f'Invalid type for key: {type(key)}')
 
@@ -477,6 +479,8 @@ def groupby(
         {0: [{'a': 0, 'b': 0}, {'a': 0, 'b': 2}], 1: [{'a': 1, 'b': 1}]}
         >>> groupby(['abc', 'bd', 'abd', 'cdef', 'c'], 0)
         {'a': ['abc', 'abd'], 'b': ['bd'], 'c': ['cdef', 'c']}
+        >>> groupby(['abc', 'bd', 'abd', 'cdef', 'cd'], [0, 1])
+        {('a', 'b'): ['abc', 'abd'], ('b', 'd'): ['bd'], ('c', 'd'): ['cdef', 'cd']}
         >>> groupby('abc', {})
         Traceback (most recent call last):
             ...

@@ -25,7 +25,7 @@ def _glob(pathname):
 def _maybe_load(paths, file_format) -> meeteval.io.SegLST:
     if isinstance(paths, (str, Path)):
         paths = [paths]
-    if isinstance(paths, (tuple, list)):
+    if isinstance(paths, (tuple, list)) and len(paths) and isinstance(paths[0], (str, Path)):
         paths = [Path(file) for r in paths for file in _glob(str(r))]
         return meeteval.io.asseglst(
             meeteval.io.load(paths, format=file_format))

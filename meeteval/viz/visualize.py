@@ -1,4 +1,6 @@
 import logging
+import os
+import json
 
 import meeteval
 from meeteval.wer import ErrorRate
@@ -352,7 +354,12 @@ class AlignmentVisualization:
             highlight_regex=None,
             alignment_transform=None,
             markers=None,
+            recording_file: 'str | Path | dict[str, str | Path]' = None,
     ):
+        if isinstance(reference, (str, Path)):
+            reference = meeteval.io.load(reference)
+        if isinstance(hypothesis, (str, Path)):
+            hypothesis = meeteval.io.load(hypothesis)
         self.reference = reference
         self.hypothesis = hypothesis
         self.alignment = alignment
@@ -365,6 +372,14 @@ class AlignmentVisualization:
         self.highlight_regex = highlight_regex
         self.alignment_transform = alignment_transform
         self.markers = markers
+        if recording_file:
+            if not isinstance(recording_file, dict):
+                recording_file = {"": os.fspath(recording_file)}
+            for k, v in recording_file.items():
+                assert os.path.exists(v), (k, v, recording_file)
+        else:
+            recording_file = {'': ''}
+        self.recording_file = recording_file
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -447,7 +462,8 @@ class AlignmentVisualization:
                             show_legend: {'true' if self.show_legend else 'false'},
                             search_bar: {{
                                 initial_query: {highlight_regex}
-                            }}
+                            }},
+                            recording_file: {json.dumps(self.recording_file, default=os.fspath)}
                         }}
                     );
                     else setTimeout(exec, 100);
