@@ -586,8 +586,8 @@ def apply_multi_file(
 
         if len(reference.keys()) == 0:
             logging.warning(
-                f'The reference is empty, but found keys {reference.keys()} '
-                f'in the hypothesis'
+                f'The reference is empty, but found keys '
+                f'{list(hypothesis.keys())} in the hypothesis'
             )
             ratio = 0
         else:
@@ -601,10 +601,12 @@ def apply_multi_file(
             # we can safely ignore it. Missing in hypothesis is a problem,
             # because we cannot distinguish between silence and missing.
             logging.warning(
-                f'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} (Total: '
-                f'{len(h_minus_r)} of {len(reference)})\n'
-                f'Drop them.',
+                f'{len(h_minus_r)} of {len(hypothesis)} keys are present in '
+                f'the hypothesis but missing in the reference. \n'
+                f'Missing (showing first 5): {h_minus_r[:5]}\n'
+                f'The computation continues with the assumption that only the '
+                f'sub-set of sessions present in the reference should be '
+                f'evaluated.',
             )
             hypothesis = {
                 k: v
@@ -620,21 +622,29 @@ def apply_multi_file(
             pass
         elif ratio <= allowed_empty_examples_ratio:
             logging.warning(
-                f'Missing {ratio * 100:.3} % = '
-                f'{len(r_minus_h)}/{len(reference.keys())} of recordings in'
-                f' hypothesis.\n'
-                f'Please check your system, if it ignored some recordings or '
-                f'predicted no transcriptions for some recordings.\n'
-                f'Continue with the assumption, that the system predicted '
-                f'silence for the missing recordings.',
+                f'Missing {ratio * 100:.3f} % = '
+                f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
+                f'hypothesis. An exception will be raised when this number '
+                f'exceeds {allowed_empty_examples_ratio * 100:3} %.\n'
+                f'Please check if your system ignored recordings or '
+                f'predicted silence (no transcripts) for some recordings. '
+                f'It is recommended to output an empty transcript if silence '
+                f'was recognized.\n'
+                f'Missing (showing first 5): {r_minus_h[:5]}\n'
+                f'The computation continues with the assumption that the system '
+                f'predicted silence for the missing recordings.',
             )
         else:
             raise RuntimeError(
-                'Keys of reference and hypothesis differ\n'
-                f'hypothesis - reference: e.g. {h_minus_r[:5]} '
-                f'(Total: {len(h_minus_r)} of {len(hypothesis)})\n'
-                f'reference - hypothesis: e.g. {r_minus_h[:5]} '
-                f'(Total: {len(r_minus_h)} of {len(reference)})'
+                f'Missing {ratio * 100:.3f} % = '
+                f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
+                f'hypothesis. This exceeds the threshold of '
+                f'{allowed_empty_examples_ratio * 100:3} %.\n'
+                f'Please check if your system ignored recordings or '
+                f'predicted silence (no transcripts) for some recordings. '
+                f'It is recommended to output an empty transcript if silence '
+                f'was recognized.\n'
+                f'Missing (showing first 5): {r_minus_h[:5]}'
             )
 
     results = {}
