@@ -547,6 +547,14 @@ def apply_multi_file(
     `reference` and `hypothesis` must be convertible to `SegLST`. If they are a
     Python structure, the first level is interpreted as the session / file key.
 
+    Reference and hypothesis should have the same keys. If a reference key is
+    missing, it is assumed that the user only evaluates a subset and the
+    corresponding hypothesis segments are dropped. A missing hypothesis key is
+    interpreted as silence, where the ratio of allowed missing hypothesis keys
+    is limited by `allowed_empty_examples_ratio`. If the amount of missing
+    hypothesis keys exceeds `allowed_empty_examples_ratio`, a `RuntimeError` is
+    raised.
+
     >>> from meeteval.wer.wer.cp import cp_word_error_rate
     >>> from pprint import pprint
     >>> ref = [['a b c', 'd e f'], ['g h i']]
@@ -576,9 +584,19 @@ def apply_multi_file(
         h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
         r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
 
-        ratio = len(r_minus_h) / len(reference.keys())
+        if len(reference.keys()) == 0:
+            logging.warning(
+                f'The reference is empty, but found keys {reference.keys()} '
+                f'in the hypothesis'
+            )
+            ratio = 0
+        else:
+            ratio = len(r_minus_h) / len(reference.keys())
 
         if h_minus_r:
+            # Keys are missing in the reference.
+            # Assume that the user only wants to evaluate a sub-set defined by
+            # the keys present in the reference.
             # This is a warning, because missing in reference is not a problem,
             # we can safely ignore it. Missing in hypothesis is a problem,
             # because we cannot distinguish between silence and missing.
@@ -594,6 +612,10 @@ def apply_multi_file(
                 if k not in h_minus_r
             }
 
+        # The following if statement is active when keys are missing in the
+        # hypothesis. We assume that the system didn't produce any output for
+        # the missing examples but throw an exception when a threshold is
+        # exceeded
         if len(r_minus_h) == 0:
             pass
         elif ratio <= allowed_empty_examples_ratio:
@@ -617,6 +639,6 @@ def apply_multi_file(
 
     results = {}
     for session in reference.keys():
-        results[session] = fn(reference[session], hypothesis[session])
+        results[session] = fn(reference[session], hypothesis.get(session, SegLST([])))
 
     return results
