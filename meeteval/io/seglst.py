@@ -626,10 +626,9 @@ def apply_multi_file(
                 f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
                 f'hypothesis. An exception will be raised when this number '
                 f'exceeds {allowed_empty_examples_ratio * 100:3} %.\n'
-                f'Please check if your system ignored recordings or '
-                f'predicted silence (no transcripts) for some recordings. '
+                f'Please check if your system ignored recordings. '
                 f'It is recommended to output an empty transcript if silence '
-                f'was recognized.\n'
+                f'was recognized in order to reliably detect errors.\n'
                 f'Missing (showing first 5): {r_minus_h[:5]}\n'
                 f'The computation continues with the assumption that the system '
                 f'predicted silence for the missing recordings.',
@@ -640,10 +639,9 @@ def apply_multi_file(
                 f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
                 f'hypothesis. This exceeds the threshold of '
                 f'{allowed_empty_examples_ratio * 100:3} %.\n'
-                f'Please check if your system ignored recordings or '
-                f'predicted silence (no transcripts) for some recordings. '
+                f'Please check if your system ignored recordings. '
                 f'It is recommended to output an empty transcript if silence '
-                f'was recognized.\n'
+                f'was recognized in order to reliably detect errors.\n'
                 f'Missing (showing first 5): {r_minus_h[:5]}'
             )
 
