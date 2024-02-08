@@ -34,7 +34,6 @@ function alignment_visualization(
         },
         minimaps: {
             number: 2,
-            height: 200,
         },
         show_details: true,
         show_legend: true,
@@ -292,7 +291,6 @@ class CanvasPlot {
     element;
     canvas;
     context;
-    position;
     width;
     height;
     x_axis_padding;
@@ -301,27 +299,24 @@ class CanvasPlot {
     y;
 
     /**
-     * Creates a canvas and axis elements to be drawn on a canvas plot
+     * Creates a canvas and axis elements to be drawn on a canvas plot.
+     *
+     * Width and height of the plot are determined by the `element` and can be set by CSS.
      *
      * @param element
-     * @param width
-     * @param height
      * @param x_scale
      * @param y_scale
-     * @returns {{canvas, drawAxes: drawAxes, context: *, width, x: *, clear: clear, y: *, position: {x: number, y: number}, x_axis_padding: *, y_axis_padding: *, height}}
      */
-    constructor(element, width, height, x_scale, y_scale, xAxis, yAxis, invert_y=false, x_axis_label='',) {
-        this.element = element.append("div").style("position", "relative").style("height", height + "px");
-        this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%");
+    constructor(element, x_scale, y_scale, xAxis, yAxis, invert_y=false) {
+        this.element = element.style('position', 'relative');
+        this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%").style("position", "absolute").style("top", 0).style("left", 0);
+
         this.context = this.canvas.node().getContext("2d")
-        this.width = width
-        this.height = height
         this.xAxis = xAxis;
         this.yAxis = yAxis;
         this.x_axis_padding = xAxis?.padding || 0;
         this.y_axis_padding = yAxis?.padding || 0;
         this.invert_y = invert_y
-        this.x_axis_label = x_axis_label;
 
         if (this.xAxis) this.xAxis.horizontal = true;
         if (this.yAxis) this.yAxis.horizontal = false;
@@ -332,8 +327,8 @@ class CanvasPlot {
         this.sizeChangedListeners = [];
         this.canvasSizeChanged();
 
-        // Track size changes of our canvas
-        new ResizeObserver(this.canvasSizeChanged.bind(this)).observe(this.canvas.node());
+        // Track size changes of our canvas.
+        new ResizeObserver(this.canvasSizeChanged.bind(this)).observe(this.element.node());
     }
 
     onSizeChanged(callback) {
@@ -341,8 +336,11 @@ class CanvasPlot {
     }
 
     canvasSizeChanged() {
-        this.width = this.canvas.node().offsetWidth;
-        this.height = this.canvas.node().offsetHeight;
+        // Monitor the size change of the parent div, not the canvas.
+        // The canvas will not shrink below canvas.height.
+        // We set the canvas display to absolute so that the div can shrink
+        this.width = this.element.node().clientWidth;
+        this.height = this.element.node().clientHeight;
         this.canvas.attr("width", this.width);
         this.canvas.attr("height", this.height);
         this.x.range([this.y_axis_padding, this.width])
@@ -720,18 +718,18 @@ class CanvasPlot {
     }
 
     class Minimap {
-        constructor(element, width, height, x_scale, y_scale, words) {
-            const e = element.append('div').classed("minimap", true)
+        constructor(element, x_scale, y_scale, words) {
+            const e = element.classed("minimap", true)
 
             if (settings.barplot.style !== "hidden") {
                 this.error_bars = new ErrorBarPlot(
-                    new CanvasPlot(e, width, 40, x_scale,
+                    new CanvasPlot(e.append('div').style('height', '30px'), x_scale,
                     d3.scaleLinear().domain([1, 0]),
                         null, new Axis(50, 3),
                 ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
             }
             this.word_plot = new WordPlot(
-                new CanvasPlot(e, width, 100, x_scale, y_scale,
+                new CanvasPlot(e.append('div').style('height', '80px'), x_scale, y_scale,
                     new CompactAxis(10, "time"), new Axis(50), true),
                 words
             );
@@ -744,7 +742,6 @@ class CanvasPlot {
             this.word_plot.plot.element.append("div").classed("plot-label", true).style("margin-left", this.word_plot.plot.y_axis_padding + "px").text("Segments");
 
             this.svg = e.append("svg")
-                // .attr("width", width).attr("height", this.error_bars.plot.height + this.word_plot.plot.height)
                 .style("position", "absolute").style("top", 0).style("left", 0).style("width", "100%").style("height", "100%");
 
             this.brush = d3.brushX()
@@ -1036,7 +1033,6 @@ class CanvasPlot {
             var lastTouchY = [];
             this.plot.element.on("touchstart", event => {
                 // TouchList doesn't implement iterator
-                alert("touchstart")
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
                     lastTouchY.push(event.touches[i].screenY);
@@ -1044,7 +1040,6 @@ class CanvasPlot {
             });
             this.plot.element.on("touchend", event => {
                 // TouchList doesn't implement iterator
-                alert("touchend")
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
                     lastTouchY.push(event.touches[i].screenY);
@@ -1553,10 +1548,6 @@ class CanvasPlot {
     const speakers = data.utterances .map(d => d.speaker)
 
     // Setup plot elements
-    var margin = {top: 30, right: 30, bottom: 70, left: 60},
-        width = 1500 - margin.left - margin.right,
-        height = 300 - margin.top - margin.bottom;
-
     const top_row_container = root_element.append("div").classed("top-row", true)
     drawHelpButton(top_row_container);
     drawExampleInfo(top_row_container, data.info)
@@ -1577,8 +1568,8 @@ class CanvasPlot {
         drawRecordingAudioButton(top_row_container, rangeSelector, key, value);
     }
 
-    const plot_container = root_element.append("div").style("margin", "10px")
-    const plot_div = plot_container.append("div").style("position", "relative")
+    root_element.style("display", "flex").style("flex-direction", "column");
+    const plot_div = root_element.append('div').classed("plot-area", true);
 
     var details_plot = null;
     function rebuild() {
@@ -1588,7 +1579,7 @@ class CanvasPlot {
 
         for (let i = 0; i < settings.minimaps.number; i++) {
             const minimap = new Minimap(
-                plot_div, width, settings.minimaps.height,
+                plot_div.append('div'),
                 d3.scaleLinear().domain(time_domain),
                 d3.scaleBand().domain(speakers).padding(0.1),
                 data.words,
@@ -1601,7 +1592,7 @@ class CanvasPlot {
 
         if (settings.show_details) {
             details_plot = new DetailsPlot(
-                new CanvasPlot(plot_div, width, 700,
+                new CanvasPlot(plot_div.append('div').style('flex-grow', '1'),
                     d3.scaleBand().domain(speakers).padding(0.1),
                     d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
                     new DetailsAxis(30), new Axis(50), true

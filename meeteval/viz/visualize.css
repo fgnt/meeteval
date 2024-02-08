@@ -3,8 +3,21 @@
     font-family: Arial, Helvetica, sans-serif;
 }
 
+.meeteval-viz {
+    margin: auto;
+}
+
 .meeteval-viz table {
     color: black;
+}
+
+.plot-area {
+    margin-top: 5px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex-grow: 1;
 }
 
 /* Styles for menu bar pills*/
@@ -99,9 +112,9 @@ i {
     margin: 0;
     margin-right: 0px;
     /*border:none;*/
-    outline:none;
-    border-radius:0.6em;
-    cursor:pointer;
+    outline: none;
+    border-radius: 0.6em;
+    cursor: pointer;
 }
 
 .copybutton i {
@@ -145,7 +158,7 @@ visible area.
 */
 .tooltip .tooltipcontent {
     visibility: hidden;
-    
+
     white-space: pre-wrap;
     background-color: #555;
     color: #fff;
@@ -177,12 +190,12 @@ visible area.
 }
 
 /* Show the tooltip text when you hover over the tooltip container */
-.tooltip:hover > .tooltipcontent {
+.tooltip:hover>.tooltipcontent {
     visibility: visible;
     opacity: 1;
     transition: opacity 0.1s;
     transition-delay: 0.2s;
-  }
+}
 
 /* Style for the help text displayed when no utterance is selected */
 .utterance-details-help {
@@ -260,13 +273,13 @@ wer table */
 /* Chrome, Safari, Edge, Opera */
 .range-selector input::-webkit-outer-spin-button,
 .range-selector input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 /* Firefox */
 .range-selector input[type=number] {
-  -moz-appearance: textfield;
+    -moz-appearance: textfield;
 }
 
 /* Hint shown below tables in tooltips */
@@ -279,15 +292,15 @@ wer table */
 }
 
 .search-bar button {
-  background-color: #eee;
-  color: #333333;
-  cursor: pointer;
-  display: inline-block;
-  border: none;
-  margin: 0;
-  /* padding: 10px 12px; */
-  white-space: nowrap;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
+    background-color: #eee;
+    color: #333333;
+    cursor: pointer;
+    display: inline-block;
+    border: none;
+    margin: 0;
+    /* padding: 10px 12px; */
+    white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
 }
