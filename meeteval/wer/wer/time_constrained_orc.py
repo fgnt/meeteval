@@ -49,8 +49,8 @@ def time_constrained_orc_wer(
         )
 
     # Convert to seglst
-    reference = meeteval.io.asseglst(reference)
-    hypothesis = meeteval.io.asseglst(hypothesis)
+    original_reference = reference = meeteval.io.asseglst(reference)
+    original_hypothesis = hypothesis = meeteval.io.asseglst(hypothesis)
     check_single_filename(reference, hypothesis)
 
     # Add a segment index to the reference so that we can later find words that
@@ -120,29 +120,39 @@ def time_constrained_orc_wer(
     reference_new, _ = apply_orc_assignment(assignment, reference, hypothesis)
 
     # Put the original segments back by inserting empty segments that were
-    # removed in the beginning
+    # removed in the beginning. Sort by segment_index to get the assignment in
+    # the same order as the input to this function.
     # TODO: Estimate the stream for the missing segments
     reference_missing_segments = reference_missing_segments.map(
         lambda s: {**s, 'speaker': hypothesis_keys[0]}
     )
     reference_new = meeteval.io.SegLST.merge(
         reference_new, reference_missing_segments
-    ).sorted('start_time')
+    ).sorted('segment_index')
     assignment = tuple([
         v[0]['speaker']
         for v in reference_new.groupby('segment_index').values()
     ])
 
+    # Apply the assignment to the original reference for the consistency check.
+    original_reference, _ = apply_orc_assignment(assignment, original_reference, original_hypothesis)
+
     # Group by speaker
-    reference_new = reference_new.groupby('speaker')
+    reference_new = original_reference.groupby('speaker')
+    original_hypothesis = original_hypothesis.groupby('speaker')
 
     # Consistency check: Compute WER with the siso algorithm after applying the
     # assignment and compare the result with the distance from the ORC algorithm
-    from meeteval.wer.wer.time_constrained import _time_constrained_siso_error_rate
+    from meeteval.wer.wer.time_constrained import time_constrained_siso_word_error_rate
     er = combine_error_rates(*[
-        _time_constrained_siso_error_rate(
+        time_constrained_siso_word_error_rate(
             reference_new.get(k, meeteval.io.SegLST([])),
-            hypothesis.get(k, meeteval.io.SegLST([])),
+            original_hypothesis.get(k, meeteval.io.SegLST([])),
+            reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+            hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+            collar=collar,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
         )
         for k in set(hypothesis.keys()) | set(reference_new.keys())
     ])
