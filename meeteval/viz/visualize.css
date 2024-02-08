@@ -267,7 +267,13 @@ wer table */
     /* background: red; */
     border-radius: 3px;
     border: 1px solid gray;
-    width: 3em;
+    width: 8em;
+    text-align: center;
+}
+
+.input-error {
+    border: 1px solid red !important;
+    background: #ffcccc;
 }
 
 /* Chrome, Safari, Edge, Opera */

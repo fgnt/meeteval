@@ -1468,15 +1468,42 @@ class CanvasPlot {
         constructor(container) {
             this.container = container.append("div").classed("range-selector", true).classed("pill", true);
             this.container.append("div").classed("info-label", true).text("Selection:");
-            this.lower_input = this.container.append("input").attr("type", "number").classed("range-selector-input", true).attr("min", 0).attr("max", 1).attr("step", 0.01).attr("value", 0).on("change", this._onSelect.bind(this))
-            this.container.append("span").text("-")
-            this.upper_input = this.container.append("input").attr("type", "number").classed("range-selector-input", true).attr("min", 0).attr("max", 1).attr("step", 0.01).attr("value", 0).on("change", this._onSelect.bind(this))
+
+            this.input = this.container.append("input")
+                .attr("type", "text")
+                .classed("range-selector-input", true)
+                .attr("placeholder", "e.g. 0.0 - 1.0")
+                // .attr("value", "0.0 - 1.0")
+                .on("change", this._onSelect.bind(this))
+                .on("input", this._onSelect.bind(this));
+
+            this.selection = [0,0];
+
             this.on_select_callbacks = [];
         }
 
         _onSelect() {
-            let [a, b] = [this.lower_input.node().value, this.upper_input.node().value];
-            if (a < b) this.on_select_callbacks.forEach(c => c(a, b));
+            const value = this.input.node().value;
+
+            const match = /^(?<start>[+-]?([0-9]*[.])?[0-9]+)\s*-\s*(?<end>[+-]?([0-9]*[.])?[0-9]+)$/.exec(value);
+
+            console.log("input", value, match)
+
+            if (match) {
+                const start = parseFloat(match.groups.start),
+                        end = parseFloat(match.groups.end);
+                console.log(match, start, end)
+                if (!isNaN(start) && !isNaN(end) && start < end) {
+                    // This is the only valid case
+                    this.input.classed("input-error", false);
+                    this.selection = [start, end];
+                    this.on_select_callbacks.forEach(c => c(start, end));
+                    return;
+                }
+            }
+
+            // Hint that something is wrong
+            this.input.classed("input-error", true);
         }
 
         onSelect(callback) {
@@ -1484,8 +1511,11 @@ class CanvasPlot {
         }
 
         zoomTo(x0, x1) {
-            this.lower_input.node().value = x0.toFixed(1);
-            this.upper_input.node().value = x1.toFixed(1);
+            x0 = x0.toFixed(1);
+            x1 = x1.toFixed(1);
+            if (this.selection == [x0, x1]) return;
+            this.selection = [x0, x1];
+            this.input.node().value = `${this.selection[0]} - ${this.selection[1]}`;
         }
     }
 
@@ -1494,8 +1524,8 @@ class CanvasPlot {
             // Note: Deleting and adding an audio with the same content doesn't
             //       trigger a load. Hence, no optimization necessary.
             audio_div.selectAll("*").remove();
-            let lower = rangeSelector.lower_input.node().value;
-            let upper = rangeSelector.upper_input.node().value;
+            let lower = rangeSelector.selection[0];
+            let upper = rangeSelector.selection[1];
             let range = lower + " - " + upper;
             let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             if ( parseFloat(lower) < parseFloat(upper) ){
@@ -1509,8 +1539,8 @@ class CanvasPlot {
             }
         };
         let maybe_remove_audio = function (){
-            let lower = rangeSelector.lower_input.node().value;
-            let upper = rangeSelector.upper_input.node().value;
+            let lower = rangeSelector.selection[0];
+            let upper = rangeSelector.selection[1];
             let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             let audio = audio_div.select("audio")
             if ( ! audio.empty() ){
@@ -1539,7 +1569,7 @@ class CanvasPlot {
 
         pill.on("mouseenter", maybe_remove_audio);
 
-        update_audio()
+        // update_audio()
     }
 
     // Data preprocessing
