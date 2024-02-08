@@ -719,7 +719,7 @@ class CanvasPlot {
 
     class Minimap {
         constructor(element, x_scale, y_scale, words) {
-            const e = element.classed("minimap", true)
+            const e = element.classed("plot minimap", true)
 
             if (settings.barplot.style !== "hidden") {
                 this.error_bars = new ErrorBarPlot(
@@ -933,7 +933,7 @@ class CanvasPlot {
     class DetailsPlot {
         constructor(plot, words, utterances, markers, ref_hyp_gap=10) {
             this.plot = plot;
-            this.plot.element.classed("minimap", true)
+            this.plot.element.classed("plot", true)
             this.words = words;
             this.filtered_words = words;
             this.utterances = utterances;

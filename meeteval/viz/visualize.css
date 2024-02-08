@@ -122,7 +122,7 @@ i {
 }
 
 /* Plot elements */
-.minimap {
+.plot {
     position: relative;
     background-color: white;
     margin-bottom: 1px;
