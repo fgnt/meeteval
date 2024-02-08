@@ -938,7 +938,7 @@ class CanvasPlot {
             this.filtered_words = words;
             this.utterances = utterances;
             this.filtered_utterances = utterances;
-            this.max_length = plot.y.domain()[1];
+            this.max_domain = plot.y.domain();
             this.ref_hyp_gap = ref_hyp_gap;
             this.markers = markers;
             this.filtered_markers = markers;
@@ -1009,16 +1009,15 @@ class CanvasPlot {
                     // Zoom when ctrl is pressed. Zoom centered on mouse position
                     const mouse_y = this.plot.y.invert(event.layerY);
                     const ratio = (mouse_y - begin) / (end - begin);
-                    begin = Math.max(0, begin - delta * ratio);
-                    end = Math.min(end + delta * (1-ratio), this.max_length);
+                    begin = Math.max(this.max_domain[0], begin - delta * ratio);
+                    end = Math.min(end + delta * (1-ratio), this.max_domain[1]);
                 } else {
                     // Move when ctrl is not pressed
-                    if (end + delta > this.max_length) delta = this.max_length - end;
-                    if (begin + delta < 0) delta = -begin;
+                    if (end + delta > this.max_domain[1]) delta = this.max_domain[1] - end;
+                    if (begin + delta < this.max_domain[0]) delta = this.max_domain[0] - begin;
                     begin = begin + delta;
                     end = end + delta;
                 }
-                // TODO: We shouldn't call zoomTo here because it would create an update loop
                 this._callOnScrollHandlers(begin, end);
                 event.preventDefault();
             }, false)
@@ -1544,7 +1543,7 @@ class CanvasPlot {
     }
 
     // Data preprocessing
-    const time_domain = [0, Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
+    const time_domain = [Math.min(0, Math.min.apply(null, (data.utterances.map(d => d.start_time))) - 1), Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
     const speakers = data.utterances .map(d => d.speaker)
 
     // Setup plot elements
@@ -1594,7 +1593,7 @@ class CanvasPlot {
             details_plot = new DetailsPlot(
                 new CanvasPlot(plot_div.append('div').style('flex-grow', '1'),
                     d3.scaleBand().domain(speakers).padding(0.1),
-                    d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
+                    d3.scaleLinear().domain(time_domain),
                     new DetailsAxis(30), new Axis(50), true
                 ), data.words, data.utterances, data.markers
             )
