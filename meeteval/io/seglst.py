@@ -539,7 +539,8 @@ def apply_multi_file(
         fn: 'Callable[[SegLST, SegLST], ErrorRate]',
         reference, hypothesis,
         *,
-        allowed_empty_examples_ratio=0.1
+        allowed_empty_examples_ratio=0.1,
+        partial=False
 ):
     """
     Applies a function individually to all sessions / files.
@@ -547,13 +548,25 @@ def apply_multi_file(
     `reference` and `hypothesis` must be convertible to `SegLST`. If they are a
     Python structure, the first level is interpreted as the session / file key.
 
-    Reference and hypothesis should have the same keys. If a reference key is
-    missing, it is assumed that the user only evaluates a subset and the
-    corresponding hypothesis segments are dropped. A missing hypothesis key is
-    interpreted as silence, where the ratio of allowed missing hypothesis keys
-    is limited by `allowed_empty_examples_ratio`. If the amount of missing
+    Reference and hypothesis should have the same keys. If a hypothesis key is
+    missing, it interpreted as silence. The ratio of allowed missing hypothesis
+    keys is limited by `allowed_empty_examples_ratio`. If the amount of missing
     hypothesis keys exceeds `allowed_empty_examples_ratio`, a `RuntimeError` is
     raised.
+
+    Reference keys are only allowed to be missing if `partial=True`. Then,
+    it is assumed that the user only evaluates a subset and the corresponding
+    hypothesis segments are dropped.
+
+    Args:
+        fn: Function that takes two `SegLST` objects as input and returns an
+            `ErrorRate` object.
+        reference: Reference data. Must contain session IDs
+        hypothesis: Hypothesis data. Must contain session IDs
+        allowed_empty_examples_ratio: Ratio of allowed missing hypothesis keys.
+        partial: If True, the function returns the results for all sessions
+            where the reference sessions. If False, the function raises an
+            exception when session IDs are missing in the reference.
 
     >>> from meeteval.wer.wer.cp import cp_word_error_rate
     >>> from pprint import pprint
@@ -584,29 +597,27 @@ def apply_multi_file(
         h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
         r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
 
-        if len(reference.keys()) == 0:
-            logging.warning(
-                f'The reference is empty, but found keys '
-                f'{list(hypothesis.keys())} in the hypothesis'
-            )
-            ratio = 0
-        else:
-            ratio = len(r_minus_h) / len(reference.keys())
-
         if h_minus_r:
             # Keys are missing in the reference.
+            if not partial:
+                raise RuntimeError(
+                    f'{len(h_minus_r)} of {len(hypothesis)} session IDs are '
+                    f'present in the hypothesis but missing in the reference.\n'
+                    f'Missing (showing first 5): {h_minus_r[:5]}\n'
+                    f'If this is intentional, consider setting `partial=True`.'
+                )
+
+            # The user set partial=True.
             # Assume that the user only wants to evaluate a sub-set defined by
-            # the keys present in the reference.
-            # This is a warning, because missing in reference is not a problem,
-            # we can safely ignore it. Missing in hypothesis is a problem,
-            # because we cannot distinguish between silence and missing.
+            # the keys present in the reference. Still inform the user about
+            # the missing keys.
             logging.warning(
                 f'{len(h_minus_r)} of {len(hypothesis)} keys are present in '
                 f'the hypothesis but missing in the reference. \n'
                 f'Missing (showing first 5): {h_minus_r[:5]}\n'
-                f'The computation continues with the assumption that only the '
-                f'sub-set of sessions present in the reference should be '
-                f'evaluated.',
+                f'`partial=True`, so the computation continues with the '
+                f'assumption that only the sub-set of sessions present in the '
+                f'reference should be evaluated.',
             )
             hypothesis = {
                 k: v
@@ -618,32 +629,33 @@ def apply_multi_file(
         # hypothesis. We assume that the system didn't produce any output for
         # the missing examples but throw an exception when a threshold is
         # exceeded
-        if len(r_minus_h) == 0:
-            pass
-        elif ratio <= allowed_empty_examples_ratio:
-            logging.warning(
-                f'Missing {ratio * 100:.3f} % = '
-                f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
-                f'hypothesis. An exception will be raised when this number '
-                f'exceeds {allowed_empty_examples_ratio * 100:3} %.\n'
-                f'Please check if your system ignored recordings. '
-                f'It is recommended to output an empty transcript if silence '
-                f'was recognized in order to reliably detect errors.\n'
-                f'Missing (showing first 5): {r_minus_h[:5]}\n'
-                f'The computation continues with the assumption that the system '
-                f'predicted silence for the missing recordings.',
-            )
-        else:
-            raise RuntimeError(
-                f'Missing {ratio * 100:.3f} % = '
-                f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
-                f'hypothesis. This exceeds the threshold of '
-                f'{allowed_empty_examples_ratio * 100:3} %.\n'
-                f'Please check if your system ignored recordings. '
-                f'It is recommended to output an empty transcript if silence '
-                f'was recognized in order to reliably detect errors.\n'
-                f'Missing (showing first 5): {r_minus_h[:5]}'
-            )
+        if len(r_minus_h):
+            # len(reference.keys)) can't be 0 here
+            ratio = len(r_minus_h) / len(reference.keys())
+            if ratio <= allowed_empty_examples_ratio:
+                logging.warning(
+                    f'Missing {ratio * 100:.3f} % = '
+                    f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
+                    f'hypothesis. An exception will be raised when this number '
+                    f'exceeds {allowed_empty_examples_ratio * 100:3} %.\n'
+                    f'Please check if your system ignored recordings. '
+                    f'It is recommended to output an empty transcript if silence '
+                    f'was recognized in order to reliably detect errors.\n'
+                    f'Missing (showing first 5): {r_minus_h[:5]}\n'
+                    f'The computation continues with the assumption that the system '
+                    f'predicted silence for the missing recordings.',
+                )
+            else:
+                raise RuntimeError(
+                    f'Missing {ratio * 100:.3f} % = '
+                    f'{len(r_minus_h)}/{len(reference.keys())} of recordings in '
+                    f'hypothesis. This exceeds the threshold of '
+                    f'{allowed_empty_examples_ratio * 100:3} %.\n'
+                    f'Please check if your system ignored recordings. '
+                    f'It is recommended to output an empty transcript if silence '
+                    f'was recognized in order to reliably detect errors.\n'
+                    f'Missing (showing first 5): {r_minus_h[:5]}'
+                )
 
     results = {}
     for session in reference.keys():

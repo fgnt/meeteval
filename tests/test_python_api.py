@@ -214,8 +214,11 @@ def test_multi_file():
     assert m.session_ids == ['recordingA', 'recordingB']
 
     # Check missing ref
+    with pytest.raises(RuntimeError):
+        m = Mock()
+        apply_multi_file(m, ref.filter(lambda x: x.filename == 'recordingA'), hyp)
     m = Mock()
-    apply_multi_file(m, ref.filter(lambda x: x.filename == 'recordingA'), hyp)
+    apply_multi_file(m, ref.filter(lambda x: x.filename == 'recordingA'), hyp, partial=True)
     assert m.session_ids == ['recordingA']
 
     # Check missing hyp. Assumes that the missing hypothesis is empty
@@ -230,8 +233,13 @@ def test_multi_file():
     assert m.session_ids == []
 
     # Check empty reference
+    with pytest.raises(RuntimeError):
+        m = Mock()
+        apply_multi_file(m, meeteval.io.SegLST([]), hyp)
     m = Mock()
-    apply_multi_file(m, meeteval.io.SegLST([]), hyp)
+    apply_multi_file(m, meeteval.io.SegLST([]), hyp, partial=True)
+    m = Mock()
+    apply_multi_file(m, meeteval.io.SegLST([]), meeteval.io.SegLST([]))
     assert m.session_ids == []
 
     # Check empty hypothesis
