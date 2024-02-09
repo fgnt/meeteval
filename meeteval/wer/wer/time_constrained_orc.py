@@ -162,6 +162,5 @@ def time_constrained_orc_wer_multifile(
         collar=collar,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
-        partial=partial,
-    ), reference, hypothesis)
+    ), reference, hypothesis, partial=partial)
     return r
