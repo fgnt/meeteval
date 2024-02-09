@@ -135,6 +135,7 @@ def orcwer(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        partial=False,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     from meeteval.wer.wer.orc import orc_word_error_rate_multifile
@@ -143,7 +144,7 @@ def orcwer(
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
         uem=uem,
     )
-    results = orc_word_error_rate_multifile(reference, hypothesis)
+    results = orc_word_error_rate_multifile(reference, hypothesis, partial=partial)
     return results
 
 
@@ -153,6 +154,7 @@ def cpwer(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        partial=False
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
     from meeteval.wer.wer.cp import cp_word_error_rate_multifile
@@ -161,7 +163,7 @@ def cpwer(
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
         uem=uem,
     )
-    results = cp_word_error_rate_multifile(reference, hypothesis)
+    results = cp_word_error_rate_multifile(reference, hypothesis, partial=partial)
     return results
 
 
@@ -171,6 +173,7 @@ def mimower(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        partial=False,
 ):
     """Computes the MIMO WER"""
     from meeteval.wer.wer.mimo import mimo_word_error_rate_multifile
@@ -179,7 +182,7 @@ def mimower(
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
         uem=uem,
     )
-    results = mimo_word_error_rate_multifile(reference, hypothesis)
+    results = mimo_word_error_rate_multifile(reference, hypothesis, partial=partial)
     return results
 
 
@@ -192,6 +195,7 @@ def tcpwer(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        partial=False,
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer.time_constrained import tcp_word_error_rate_multifile
@@ -203,6 +207,7 @@ def tcpwer(
         collar=collar,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
+        partial=partial,
     )
     from meeteval.wer import combine_error_rates
     average: ErrorRate = combine_error_rates(results)
@@ -222,6 +227,7 @@ def tcorcwer(
         hypothesis_sort='segment',
         reference_sort='segment',
         uem=None,
+        partial=False,
 ):
     """Computes the time-constrained ORC WER"""
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer_multifile
@@ -233,6 +239,7 @@ def tcorcwer(
         collar=collar,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
+        partial=partial,
     )
     from meeteval.wer import combine_error_rates
     average: ErrorRate = combine_error_rates(results)

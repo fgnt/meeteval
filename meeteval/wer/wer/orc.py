@@ -47,7 +47,8 @@ class OrcErrorRate(ErrorRate):
 
 def orc_word_error_rate_multifile(
         reference,
-        hypothesis
+        hypothesis,
+        partial=False,
 ) -> 'dict[str, OrcErrorRate]':
     """
     Computes the ORC WER for each example in the reference and hypothesis files.
@@ -56,7 +57,10 @@ def orc_word_error_rate_multifile(
     `sum(orc_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(orc_word_error_rate, reference, hypothesis)
+    return apply_multi_file(
+        orc_word_error_rate, reference, hypothesis,
+        partial=partial
+    )
 
 
 def orc_error_rate(
@@ -102,7 +106,6 @@ def orc_error_rate(
         hypothesis_self_overlap=None,
         reference_self_overlap=None,
     )
-
 
 
 def orc_word_error_rate(

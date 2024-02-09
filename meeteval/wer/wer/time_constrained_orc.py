@@ -152,6 +152,7 @@ def time_constrained_orc_wer_multifile(
         collar: int = 0,
         hypothesis_sort='segment',
         reference_sort='segment',
+        partial=False,
 ) -> 'dict[str, CPErrorRate]':
     from meeteval.io.seglst import apply_multi_file
     r = apply_multi_file(lambda r, h: time_constrained_orc_wer(
@@ -161,5 +162,6 @@ def time_constrained_orc_wer_multifile(
         collar=collar,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
+        partial=partial,
     ), reference, hypothesis)
     return r
