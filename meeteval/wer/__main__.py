@@ -495,7 +495,7 @@ class CLI:
         elif name == 'uem':
             command_parser.add_argument(
                 '--uem',
-                help='UEM file that defines the scoring regions. Only supported when reference and hypothesis files'
+                help='UEM file that defines the scoring regions. Only supported when reference and hypothesis files '
                      'contain time-stamps.',
                 nargs='+', action=self.extend_action,
             )
