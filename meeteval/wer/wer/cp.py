@@ -174,7 +174,7 @@ def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate
 
 
 def cp_word_error_rate_multifile(
-        reference, hypothesis
+        reference, hypothesis, partial=False
 ) -> 'dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
@@ -182,7 +182,7 @@ def cp_word_error_rate_multifile(
     To compute the overall WER, use `sum(cp_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(cp_word_error_rate, reference, hypothesis)
+    return apply_multi_file(cp_word_error_rate, reference, hypothesis, partial=partial)
 
 
 def _cp_error_rate(

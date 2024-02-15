@@ -1,6 +1,7 @@
 import decimal
 from pathlib import Path
-import operator
+
+import pytest
 
 import meeteval
 from meeteval.wer.wer import combine_error_rates, ErrorRate
@@ -191,3 +192,55 @@ def test_md_eval_22():
     assert avg.scored_speaker_time == 5
     assert float(avg.missed_speaker_time) == 0.8
     assert float(avg.falarm_speaker_time) == 0.6
+
+
+def test_multi_file():
+    from meeteval.io.seglst import apply_multi_file
+
+    class Mock:
+        def __init__(self):
+            self.session_ids = []
+
+        def __call__(self, reference, hypothesis):
+            self.session_ids.extend(
+                reference.unique('session_id') | hypothesis.unique('session_id')
+            )
+
+    # Check example files
+    ref = meeteval.io.load(example_files / 'ref.stm')
+    hyp = meeteval.io.load(example_files / 'hyp.stm')
+    m = Mock()
+    apply_multi_file(m, ref, hyp)
+    assert m.session_ids == ['recordingA', 'recordingB']
+
+    # Check missing ref
+    with pytest.raises(RuntimeError):
+        m = Mock()
+        apply_multi_file(m, ref.filter(lambda x: x.filename == 'recordingA'), hyp)
+    m = Mock()
+    apply_multi_file(m, ref.filter(lambda x: x.filename == 'recordingA'), hyp, partial=True)
+    assert m.session_ids == ['recordingA']
+
+    # Check missing hyp. Assumes that the missing hypothesis is empty
+    m = Mock()
+    apply_multi_file(m, ref, hyp.filter(lambda x: x.filename == 'recordingA'), allowed_empty_examples_ratio=0.5)
+    assert m.session_ids == ['recordingA', 'recordingB']
+
+    # Check missing hyp amount above ratio
+    m = Mock()
+    with pytest.raises(RuntimeError):
+        apply_multi_file(m, ref, hyp.filter(lambda x: x.filename == 'recordingA'), allowed_empty_examples_ratio=0)
+    assert m.session_ids == []
+
+    # Check empty reference
+    with pytest.raises(RuntimeError):
+        m = Mock()
+        apply_multi_file(m, meeteval.io.SegLST([]), hyp)
+    with pytest.raises(RuntimeError):
+        m = Mock()
+        apply_multi_file(m, meeteval.io.SegLST([]), hyp, partial=True)
+
+    # Check empty hypothesis
+    m = Mock()
+    apply_multi_file(m, ref, meeteval.io.SegLST([]), allowed_empty_examples_ratio=1)
+    assert m.session_ids == ['recordingA', 'recordingB']

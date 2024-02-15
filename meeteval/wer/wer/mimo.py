@@ -125,7 +125,8 @@ def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
 
 def mimo_word_error_rate_multifile(
         reference,
-        hypothesis
+        hypothesis,
+        partial=False,
 ) -> 'dict[str, MimoErrorRate]':
     """
     Computes the MIMO WER for each example in the reference and hypothesis
@@ -135,7 +136,7 @@ def mimo_word_error_rate_multifile(
     `sum(mimo_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(mimo_word_error_rate, reference, hypothesis)
+    return apply_multi_file(mimo_word_error_rate, reference, hypothesis, partial=partial)
 
 
 def apply_mimo_assignment(

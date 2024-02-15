@@ -825,6 +825,7 @@ def tcp_word_error_rate_multifile(
         collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
+        partial=False,
 ) -> 'dict[str, CPErrorRate]':
     """
     Computes the tcpWER for each example in the reference and hypothesis files.
@@ -841,7 +842,7 @@ def tcp_word_error_rate_multifile(
         collar=collar,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
-    ), reference, hypothesis)
+    ), reference, hypothesis, partial=partial)
     return r
 
 
