@@ -7,6 +7,7 @@ def md_eval_22(
         average_out='{parent}/{stem}_md_eval_22.json',
         per_reco_out='{parent}/{stem}_md_eval_22_per_reco.json',
         collar=0,
+        exclude_overlap=False,
         regex=None,
         uem=None,
 ):
@@ -16,6 +17,7 @@ def md_eval_22(
         hypothesis,
         collar=collar,
         regex=regex,
+        exclude_overlap=exclude_overlap,
         uem=uem,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
@@ -24,7 +26,20 @@ def md_eval_22(
 def cli():
     from meeteval.wer.__main__ import CLI
 
-    cli = CLI()
+    class DerCLI(CLI):
+        def add_argument(self, command_parser, name, p):
+            if name == 'exclude_overlap':
+                command_parser.add_argument(
+                    '-1', '--exclude-overlap',
+                    action='store_true',
+                    help='Limits scoring to single-speaker regions. '
+                         'This option appends `-1` to the md-eval-22.pl '
+                         'command.'
+                )
+            else:
+                super().add_argument(command_parser, name, p)
+
+    cli = DerCLI()
 
     cli.add_command(md_eval_22)
 
