@@ -584,6 +584,10 @@ def apply_multi_file(
             p, ('session_id', 'speaker', 'segment_id')
         )
     ).groupby('session_id')
+
+    if len(reference) == 0:
+        raise RuntimeError(f'Empty reference.')
+
     hypothesis = asseglst(
         hypothesis, required_keys=('session_id',),
         py_convert=lambda p: NestedStructure(

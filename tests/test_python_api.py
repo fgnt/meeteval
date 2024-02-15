@@ -236,11 +236,9 @@ def test_multi_file():
     with pytest.raises(RuntimeError):
         m = Mock()
         apply_multi_file(m, meeteval.io.SegLST([]), hyp)
-    m = Mock()
-    apply_multi_file(m, meeteval.io.SegLST([]), hyp, partial=True)
-    m = Mock()
-    apply_multi_file(m, meeteval.io.SegLST([]), meeteval.io.SegLST([]))
-    assert m.session_ids == []
+    with pytest.raises(RuntimeError):
+        m = Mock()
+        apply_multi_file(m, meeteval.io.SegLST([]), hyp, partial=True)
 
     # Check empty hypothesis
     m = Mock()
