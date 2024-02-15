@@ -87,7 +87,7 @@ class Backend:
             name, start, stop = _parse_audio_slice(name, start, stop)
             name = Path(name)
 
-            if name.suffix in ['.wav']:
+            if name.suffix in ['.wav', '.flac']:
                 data, sample_rate = soundfile.read(str(name), start=start, stop=stop)
                 data = data * 0.95 / np.amax(np.abs(data))
                 bytes = io.BytesIO()

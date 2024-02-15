@@ -980,6 +980,7 @@ class CanvasPlot {
             this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
 
             const self = this;
+            this.last_utterance_candidates_index = -1
             this.plot.element.on("click", (event) => {
                 const screenX = event.layerX;
                 const screenY = event.layerY;
@@ -996,7 +997,10 @@ class CanvasPlot {
                     const utterance_candidates = this.filtered_utterances.filter(
                         u => u.start_time < y && u.end_time > y && u.speaker === speaker && u.source === source
                     )
-                    if (utterance_candidates.length > 0) this.selectUtterance(utterance_candidates[0]);
+                    if (utterance_candidates.length > 0) {
+                        self.last_utterance_candidates_index = (self.last_utterance_candidates_index+1) % utterance_candidates.length
+                        this.selectUtterance(utterance_candidates[self.last_utterance_candidates_index]);
+                    }
                     else this.selectUtterance(null);
                 } else this.selectUtterance(null);
             })
@@ -1381,7 +1385,7 @@ class CanvasPlot {
         }
 
         formatValue(element, key, value) {
-            if (/^([a-zA-Z0-9_/.-]+\.wav)$/.test(value)) {
+            if (/^([a-zA-Z0-9_/.-]+\.(wav|flac))$/.test(value)) {
                 // Audio path: Display audio player
                 let audio = element.append("audio")
                 audio.classed("info-value", true)
