@@ -1385,7 +1385,7 @@ class CanvasPlot {
         }
 
         formatValue(element, key, value) {
-            if (/^([a-zA-Z0-9_/.-]+\.wav)$/.test(value)) {
+            if (/^([a-zA-Z0-9_/.-]+\.(wav|flac))$/.test(value)) {
                 // Audio path: Display audio player
                 let audio = element.append("audio")
                 audio.classed("info-value", true)
