@@ -7,7 +7,7 @@ def md_eval_22(
         average_out='{parent}/{stem}_md_eval_22.json',
         per_reco_out='{parent}/{stem}_md_eval_22_per_reco.json',
         collar=0,
-        exclude_overlap=False,
+        regions='all',
         regex=None,
         uem=None,
 ):
@@ -17,7 +17,7 @@ def md_eval_22(
         hypothesis,
         collar=collar,
         regex=regex,
-        exclude_overlap=exclude_overlap,
+        regions=regions,
         uem=uem,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
@@ -28,13 +28,14 @@ def cli():
 
     class DerCLI(CLI):
         def add_argument(self, command_parser, name, p):
-            if name == 'exclude_overlap':
+            if name == 'regions':
                 command_parser.add_argument(
-                    '-1', '--exclude-overlap',
-                    action='store_true',
-                    help='Limits scoring to single-speaker regions. '
-                         'This option appends `-1` to the md-eval-22.pl '
-                         'command.'
+                    '--regions',
+                    choices=['all', 'nooverlap'],
+                    help='Only evaluate the selected region type.\n'
+                         'Choices:\n'
+                         '- all: Evaluate the whole recording.\n'
+                         '- nooverlap: Evaluate only non-overlapping regions.'
                 )
             else:
                 super().add_argument(command_parser, name, p)

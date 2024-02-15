@@ -78,7 +78,7 @@ class DiaErrorRate:
 
 
 def md_eval_22_multifile(
-        reference, hypothesis, collar=0, exclude_overlap=False,
+        reference, hypothesis, collar=0, regions='all',
         uem=None
 ):
     """
@@ -89,10 +89,17 @@ def md_eval_22_multifile(
         reference: The reference in a format convertible to RTTM.
         hypothesis: The hypothesis in a format convertible to RTTM.
         collar: The collar in seconds.
-        exclude_overlap: If True, ignore overlapping speech segments.
-            This option appends `-1` to the md-eval-22.pl command.
+        regions: The regions to score. Either 'all' or 'nooverlap'.
+            'nooverlap' limits scoring to single-speaker regions by appending
+            `-1` to the md-eval-22.pl command.
         uem: The UEM file.
     """
+    if regions not in {'all', 'nooverlap'}:
+        raise ValueError(
+            f'Invalid regions: {regions}. '
+            f'Select from "all" or "nooverlap".'
+        )
+
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference)
     hypothesis = RTTM.new(hypothesis)
@@ -134,7 +141,7 @@ def md_eval_22_multifile(
             '-s', f'{h_file}',
         ]
 
-        if exclude_overlap:
+        if regions == 'nooverlap':
             cmd.append('-1')
 
         if uem:
@@ -193,7 +200,7 @@ def md_eval_22_multifile(
     return per_reco
 
 
-def md_eval_22(reference, hypothesis, collar=0, exclude_overlap=False, uem=None):
+def md_eval_22(reference, hypothesis, collar=0, regions='all', uem=None):
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference, filename='dummy')
     hypothesis = RTTM.new(hypothesis, filename='dummy')
@@ -203,5 +210,5 @@ def md_eval_22(reference, hypothesis, collar=0, exclude_overlap=False, uem=None)
     assert reference.filenames() == hypothesis.filenames(), (reference.filenames(), hypothesis.filenames())
 
     return md_eval_22_multifile(
-        reference, hypothesis, collar, exclude_overlap=exclude_overlap, uem=uem
+        reference, hypothesis, collar, regions=regions, uem=uem
     )[reference.filenames()[0]]

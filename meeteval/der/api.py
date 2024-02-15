@@ -11,7 +11,7 @@ def md_eval_22(
         reference,
         hypothesis,
         collar=0,
-        exclude_overlap=False,
+        regions='all',
         regex=None,
         uem=None,
 ):
@@ -23,6 +23,6 @@ def md_eval_22(
             uem = UEM.load(uem)
 
     results = md_eval_22_multifile(
-        r, h, collar, exclude_overlap=exclude_overlap, uem=uem
+        r, h, collar, regions=regions, uem=uem
     )
     return results
