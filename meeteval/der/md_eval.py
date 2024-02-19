@@ -77,7 +77,29 @@ class DiaErrorRate:
         )
 
 
-def md_eval_22_multifile(reference, hypothesis, collar=0, uem=None):
+def md_eval_22_multifile(
+        reference, hypothesis, collar=0, regions='all',
+        uem=None
+):
+    """
+    Computes the Diarization Error Rate (DER) and statistics using
+    md-eval-22.pl.
+
+    Args:
+        reference: The reference in a format convertible to RTTM.
+        hypothesis: The hypothesis in a format convertible to RTTM.
+        collar: The collar in seconds.
+        regions: The regions to score. Either 'all' or 'nooverlap'.
+            'nooverlap' limits scoring to single-speaker regions by appending
+            `-1` to the md-eval-22.pl command.
+        uem: The UEM file.
+    """
+    if regions not in {'all', 'nooverlap'}:
+        raise ValueError(
+            f'Invalid regions: {regions}. '
+            f'Select from "all" or "nooverlap".'
+        )
+
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference)
     hypothesis = RTTM.new(hypothesis)
@@ -118,6 +140,9 @@ def md_eval_22_multifile(reference, hypothesis, collar=0, uem=None):
             '-r', f'{r_file}',
             '-s', f'{h_file}',
         ]
+
+        if regions == 'nooverlap':
+            cmd.append('-1')
 
         if uem:
             uem_file = tmpdir / f'{key}.uem'
@@ -175,7 +200,7 @@ def md_eval_22_multifile(reference, hypothesis, collar=0, uem=None):
     return per_reco
 
 
-def md_eval_22(reference, hypothesis, collar=0, uem=None):
+def md_eval_22(reference, hypothesis, collar=0, regions='all', uem=None):
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference, filename='dummy')
     hypothesis = RTTM.new(hypothesis, filename='dummy')
@@ -184,4 +209,6 @@ def md_eval_22(reference, hypothesis, collar=0, uem=None):
     assert len(hypothesis.filenames()) == 1, hypothesis.filenames()
     assert reference.filenames() == hypothesis.filenames(), (reference.filenames(), hypothesis.filenames())
 
-    return md_eval_22_multifile(reference, hypothesis, collar, uem=uem)[reference.filenames()[0]]
+    return md_eval_22_multifile(
+        reference, hypothesis, collar, regions=regions, uem=uem
+    )[reference.filenames()[0]]

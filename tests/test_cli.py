@@ -117,6 +117,8 @@ def test_burn_md_eval_22():
     run(f'meeteval-der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm --collar 0.25')
     run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm --regions all')
+    run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm --regions nooverlap')
     run(f'python -m meeteval.der md_eval_22 -h hyp.rttm -r ref.rttm --regex ".*A"')
     run(f'python -m meeteval.der md_eval_22 -h hyp.seglst.json -r ref.seglst.json')
     # examples for collar:
