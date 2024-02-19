@@ -37,6 +37,16 @@ def cli():
                          '- all: Evaluate the whole recording.\n'
                          '- nooverlap: Evaluate only non-overlapping regions.'
                 )
+            elif name == 'collar':
+                command_parser.add_argument(
+                    '--collar', type=self.positive_number,
+                    help='The no-score zone around reference speaker segment '
+                         'boundaries. Speaker Diarization output is not '
+                         'evaluated within +/- collar seconds of a reference '
+                         'speaker segment boundary. '
+                         'Be aware that a nonzero collar can artificially '
+                         'inflate the performance in regions of speech overlap.'
+                )
             else:
                 super().add_argument(command_parser, name, p)
 
