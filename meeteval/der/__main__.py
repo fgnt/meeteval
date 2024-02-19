@@ -44,8 +44,10 @@ def cli():
                          'boundaries. Speaker Diarization output is not '
                          'evaluated within +/- collar seconds of a reference '
                          'speaker segment boundary. '
-                         'Be aware that a nonzero collar can artificially '
-                         'inflate the performance in regions of speech overlap.'
+                         'Be aware that a nonzero collar can distort the '
+                         'results for overlapped speech because the collar '
+                         'tends to exclude the most challenging regions. This '
+                         'results in an overoptimistic score.'
                 )
             else:
                 super().add_argument(command_parser, name, p)
