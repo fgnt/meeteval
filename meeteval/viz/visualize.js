@@ -819,116 +819,6 @@ class CanvasPlot {
         }
     }
 
-    class PlayHead {
-        constructor(canvas, context, global_context, global_x_position, x_scale, y_scale, begin, end, src) {
-            this.canvas = canvas;
-            this.context = context;
-            this.x = x_scale;
-            this.y = y_scale;
-            this.begin = begin;
-            this.end = end;
-            
-            this.position = 0;
-            this.animationFrameID = null;
-            this.audio_data = null
-            this.global_context = global_context
-            this.global_x_position = global_x_position
-
-            const self = this;
-            if (src.includes('::')) {
-                // TODO: support full spec
-                
-                const parts = src.split('::');
-                const [begin, end] = parts[1].split(':');
-                src = parts[0]
-            } else {
-                const [begin, end] = [0, null];
-            }
-            fetch(src)
-                .then(r => r.arrayBuffer())
-                .then(b => new AudioContext().decodeAudioData(b))
-                .then(a => {
-                    self.audio_data = a.getChannelData(0);
-                    self.drawAudio();
-                });
-                
-                
-            this.h = new Howl({src: src})
-            this.h.once('end', () => this.remove.bind(this))
-            this.play();
-
-        }
-
-        clearPlayHead() {
-            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
-
-        draw() {
-            const position = this.begin + (this.end - this.begin) * this.position;
-            this.clearPlayHead();
-            this.context.strokeStyle = 'pink';
-            this.context.lineWidth = 4;
-            this.context.beginPath();
-            this.context.moveTo(this.x.bandwidth() / 2 + 20, this.y(position));
-            this.context.lineTo(this.x.bandwidth(), this.y(position));
-            this.context.stroke();
-            this.context.beginPath();
-            this.context.strokeStyle = 'black';
-            this.context.lineWidth = 1;
-            this.context.moveTo(this.x.bandwidth() / 2 + 20, this.y(position));
-            this.context.lineTo(this.x.bandwidth(), this.y(position));
-            this.context.stroke();
-        }
-
-        play() {
-            this.h.stop();
-            this.h.play();
-            this.tick();
-        }
-
-        stop() {
-            this.h.stop();
-        }
-
-        tick() {
-            this.position = (this.h.seek() || 0) / this.h.duration();
-            this.draw();
-            this.animationFrameID = requestAnimationFrame(this.tick.bind(this));
-        }
-
-        remove() {
-            if (this.animationFrameID !== null) cancelAnimationFrame(this.animationFrameID);
-            this.clearPlayHead();
-        }
-
-        drawAudio() {
-            if (this.audio_data == null) return;
-            const begin = this.y(this.begin)
-            const end = this.y(this.end)
-            const length = end - begin;
-            const data_length = this.audio_data.length;
-            const scale = length / data_length;
-            var prevY = 0;
-            var max = 0;
-            const vscale = 100
-
-            this.global_context.beginPath()
-            this.global_context.moveTo(this.global_x_position, begin);
-            for (let i = 0; i <= data_length; i++) {
-                const y = Math.round(i * scale)
-                if (y > prevY) {
-                    const x = this.global_x_position + Math.round(max * vscale)
-                    this.global_context.lineTo(x, prevY + begin)
-                    prevY = y;
-                    max = 0;
-                }
-                max = Math.max(Math.abs(this.audio_data[i] || 0), max)
-            }
-            this.global_context.fillStyle = 'gray';
-            this.global_context.fill();
-        }
-    }
-
 
     class DetailsPlot {
         constructor(plot, words, utterances, markers, ref_hyp_gap=10) {
@@ -964,14 +854,9 @@ class CanvasPlot {
             this.filtered_matches = this.matches;
 
             this.selected_utterance = null;
-            this.playhead = null;
             this.utteranceSelectListeners = [];
 
-            // Playhead canvas on top of the plot canvas
-            this.playhead_canvas = this.plot.element.append("canvas").style("position", "absolute").style("top", 0).style("left", 0).style("width", "100%").style("height", "100%");
-
             this.onUtteranceSelect(this.draw.bind(this));
-            // this.onUtteranceSelect(this.play.bind(this));
 
             // Plot label
             this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
@@ -1094,14 +979,6 @@ class CanvasPlot {
         selectUtterance(utterance) {
             this.selected_utterance = utterance;
             this.utteranceSelectListeners.forEach(c => c(utterance));
-        }
-
-        play(utterance) {
-            this.playhead = new PlayHead(
-                this.playhead_canvas, this.playhead_canvas.node().getContext("2d"),
-                this.plot.context, 0, this.plot.x, this.plot.y, 
-                utterance.start_time,  utterance.end_time, utterance.audio
-            )
         }
 
         onScroll(callback) {
@@ -1348,9 +1225,7 @@ class CanvasPlot {
         draw() {
             this.plot.clear();
             this.drawDetails();
-            if (this.playhead !== null) this.playhead.drawAudio();
             this.plot.drawAxes();
-            // this.drawYAxisLabels();
         }
 
         zoomTo(x0, x1) {
