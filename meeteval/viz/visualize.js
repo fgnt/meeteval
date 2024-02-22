@@ -65,6 +65,36 @@ function alignment_visualization(
 
     let root_element = d3.select(element_id);
 
+    /* Mouse drag */
+    let dragActive = false;
+
+    /**
+     * Start dragging an element. Do nothing if a drag is currently active.
+     *
+     * Registers global handlers for mousemove and mouseup events
+     * so that the mouse can be dragged out of the element or window
+     * and still be captured. Cancel defaults so that text is not
+     * selected during dragging.
+     */
+    function startDrag(drag, stopDrag) {
+        if (dragActive) return;
+
+        function _stopDrag(e) {
+            window.removeEventListener("mousemove", _drag);
+            window.removeEventListener("mouseup", _stopDrag);
+            dragActive = false;
+            if (stopDrag) stopDrag(e);
+        }
+        function _drag(e) {
+            drag(e);
+            e.preventDefault();
+        }
+        dragActive = true;
+        window.addEventListener("mousemove", _drag);
+        window.addEventListener("mouseup", _stopDrag);
+    }
+
+
 class Axis {
     constructor(padding, numTicks=null, tickPadding=3, tickSize=6) {
         this.padding = padding;
@@ -719,17 +749,17 @@ class CanvasPlot {
 
     class Minimap {
         constructor(element, x_scale, y_scale, words) {
-            const e = element.classed("plot minimap", true)
+            const e = element.classed("plot minimap", true).style("height", '90px')
 
             if (settings.barplot.style !== "hidden") {
                 this.error_bars = new ErrorBarPlot(
-                    new CanvasPlot(e.append('div').style('height', '30px'), x_scale,
+                    new CanvasPlot(e.append('div').style('height', '30%'), x_scale,
                     d3.scaleLinear().domain([1, 0]),
                         null, new Axis(50, 3),
                 ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
             }
             this.word_plot = new WordPlot(
-                new CanvasPlot(e.append('div').style('height', '80px'), x_scale, y_scale,
+                new CanvasPlot(e.append('div').style('height', '70%'), x_scale, y_scale,
                     new CompactAxis(10, "time"), new Axis(50), true),
                 words
             );
@@ -738,7 +768,6 @@ class CanvasPlot {
                 this.error_bars.plot.element.append("div").classed("plot-label", true).style("margin-left", this.error_bars.plot.y_axis_padding + "px").text("Error distribution");
             }
 
-            
             this.word_plot.plot.element.append("div").classed("plot-label", true).style("margin-left", this.word_plot.plot.y_axis_padding + "px").text("Segments");
 
             this.svg = e.append("svg")
@@ -762,14 +791,42 @@ class CanvasPlot {
 
             this.max_range = this.word_plot.plot.x.range();
             this.selection = this.word_plot.plot.x.range();
+            this.selection_domain = this.word_plot.plot.x.domain();
 
             // Redraw brush when size changes. This is required because the brush range / extent will otherwise keep the old value (in screen size)
             this.word_plot.plot.onSizeChanged(() => {
+                // This seems hacky, but I didn't find another way to modify the height of the brush
+                const height = this.word_plot.plot.height + (this.error_bars?.plot.height || 0);
                 this.brush.extent([
-                    [Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding), 0],
-                    [this.word_plot.plot.width, this.word_plot.plot.height + (this.error_bars?.plot.height || 0)]]);
+                    [
+                        Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding),
+                        0
+                    ],
+                    [this.word_plot.plot.width, height]]
+                );
+                // this.brush.extent modifies the overlay rect, but not the selection rect. We have to set the
+                // selection rect manually
+                this.brush_group.property('__brush').extent[1][1] = height;
+                if ( this.brush_group.property('__brush').selection) {
+                    this.brush_group.property('__brush').selection[1][1] = height;
+
+                    // Set the selection to the currently selected domain so that the brush keeps its
+                    // domain position and the screen position
+                    this.brush_group.property('__brush').selection[0][0] = this.word_plot.plot.x(this.selection_domain[0]);
+                    this.brush_group.property('__brush').selection[1][0] = this.word_plot.plot.x(this.selection_domain[1]);
+                }
+                // Redraw brush
                 this.brush_group.call(this.brush);
-                // No idea how to keep the selection when the size changes, so we just keep the screen position
+            });
+
+            // Make the minimap resizable
+            const resize_handle = e.append('div').classed('minimap-resize-handle', true);
+            resize_handle.on("mousedown", () => {
+                startDrag(e => {
+                    const parent_top = element.node().getBoundingClientRect().top;
+                    const new_height = Math.max(e.clientY - parent_top - 2/*half of resize-handle height*/, 20);
+                    element.style('height', new_height + "px");
+                })
             });
         }
 
@@ -799,6 +856,7 @@ class CanvasPlot {
                 if (this.selection[0] > this.max_range[0] && this.selection[1] < this.max_range[1]) this.selection = this.max_range;
             } else {
                 this.selection = event.selection;
+                this.selection_domain = this.selection.map(this.word_plot.plot.x.invert);
                 // Remove brush when fully zoomed out
                 if (this.selection[0] <= this.max_range[0] && this.selection[1] >= this.max_range[1]) {
                     this.removeBrush();
@@ -808,9 +866,7 @@ class CanvasPlot {
         }
 
         _callOnSelectCallbacks() {
-            let [x0, x1] = this.selection;
-            x0 = this.word_plot.plot.x.invert(x0);
-            x1 = this.word_plot.plot.x.invert(x1);
+            let [x0, x1] = this.selection_domain;
             this.on_select_callbacks.forEach(c => c(x0, x1));
         }
 
@@ -907,12 +963,11 @@ class CanvasPlot {
                 event.preventDefault();
             }, false)
 
-            this.plot.element.on("mousemove", event => {
-                if (event.buttons !== 1) return;
+            this.plot.element.on("mousedown", () => startDrag(e => {
                 const delta = this.plot.y.invert(event.movementY) - this.plot.y.invert(0);
                 let [begin, end] = this.plot.y.domain();
                 this._callOnScrollHandlers(begin - delta, end - delta);
-            })
+            }))
 
             var lastTouchY = [];
             this.plot.element.on("touchstart", event => {
@@ -1056,8 +1111,8 @@ class CanvasPlot {
                 if (m.type === "range") {
                     const y0 = this.plot.y(m.start_time);
                     const y1 = this.plot.y(m.end_time);
-                    context.fillStyle = "purple";
-                    context.strokeStyle = "purple";
+                    context.fillStyle = m.color ?? "purple";
+                    context.strokeStyle = m.color ?? "purple";
                     context.lineWidth = .5;
                     context.fillRect(this.plot.y_axis_padding, y0, 10, y1 - y0);
                     context.beginPath();
@@ -1068,8 +1123,8 @@ class CanvasPlot {
                     context.stroke();
                 } else if (m.type === "point") {
                     const y = this.plot.y(m.time);
-                    context.fillStyle = "purple";
-                    context.strokeStyle = "purple";
+                    context.fillStyle = m.color ?? "purple";
+                    context.strokeStyle = m.color ?? "purple";
                     context.lineWidth = .5;
                     context.beginPath();
                     context.arc(this.plot.y_axis_padding + 5, y, 5, 0, 2 * Math.PI);

@@ -131,6 +131,16 @@ i {
     border-radius: 5px;
 }
 
+/* Minimaps */
+.minimap-resize-handle {
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    left:0;
+    height: 5px;
+    cursor: row-resize;
+}
+
 /* Tooltips */
 .tooltip {
     position: relative;
