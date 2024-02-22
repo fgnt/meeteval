@@ -63,7 +63,7 @@ def create_viz_folder(
                     with tag('div', style='flex-grow: 1'):
                         with tag('iframe', src=f'{session_id}_{i}.html',
                                  title="right", width="100%",
-                                 height="100%"):
+                                 height="100%", style="border-width: 0"):
                             pass
 
         file = out / f"{session_id}.html"
