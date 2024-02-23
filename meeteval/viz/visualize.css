@@ -5,6 +5,10 @@
 
 .meeteval-viz {
     margin: auto;
+    /* Prevents scroll + zoom on touch devices. We handle scrolling + zooming
+    manually and weird things happen when browser and manual zoom happen at
+    the same time */
+    touch-action: none;
 }
 
 .meeteval-viz table {

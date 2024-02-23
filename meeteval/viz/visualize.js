@@ -781,7 +781,8 @@ class CanvasPlot {
                     ],
                     [this.word_plot.plot.width, this.word_plot.plot.height + (this.error_bars?.plot.height || 0)]])
                 .on("brush", this._onselect.bind(this))
-                .on("end", this._onselect.bind(this));
+                .on("end", this._onselect.bind(this))
+                .touchable(() => true); // Required for touch support for chrome on Laptops
 
             this.brush_group = this.svg.append("g")
                 .attr("class", "brush")
@@ -866,7 +867,9 @@ class CanvasPlot {
         }
 
         _callOnSelectCallbacks() {
-            let [x0, x1] = this.selection_domain;
+            let [x0, x1] = this.selection;
+            x0 = this.word_plot.plot.x.invert(x0);
+            x1 = this.word_plot.plot.x.invert(x1);
             this.on_select_callbacks.forEach(c => c(x0, x1));
         }
 
@@ -974,48 +977,46 @@ class CanvasPlot {
                 // TouchList doesn't implement iterator
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
-                    lastTouchY.push(event.touches[i].screenY);
+                    lastTouchY.push(event.touches[i].clientY);
                 }
             });
             this.plot.element.on("touchend", event => {
                 // TouchList doesn't implement iterator
                 lastTouchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
-                    lastTouchY.push(event.touches[i].screenY);
+                    lastTouchY.push(event.touches[i].clientY);
                 }
             });
-            
+
             this.plot.element.on("touchmove", event => {
-                // TODO: fling?
                 // TouchList doesn't implement iterator
                 var touchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
-                    touchY.push(event.touches[i].screenY);
+                    touchY.push(event.touches[i].clientY);
                 }
                 if (lastTouchY) {
                     // Use the delta between the touches that are furthest apart
-                    const minY = Math.min(...touchY);
-                    const maxY = Math.max(...touchY);
-                    const lastMinY = Math.min(...lastTouchY);
-                    const lastMaxY = Math.max(...lastTouchY);
-
-                    // Move center to the center of the touch points
-                    const center = this.plot.y.invert((maxY + minY) / 2);
-                    const lastCenter = this.plot.y.invert((lastMaxY + lastMinY) / 2);
-                    const delta = lastCenter - center;
+                    const top = this.plot.element.node().getBoundingClientRect().top;
+                    const minY = Math.min(...touchY) - top;
+                    const maxY = Math.max(...touchY) - top;
+                    const lastMinY = Math.min(...lastTouchY) - top;
+                    const lastMaxY = Math.max(...lastTouchY) - top;
                     let [begin, end] = this.plot.y.domain();
-                    begin += delta;
-                    end += delta;
-                    
-                    // Zoom so that the center point doesn't move 
-                    // TODO: this computation is _slightly_ off, but I don't know why
-                    if (lastMaxY - lastMinY > 0 && maxY - minY > 0) { 
-                        const ratio = (maxY - minY) / (lastMaxY - lastMinY);
-                        const zoomDelta = (end - begin) * (ratio - 1);
-                        const positionRatio = (center - begin) / (end - begin);
-                        begin = Math.max(0, begin + zoomDelta * positionRatio);
-                        end = Math.min(end - zoomDelta * (1-positionRatio), this.max_length);
+
+                    if (lastMaxY - lastMinY > 0 && maxY - minY > 0) {
+                         // At least two touch points. Zoom and move
+                        const newBegin = begin + (end - begin) * (lastMinY*maxY - lastMaxY*minY) / (this.plot.height * (maxY - minY));
+                        end = (this.plot.height / minY - lastMinY / minY) * begin + lastMinY / minY * end + (1 - this.plot.height / minY) * newBegin;
+                        begin = newBegin;
+                    } else {
+                        // Only one touch point
+                        const center = this.plot.y.invert((maxY + minY) / 2);
+                        const lastCenter = this.plot.y.invert((lastMaxY + lastMinY) / 2);
+                        const delta = lastCenter - center;
+                        begin += delta;
+                        end += delta;
                     }
+
                     this._callOnScrollHandlers(begin, end);
                     event.preventDefault()
                 }
