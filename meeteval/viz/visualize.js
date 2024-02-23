@@ -953,12 +953,48 @@ class CanvasPlot {
                     // Zoom when ctrl is pressed. Zoom centered on mouse position
                     const mouse_y = this.plot.y.invert(event.layerY);
                     const ratio = (mouse_y - begin) / (end - begin);
-                    begin = Math.max(this.max_domain[0], begin - delta * ratio);
-                    end = Math.min(end + delta * (1-ratio), this.max_domain[1]);
+                    let beginDelta = -delta * ratio;
+                    if (begin + beginDelta < this.max_domain[0]) {
+                        if (begin < this.max_domain[0]) {
+                            if (beginDelta < 0) beginDelta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            beginDelta = this.max_domain[0] - begin;
+                        }
+                    }
+                    let endDelta = delta * (1 - ratio);
+                    if (end + endDelta > this.max_domain[1]) {
+                        if (end > this.max_domain[1]) {
+                            if (endDelta > 0) endDelta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            endDelta = this.max_domain[1] - end;
+                        }
+                    }
+                    begin += beginDelta;
+                    end += endDelta;
                 } else {
                     // Move when ctrl is not pressed
-                    if (end + delta > this.max_domain[1]) delta = this.max_domain[1] - end;
-                    if (begin + delta < this.max_domain[0]) delta = this.max_domain[0] - begin;
+                    if (begin + delta < this.max_domain[0]) {
+                        if (begin < this.max_domain[0]) {
+                            if (delta < 0) delta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            delta = this.max_domain[0] - begin;
+                        }
+                    }
+                    if (end + delta > this.max_domain[1]) {
+                        if (end > this.max_domain[1]) {
+                            if (delta > 0) delta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            delta = this.max_domain[1] - end;
+                        }
+                    }
                     begin = begin + delta;
                     end = end + delta;
                 }
@@ -989,6 +1025,12 @@ class CanvasPlot {
             });
 
             this.plot.element.on("touchmove", event => {
+                // This can happen when a touch move is started outside of the
+                // element and then moved into the element, but the starting
+                // element does not cancel the event. We don't want to mix
+                // multiple touch handlers
+                if (event.cancelable === false) return;
+
                 // TouchList doesn't implement iterator
                 var touchY = [];
                 for (let i = 0; i < event.touches.length; i++) {
