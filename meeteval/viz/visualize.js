@@ -1020,15 +1020,15 @@ class CanvasPlot {
             this.plot.element.on("touchstart", event => {
                 // TouchList doesn't implement iterator
                 lastTouchY = [];
-                for (let i = 0; i < event.touches.length; i++) {
-                    lastTouchY.push(event.touches[i].clientY);
+                for (let i = 0; i < event.targetTouches.length; i++) {
+                    lastTouchY.push(event.targetTouches[i].clientY);
                 }
             });
             this.plot.element.on("touchend", event => {
                 // TouchList doesn't implement iterator
                 lastTouchY = [];
-                for (let i = 0; i < event.touches.length; i++) {
-                    lastTouchY.push(event.touches[i].clientY);
+                for (let i = 0; i < event.targetTouches.length; i++) {
+                    lastTouchY.push(event.targetTouches[i].clientY);
                 }
             });
 
@@ -1041,8 +1041,8 @@ class CanvasPlot {
 
                 // TouchList doesn't implement iterator
                 var touchY = [];
-                for (let i = 0; i < event.touches.length; i++) {
-                    touchY.push(event.touches[i].clientY);
+                for (let i = 0; i < event.targetTouches.length; i++) {
+                    touchY.push(event.targetTouches[i].clientY);
                 }
                 if (lastTouchY) {
                     // Use the delta between the touches that are furthest apart
