@@ -1347,8 +1347,23 @@ class CanvasPlot {
 
     class SelectedDetailsView {
         constructor(container) {
-            this.container = container.append("div").classed("pill tooltip selection-details", true);
+            // this.element contains the tooltip and the expand button
+            this.element = container.append("div").classed("pill tooltip selection-details", true);
+            // this.container contains the pills. Can be wrapped or not wrapped with overflow: hidden
+            this.container = this.element.append("div").classed("pill no-border", true);
+
             this.container.append("div").text("Selected segment:").classed("pill no-border info-label", true);
+
+            this.expandButton = this.element.append("i").classed("selected-utterance-expand fas fa-caret-down", true).on("click", () => {
+               this.container.classed("expanded", !this.container.classed("expanded"));
+                if (this.container.classed("expanded")) {
+                    this.expandButton.classed("fa-caret-down", false);
+                    this.expandButton.classed("fa-caret-up", true);
+                } else {
+                    this.expandButton.classed("fa-caret-up", false);
+                    this.expandButton.classed("fa-caret-down", true);
+                }
+            });
             this.update(null);
 
             this.blacklist = ["source"]
@@ -1357,6 +1372,7 @@ class CanvasPlot {
 
         clear() {
             this.container.selectAll(".utterance-details").remove();
+            this.expandButton.style("visibility", "hidden");
         }
 
         formatValue(element, key, value) {
@@ -1422,7 +1438,8 @@ class CanvasPlot {
         update(utterance) {
             this.clear();
             if (utterance) {
-                const tooltip = addTooltip(this.container).classed("wrap-60 alignleft utterance-details", true);
+                this.expandButton.style("visibility", "visible");
+                const tooltip = addTooltip(this.element).classed("wrap-60 alignleft utterance-details", true);
                 const tooltipTable = tooltip.append("table").classed("details-table", true).append("tbody");
 
                 for (var [key, value] of Object.entries(utterance)) {
@@ -1440,7 +1457,9 @@ class CanvasPlot {
                     this.formatValue(row.append("td"), key, value);
                 }
             } else {
-                this.container.append("div").classed("utterance-details", true).classed("utterance-details-help pill no-border", true).text("Select a segment to display details");
+                this.container.append("div").classed("utterance-details", true)
+                    .classed("utterance-details-help pill no-border", true)
+                    .text("Select a segment to display details");
             }
         }
     }
