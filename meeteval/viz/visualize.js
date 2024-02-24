@@ -829,6 +829,14 @@ class CanvasPlot {
                     element.style('height', new_height + "px");
                 })
             });
+            resize_handle.on("touchmove", (e) => {
+                // Select the first touch that started in the touch handle. Any
+                // further touches are ignored.
+                const touch = e.targetTouches[0];
+                const parent_top = element.node().getBoundingClientRect().top;
+                const new_height = Math.max(touch.clientY - parent_top - 2/*half of resize-handle height*/, 20);
+                element.style('height', new_height + "px");
+            })
         }
 
         draw() {
