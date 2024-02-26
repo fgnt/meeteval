@@ -76,7 +76,7 @@ function alignment_visualization(
      * and still be captured. Cancel defaults so that text is not
      * selected during dragging.
      */
-    function drag(element, drag, stopDrag) {
+    function drag(element, drag, startDrag, stopDrag) {
         function _stopDrag(e) {
                 window.removeEventListener("mousemove", _drag);
                 window.removeEventListener("mouseup", _stopDrag);
@@ -89,13 +89,14 @@ function alignment_visualization(
             e.preventDefault();
         }
 
-        function startDrag() {
+        function _startDrag() {
             if (dragActive) return;
             dragActive = true;
             window.addEventListener("mousemove", _drag);
             window.addEventListener("mouseup", _stopDrag);
+            if (startDrag) startDrag();
         }
-        element.on("mousedown", startDrag);
+        element.on("mousedown", _startDrag);
     }
 
 
@@ -837,7 +838,9 @@ class CanvasPlot {
                 const parent_top = element.node().getBoundingClientRect().top;
                 const new_height = Math.max(e.clientY - parent_top - 2/*half of resize-handle height*/, 20);
                 element.style('height', new_height + "px");
-            })
+            }, () => resize_handle.classed('active', true), () => resize_handle.classed('active', false));
+            resize_handle.on("touchstart", () => resize_handle.classed('active', true));
+            resize_handle.on("touchend", () => resize_handle.classed('active', false));
             resize_handle.on("touchmove", (e) => {
                 // Select the first touch that started in the touch handle. Any
                 // further touches are ignored.

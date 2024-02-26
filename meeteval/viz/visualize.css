@@ -164,6 +164,13 @@ i {
     left:0;
     height: 5px;
     cursor: row-resize;
+    opacity: 70%;
+    background-color: transparent;
+    transition: background-color 0.3s;
+}
+
+.minimap-resize-handle.active {
+    background-color: #4f9fee;
 }
 
 /* Tooltips */
