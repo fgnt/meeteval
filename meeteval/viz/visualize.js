@@ -76,22 +76,26 @@ function alignment_visualization(
      * and still be captured. Cancel defaults so that text is not
      * selected during dragging.
      */
-    function startDrag(drag, stopDrag) {
-        if (dragActive) return;
-
+    function drag(element, drag, stopDrag) {
         function _stopDrag(e) {
-            window.removeEventListener("mousemove", _drag);
-            window.removeEventListener("mouseup", _stopDrag);
-            dragActive = false;
-            if (stopDrag) stopDrag(e);
-        }
+                window.removeEventListener("mousemove", _drag);
+                window.removeEventListener("mouseup", _stopDrag);
+                dragActive = false;
+                if (stopDrag) stopDrag(e);
+            }
+
         function _drag(e) {
             drag(e);
             e.preventDefault();
         }
-        dragActive = true;
-        window.addEventListener("mousemove", _drag);
-        window.addEventListener("mouseup", _stopDrag);
+
+        function startDrag() {
+            if (dragActive) return;
+            dragActive = true;
+            window.addEventListener("mousemove", _drag);
+            window.addEventListener("mouseup", _stopDrag);
+        }
+        element.on("mousedown", startDrag);
     }
 
 
@@ -290,6 +294,12 @@ class DetailsAxis{
     }
 }
 
+/**
+ * Add a tooltip to an element. The tooltip is shown when the mouse
+ * enters the element and hidden when the mouse leaves the element.
+ * The tooltip is positioned below the element and shifted so that it
+ * is fully visible and, if possible, centered below the element.
+ */
 function addTooltip(element, tooltip) {
     element.classed("tooltip", true);
     const tooltipcontent = element.append("div").classed("tooltipcontent", true);
@@ -551,7 +561,8 @@ class CanvasPlot {
 
 
     /**
-     * Search bar component. Modifies "words" in-place.
+     * Search bar component. Modifies "words" in-place by setting the `.highlight`
+     * attribute of matching words to `true`.
      */
     class SearchBar {
         constructor(container, words, initial_query) {
@@ -822,13 +833,11 @@ class CanvasPlot {
 
             // Make the minimap resizable
             const resize_handle = e.append('div').classed('minimap-resize-handle', true);
-            resize_handle.on("mousedown", () => {
-                startDrag(e => {
-                    const parent_top = element.node().getBoundingClientRect().top;
-                    const new_height = Math.max(e.clientY - parent_top - 2/*half of resize-handle height*/, 20);
-                    element.style('height', new_height + "px");
-                })
-            });
+            drag(resize_handle, e => {
+                const parent_top = element.node().getBoundingClientRect().top;
+                const new_height = Math.max(e.clientY - parent_top - 2/*half of resize-handle height*/, 20);
+                element.style('height', new_height + "px");
+            })
             resize_handle.on("touchmove", (e) => {
                 // Select the first touch that started in the touch handle. Any
                 // further touches are ignored.
@@ -1010,11 +1019,11 @@ class CanvasPlot {
                 event.preventDefault();
             }, false)
 
-            this.plot.element.on("mousedown", () => startDrag(e => {
-                const delta = this.plot.y.invert(event.movementY) - this.plot.y.invert(0);
+            drag(this.plot.element, e => {
+                const delta = this.plot.y.invert(e.movementY) - this.plot.y.invert(0);
                 let [begin, end] = this.plot.y.domain();
                 this._callOnScrollHandlers(begin - delta, end - delta);
-            }))
+            });
 
             var lastTouchY = [];
             this.plot.element.on("touchstart", event => {
