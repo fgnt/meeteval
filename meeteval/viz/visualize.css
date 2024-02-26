@@ -62,11 +62,19 @@
     background-color: #fff;
     border-radius: 7px;
     border: 1px solid #000;
-    padding: 0 5px 0 5px;
     /*flex-wrap: wrap;*/
+    box-sizing: border-box;
+    align-items: center;
+    width: calc(100% - 5px);
+    padding: 0;
+    /*overflow: hidden;*/
+}
+
+.selection-details-container {
+    display: flex;
     align-items: center;
     width: 100%;
-    overflow: hidden;
+    overflow: hidden
 }
 
 .selected-utterance-expand {
@@ -74,7 +82,7 @@
     right:0;
     top: 0;
     background: #fff;
-    border-radius: 0 0 0 5px;
+    border-radius: 5px;
     border-left: 1px solid black;
     border-bottom: 1px solid black;
     cursor: pointer;

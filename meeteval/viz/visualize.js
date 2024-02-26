@@ -1361,8 +1361,9 @@ class CanvasPlot {
         constructor(container) {
             // this.element contains the tooltip and the expand button
             this.element = container.append("div").classed("pill tooltip selection-details", true);
+
             // this.container contains the pills. Can be wrapped or not wrapped with overflow: hidden
-            this.container = this.element.append("div").classed("pill no-border", true);
+            this.container = this.element.append("div").classed("selection-details-container", true);
 
             this.container.append("div").text("Selected segment:").classed("pill no-border info-label", true);
 
@@ -1383,7 +1384,7 @@ class CanvasPlot {
         }
 
         clear() {
-            this.container.selectAll(".utterance-details").remove();
+            this.element.selectAll(".utterance-details").remove();
             this.expandButton.style("visibility", "hidden");
         }
 
