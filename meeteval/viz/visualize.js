@@ -1554,7 +1554,8 @@ class CanvasPlot {
         let pill = container.append("div").classed("pill", true);
         let audio_tooltip = addTooltip(pill);
 
-        pill.append("span").text((name.trim() !== "") ? "🔊 " + name : "🔊");
+        pill.append("i").classed("fas fa-volume-up", true);
+        if (name.trim()) pill.append("span").text(name);
 
         let input = audio_tooltip.append("div").style("display", "flex");
         let server_path = input.append("input").attr("type", "text").attr("placeholder", "e.g. http://localhost:7777").property("value", "http://localhost:7777");
