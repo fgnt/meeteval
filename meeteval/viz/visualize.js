@@ -796,7 +796,7 @@ class CanvasPlot {
                 ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
             }
             this.word_plot = new WordPlot(
-                new CanvasPlot(e.append('div').style('height', '70%'), x_scale, y_scale,
+                new CanvasPlot(e.append('div').style('height',this.error_bars ? '70%' : '100%'), x_scale, y_scale,
                     new CompactAxis(10, "time"), new Axis(50), true),
                 words
             );
