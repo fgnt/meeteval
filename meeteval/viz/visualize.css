@@ -247,6 +247,71 @@ visible area.
     transition-delay: 0.2s;
 }
 
+/* Menu Elements */
+.menu-container {
+    position: relative;
+}
+
+.menu {
+    visibility: hidden;
+    white-space: pre-wrap;
+    background-color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    border: 1px solid black;
+    padding: 5px 0;
+    position: absolute;
+    z-index: 1;
+    top: 100%;
+    left: 0%;
+    /*opacity: 0;*/
+    transition: opacity 0.3s;
+    transition-delay: 2s;
+    inline-size: max-content;
+
+    /* Center the tooltip below the element */
+    inset-inline-start: -4em;
+}
+
+.divider {
+    border-top: 1px solid #ddd;
+    margin: 5px 0 5px 0;
+    font-weight: bold;
+    padding: 0;
+}
+
+.menu-header {
+    border-bottom: 1px solid black;
+    margin-bottom: 5px;
+    padding: 5px;
+    font-weight: bolder;
+}
+
+.menu select {
+    border-radius: 5px;
+    background: #fff;
+    padding: 3px;
+}
+
+.menu-element {
+    margin: 0 5px;
+    display: flex;
+    align-items: center;
+}
+
+.menu-element .menu-control {
+    margin-left: auto;
+}
+
+.menu-element .menu-label {
+    margin-right: 20px;
+}
+
+.menu .menu-section-label {
+    font-weight: bold;
+    margin: 5px 0 10px 0;
+}
+
 /* Style for the help text displayed when no utterance is selected */
 .utterance-details-help {
     color: gray;

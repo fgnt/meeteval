@@ -328,6 +328,21 @@ function addTooltip(element, tooltip) {
     return tooltipcontent;
 }
 
+function menu(element) {
+    element.classed("menu-container", true);
+    const m = element.append("div").classed("menu", true)
+        .style("visibility", "hidden");
+    element.on("click", () => {
+        m.style("visibility", "visible");
+    });
+    window.addEventListener("click", (e) => {
+        if (!element.node().contains(e.target)) {
+            m.style("visibility", "hidden");
+        }
+    });
+    return m;
+}
+
 class CanvasPlot {
     element;
     canvas;
@@ -416,19 +431,27 @@ class CanvasPlot {
 
 
     function drawMenu(container) {
+        const menuContainer = container.append("div").classed("pill", true);
+        menuContainer.append("i").classed("fas fa-sliders", true);
+        const m = menu(menuContainer).append("div");
+
+        m.append("div").text("Settings").classed("menu-header", true);
+
         // Font
-        const font_size = container.append("div").classed("pill", true)
-        font_size.append("div").classed("info-label", true).text("Font size");
-        font_size.append("input").attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
+        const font_size = m.append("div").classed("menu-element", true)
+        font_size.append("div").text("Font size");
+        font_size.append("input").classed("menu-control", true).attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
             settings.font_size = this.value;
             redraw();
         }).node().value = settings.font_size;
 
         // Minimaps
-        const minimaps = container.append("div").classed("pill", true);
-        minimaps.append("div").classed("info-label", true).text("Minimaps");
-        minimaps.append("div").text("#").classed("label", true);
-        const num_minimaps_select = minimaps.append("select").on("change", function () {
+        m.append("div").classed("divider", true);
+        m.append("div").classed("menu-section-label", true).text("Minimaps");
+
+        let menuElement = m.append("div").classed("menu-element", true);
+        menuElement.append("div").classed("menu-label", true).text("Number:")
+        const num_minimaps_select = menuElement.append("select").classed("menu-control", true).on("change", function () {
             settings.minimaps.number = this.value;
             rebuild();
             redraw();
@@ -439,10 +462,11 @@ class CanvasPlot {
         num_minimaps_select.append("option").attr("value", 3).text("3");
         num_minimaps_select.node().value = settings.minimaps.number;
 
-        minimaps.append("div").text("Error distribution").classed("label", true);
         // const errorbar_style = container.append("div").classed("pill", true);
         // errorbar_style.append("div").classed("info-label", true).text("Error distribution");
-        const errorbar_style_select = minimaps.append("select").on("change", function () {
+        menuElement = m.append("div").classed("menu-element", true);
+        menuElement.append("div").classed("menu-label", true).text("Error distribution:");
+        const errorbar_style_select = menuElement.append("select").classed("menu-control", true).on("change", function () {
             settings.barplot.style = this.value;
             rebuild();
             redraw();
@@ -454,13 +478,14 @@ class CanvasPlot {
 
         
         // const errorbar_mode = container.append("div").classed("pill", true);
-        minimaps.append("div").text("Scale exclude correct").classed("label", true);
         // errorbar_mode.append("div").classed("info-label", true).text("Scale exclude correct");
-        const errorbar_mode_check = minimaps.append("input").attr("type", "checkbox").on("change", function () {
-            settings.barplot.scaleExcludeCorrect = this.checked;
-            redraw();
-        });
-        errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
+        // menuElement = m.append("div").classed("menu-element", true);
+        // menuElement.append("div").classed("menu-label", true).text("Hi");
+        // const errorbar_mode_check = menuElement.append("input").classed("menu-control", true).attr("type", "checkbox").on("change", function () {
+        //     settings.barplot.scaleExcludeCorrect = this.checked;
+        //     redraw();
+        // });
+        // errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
     }
 
     function drawHelpButton(container) {
@@ -1593,10 +1618,10 @@ class CanvasPlot {
     // Setup plot elements
     const top_row_container = root_element.append("div").classed("top-row", true)
     drawHelpButton(top_row_container);
+    drawMenu(top_row_container);
     drawExampleInfo(top_row_container, data.info)
     // drawMenuBar(top_row_container);
     if (settings.show_legend) drawLegend(top_row_container);
-    drawMenu(top_row_container);
     const rangeSelector = new RangeSelector(top_row_container);
     const searchBar = new SearchBar(top_row_container, data.words, settings.search_bar.initial_query);
     var minimaps = [];
