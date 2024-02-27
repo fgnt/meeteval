@@ -335,7 +335,7 @@ function menu(element) {
     element.on("click", () => {
         m.style("visibility", "visible");
     });
-    window.addEventListener("click", (e) => {
+    window.addEventListener("mousedown", (e) => {
         if (!element.node().contains(e.target)) {
             m.style("visibility", "hidden");
         }
