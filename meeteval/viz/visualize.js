@@ -1404,7 +1404,7 @@ class CanvasPlot {
             });
             this.update(null);
 
-            this.blacklist = ["source"]
+            this.blacklist = ["source", "session_id"]
             this.rename = { total: "# words" }
         }
 
@@ -1481,7 +1481,8 @@ class CanvasPlot {
                 const tooltipTable = tooltip.append("table").classed("details-table", true).append("tbody");
 
                 for (var [key, value] of Object.entries(utterance)) {
-                    if (this.blacklist.includes(key)) return;
+                    console.log(key, this.blacklist, this.blacklist.includes(key)   );
+                    if (this.blacklist.includes(key)) continue;
                     key = this.rename[key] || key;
 
                     // Pill
