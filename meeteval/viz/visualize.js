@@ -42,6 +42,7 @@ function alignment_visualization(
             initial_query: null
         },
         recording_file: "",
+        match_width: 10,
     }
 ) {
     // Validate settings
@@ -237,11 +238,10 @@ class CompactAxis {
 }
 
 class DetailsAxis{
-    constructor(padding, tickPadding=3, tickSize=6, ref_hyp_gap=10) {
+    constructor(padding, tickPadding=3, tickSize=6) {
         this.padding = padding;
         this.tickPadding = tickPadding;
         this.tickSize = tickSize;
-        this.ref_hyp_gap = ref_hyp_gap;
     }
 
     draw(context, scale, position) {
@@ -253,6 +253,7 @@ class DetailsAxis{
             }
         })
         const offset = (scale.bandwidth()) / 4;
+        const match_width = settings.match_width * scale.bandwidth() / 2;
 
         // Clear the axis part of the plot
         context.clearRect(start, position, end - start, this.padding);
@@ -278,10 +279,10 @@ class DetailsAxis{
             context.fill();
             context.stroke();
             context.beginPath();
-            context.moveTo(d.pos - this.ref_hyp_gap, position);
-            context.lineTo(d.pos - this.ref_hyp_gap, position + this.tickSize);
-            context.moveTo(d.pos + this.ref_hyp_gap, position);
-            context.lineTo(d.pos + this.ref_hyp_gap, position + this.tickSize);
+            context.moveTo(d.pos - match_width, position);
+            context.lineTo(d.pos - match_width, position + this.tickSize);
+            context.moveTo(d.pos + match_width, position);
+            context.lineTo(d.pos + match_width, position + this.tickSize);
             context.moveTo(d.pos + scale.bandwidth() / 2, position);
             context.lineTo(d.pos + scale.bandwidth() / 2, position + this.tickSize);
             context.moveTo(d.pos - scale.bandwidth() / 2, position);
@@ -437,19 +438,26 @@ class CanvasPlot {
 
         m.append("div").text("Settings").classed("menu-header", true);
 
-        // Font
-        const font_size = m.append("div").classed("menu-element", true)
-        font_size.append("div").text("Font size");
-        font_size.append("input").classed("menu-control", true).attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
+        // Main plot settings
+        m.append("div").classed("menu-section-label", true).text("Main Plot");
+        let menuElement = m.append("div").classed("menu-element", true);
+        menuElement.append("div").classed("menu-label", true).text("Font size:");
+        menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
             settings.font_size = this.value;
             redraw();
         }).node().value = settings.font_size;
+        menuElement = m.append("div").classed("menu-element", true)
+        menuElement.append("div").classed("menu-label", true).text("Match width:");
+        menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "1").attr("max", "90").classed("slider", true).attr("step", 1).on("input", function () {
+            settings.match_width = parseInt(this.value) / 100;
+            redraw();
+        }).node().value = settings.match_width * 100;
 
         // Minimaps
         m.append("div").classed("divider", true);
         m.append("div").classed("menu-section-label", true).text("Minimaps");
 
-        let menuElement = m.append("div").classed("menu-element", true);
+        menuElement = m.append("div").classed("menu-element", true);
         menuElement.append("div").classed("menu-label", true).text("Number:")
         const num_minimaps_select = menuElement.append("select").classed("menu-control", true).on("change", function () {
             settings.minimaps.number = this.value;
@@ -925,7 +933,7 @@ class CanvasPlot {
 
 
     class DetailsPlot {
-        constructor(plot, words, utterances, markers, ref_hyp_gap=10) {
+        constructor(plot, words, utterances, markers) {
             this.plot = plot;
             this.plot.element.classed("plot", true)
             this.words = words;
@@ -933,7 +941,6 @@ class CanvasPlot {
             this.utterances = utterances;
             this.filtered_utterances = utterances;
             this.max_domain = plot.y.domain();
-            this.ref_hyp_gap = ref_hyp_gap;
             this.markers = markers;
             this.filtered_markers = markers;
 
@@ -973,11 +980,20 @@ class CanvasPlot {
                 const y = self.plot.y.invert(screenY);
 
                 // invert x band scale
+                const match_width = settings.match_width * self.plot.x.bandwidth() / 2;
                 const eachBand = self.plot.x.step();
                 const index = Math.floor((screenX - self.plot.y_axis_padding) / eachBand);
                 const speaker = self.plot.x.domain()[index];
                 const within_speaker_coord = screenX - self.plot.x(speaker);
-                const source = within_speaker_coord < self.plot.x.bandwidth() / 2 - self.ref_hyp_gap ? "reference" : (within_speaker_coord > self.plot.x.bandwidth() / 2 + self.ref_hyp_gap ? "hypothesis" : null);
+                const source = (
+                    within_speaker_coord < self.plot.x.bandwidth() / 2 - match_width
+                        ? "reference"
+                        : (
+                            within_speaker_coord > self.plot.x.bandwidth() / 2 + match_width
+                            ? "hypothesis"
+                            : null
+                        )
+                );
 
                 if (source) {
                     const utterance_candidates = this.filtered_utterances.filter(
@@ -1148,7 +1164,9 @@ class CanvasPlot {
             const draw_text = filtered_words.length < 400;
             const draw_boxes = filtered_words.length < 1000;
             const draw_utterance_markers = filtered_words.length < 2000;
-            const rectwidth = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
+            const match_width = settings.match_width * this.plot.x.bandwidth() / 2;
+            const stitch_offset = Math.min(10, match_width / 2);
+            const rectwidth = this.plot.x.bandwidth() / 2 - match_width;
             const bandwidth = this.plot.x.bandwidth() / 2;
 
             // Draw background
@@ -1227,7 +1245,7 @@ class CanvasPlot {
             filtered_words.forEach(d => {
                 const bandleft = this.plot.x(d.speaker);
                 let rectleft = bandleft;
-                if (d.source === "hypothesis") rectleft += bandwidth + this.ref_hyp_gap;
+                if (d.source === "hypothesis") rectleft += bandwidth + match_width;
 
                 if (d.matches?.length > 0 || d.highlight) {
                     context.beginPath();
@@ -1256,11 +1274,11 @@ class CanvasPlot {
                     if (match_type === 'insertion') {
                         const y = this.plot.y(d.center_time);
                         context.moveTo(rectleft, y);
-                        context.lineTo(rectleft - this.ref_hyp_gap / 2, y);
+                        context.lineTo(rectleft - stitch_offset, y);
                     } else if (match_type === 'deletion') {
                         const y = this.plot.y(d.center_time);
                         context.moveTo(rectleft + rectwidth, y);
-                        context.lineTo(rectleft + rectwidth + this.ref_hyp_gap / 2, y);
+                        context.lineTo(rectleft + rectwidth + stitch_offset, y);
                     }
                     context.stroke();
                 }
@@ -1274,9 +1292,9 @@ class CanvasPlot {
                 const bandleft = this.plot.x(m.speaker);
                 context.strokeStyle = settings.colors[m.match_type];
                 context.moveTo(bandleft + rectwidth, this.plot.y(m.left_center_time));
-                context.lineTo(bandleft + rectwidth + this.ref_hyp_gap / 2, this.plot.y(m.left_center_time));
-                context.lineTo(bandleft + rectwidth + 3 * this.ref_hyp_gap / 2, this.plot.y(m.right_center_time));
-                context.lineTo(bandleft + rectwidth + 2 * this.ref_hyp_gap, this.plot.y(m.right_center_time));
+                context.lineTo(bandleft + rectwidth + stitch_offset, this.plot.y(m.left_center_time));
+                context.lineTo(bandleft + rectwidth + 2 * match_width - stitch_offset, this.plot.y(m.right_center_time));
+                context.lineTo(bandleft + rectwidth + 2 * match_width, this.plot.y(m.right_center_time));
                 context.stroke();
             });
 
@@ -1289,7 +1307,7 @@ class CanvasPlot {
             if (draw_text) filtered_words.forEach(d => {
                 const bandleft = this.plot.x(d.speaker);
                 let rectleft = bandleft;
-                if (d.source === "hypothesis") rectleft += bandwidth + this.ref_hyp_gap;
+                if (d.source === "hypothesis") rectleft += bandwidth + match_width;
 
                 rectleft += rectwidth / 2;
                 let y_ = this.plot.y((d.start_time + d.end_time) / 2);
@@ -1308,9 +1326,9 @@ class CanvasPlot {
 
                 // x is the left side of the marker
                 var x = this.plot.x(d.speaker);
-                const bandwidth = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
+                const bandwidth = this.plot.x.bandwidth() / 2 - match_width;
                 if (d.source == "hypothesis") {
-                    x += bandwidth + 2*this.ref_hyp_gap;
+                    x += bandwidth + 2*match_width;
                 }
 
                 // Begin marker
@@ -1345,7 +1363,7 @@ class CanvasPlot {
             // Draw boundary around the selected utterance
             if (this.selected_utterance) {
                 const d = this.selected_utterance;
-                const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + this.ref_hyp_gap : 0);
+                const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + match_width : 0);
                 context.beginPath();
                 context.strokeStyle = "red";
                 context.lineWidth = 3;

@@ -477,7 +477,8 @@ class AlignmentVisualization:
                             search_bar: {{
                                 initial_query: {highlight_regex}
                             }},
-                            recording_file: {json.dumps(self.recording_file, default=os.fspath)}
+                            recording_file: {json.dumps(self.recording_file, default=os.fspath)},
+                            match_width: 0.1,
                         }}
                     );
                     else setTimeout(exec, 100);

@@ -663,6 +663,10 @@ def apply_multi_file(
 
     results = {}
     for session in reference.keys():
-        results[session] = fn(reference[session], hypothesis.get(session, SegLST([])))
+        try:
+            results[session] = fn(reference[session], hypothesis.get(session, SegLST([])))
+        except:
+            logging.error(f'Error in session {session}')
+            raise
 
     return results
