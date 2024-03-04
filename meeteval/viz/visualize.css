@@ -3,8 +3,25 @@
     font-family: Arial, Helvetica, sans-serif;
 }
 
+.meeteval-viz {
+    margin: auto;
+    /* Prevents scroll + zoom on touch devices. We handle scrolling + zooming
+    manually and weird things happen when browser and manual zoom happen at
+    the same time */
+    touch-action: none;
+}
+
 .meeteval-viz table {
     color: black;
+}
+
+.plot-area {
+    margin-top: 5px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex-grow: 1;
 }
 
 /* Styles for menu bar pills*/
@@ -45,9 +62,37 @@
     background-color: #fff;
     border-radius: 7px;
     border: 1px solid #000;
-    padding: 0 5px 0 5px;
-    flex-wrap: wrap;
+    /*flex-wrap: wrap;*/
+    box-sizing: border-box;
     align-items: center;
+    width: calc(100% - 5px);
+    padding: 0;
+    /*overflow: hidden;*/
+}
+
+.selection-details-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    overflow: hidden
+}
+
+.selected-utterance-expand {
+    position: absolute;
+    right:0;
+    top: 0;
+    background: #fff;
+    border-radius: 5px;
+    border-left: 1px solid black;
+    border-bottom: 1px solid black;
+    cursor: pointer;
+    margin: 0;
+    padding: 0 5px;
+}
+
+.expanded {
+    flex-wrap: wrap;
+    overflow: visible;
 }
 
 .info-label {
@@ -99,9 +144,9 @@ i {
     margin: 0;
     margin-right: 0px;
     /*border:none;*/
-    outline:none;
-    border-radius:0.6em;
-    cursor:pointer;
+    outline: none;
+    border-radius: 0.6em;
+    cursor: pointer;
 }
 
 .copybutton i {
@@ -109,13 +154,31 @@ i {
 }
 
 /* Plot elements */
-.minimap {
+.plot {
     position: relative;
     background-color: white;
     margin-bottom: 1px;
     padding: 2px;
     border: 1px solid black;
     border-radius: 5px;
+    box-sizing: border-box;
+}
+
+/* Minimaps */
+.minimap-resize-handle {
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    left:0;
+    height: 5px;
+    cursor: row-resize;
+    opacity: 70%;
+    background-color: transparent;
+    transition: background-color 0.3s;
+}
+
+.minimap-resize-handle.active {
+    background-color: #4f9fee;
 }
 
 /* Tooltips */
@@ -145,7 +208,7 @@ visible area.
 */
 .tooltip .tooltipcontent {
     visibility: hidden;
-    
+
     white-space: pre-wrap;
     background-color: #555;
     color: #fff;
@@ -177,12 +240,77 @@ visible area.
 }
 
 /* Show the tooltip text when you hover over the tooltip container */
-.tooltip:hover > .tooltipcontent {
+.tooltip:hover>.tooltipcontent {
     visibility: visible;
     opacity: 1;
     transition: opacity 0.1s;
     transition-delay: 0.2s;
-  }
+}
+
+/* Menu Elements */
+.menu-container {
+    position: relative;
+}
+
+.menu {
+    visibility: hidden;
+    white-space: pre-wrap;
+    background-color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    border: 1px solid black;
+    padding: 5px 0;
+    position: absolute;
+    z-index: 1;
+    top: 100%;
+    left: 0%;
+    /*opacity: 0;*/
+    transition: opacity 0.3s;
+    transition-delay: 2s;
+    inline-size: max-content;
+
+    /* Center the tooltip below the element */
+    inset-inline-start: -4em;
+}
+
+.divider {
+    border-top: 1px solid #ddd;
+    margin: 5px 0 5px 0;
+    font-weight: bold;
+    padding: 0;
+}
+
+.menu-header {
+    border-bottom: 1px solid black;
+    margin-bottom: 5px;
+    padding: 5px;
+    font-weight: bolder;
+}
+
+.menu select {
+    border-radius: 5px;
+    background: #fff;
+    padding: 3px;
+}
+
+.menu-element {
+    margin: 0 5px;
+    display: flex;
+    align-items: center;
+}
+
+.menu-element .menu-control {
+    margin-left: auto;
+}
+
+.menu-element .menu-label {
+    margin-right: 20px;
+}
+
+.menu .menu-section-label {
+    font-weight: bold;
+    margin: 5px 0 10px 0;
+}
 
 /* Style for the help text displayed when no utterance is selected */
 .utterance-details-help {
@@ -254,19 +382,25 @@ wer table */
     /* background: red; */
     border-radius: 3px;
     border: 1px solid gray;
-    width: 3em;
+    width: 9em;
+    text-align: center;
+}
+
+.input-error {
+    border: 1px solid red !important;
+    background: #ffcccc;
 }
 
 /* Chrome, Safari, Edge, Opera */
 .range-selector input::-webkit-outer-spin-button,
 .range-selector input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 /* Firefox */
 .range-selector input[type=number] {
-  -moz-appearance: textfield;
+    -moz-appearance: textfield;
 }
 
 /* Hint shown below tables in tooltips */
@@ -279,15 +413,15 @@ wer table */
 }
 
 .search-bar button {
-  background-color: #eee;
-  color: #333333;
-  cursor: pointer;
-  display: inline-block;
-  border: none;
-  margin: 0;
-  /* padding: 10px 12px; */
-  white-space: nowrap;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
+    background-color: #eee;
+    color: #333333;
+    cursor: pointer;
+    display: inline-block;
+    border: none;
+    margin: 0;
+    /* padding: 10px 12px; */
+    white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
 }

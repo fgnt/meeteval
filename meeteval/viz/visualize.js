@@ -34,7 +34,6 @@ function alignment_visualization(
         },
         minimaps: {
             number: 2,
-            height: 200,
         },
         show_details: true,
         show_legend: true,
@@ -43,6 +42,7 @@ function alignment_visualization(
             initial_query: null
         },
         recording_file: "",
+        match_width: 10,
     }
 ) {
     // Validate settings
@@ -65,6 +65,41 @@ function alignment_visualization(
     }
 
     let root_element = d3.select(element_id);
+
+    /* Mouse drag */
+    let dragActive = false;
+
+    /**
+     * Start dragging an element. Do nothing if a drag is currently active.
+     *
+     * Registers global handlers for mousemove and mouseup events
+     * so that the mouse can be dragged out of the element or window
+     * and still be captured. Cancel defaults so that text is not
+     * selected during dragging.
+     */
+    function drag(element, drag, startDrag, stopDrag) {
+        function _stopDrag(e) {
+                window.removeEventListener("mousemove", _drag);
+                window.removeEventListener("mouseup", _stopDrag);
+                dragActive = false;
+                if (stopDrag) stopDrag(e);
+            }
+
+        function _drag(e) {
+            drag(e);
+            e.preventDefault();
+        }
+
+        function _startDrag() {
+            if (dragActive) return;
+            dragActive = true;
+            window.addEventListener("mousemove", _drag);
+            window.addEventListener("mouseup", _stopDrag);
+            if (startDrag) startDrag();
+        }
+        element.on("mousedown", _startDrag);
+    }
+
 
 class Axis {
     constructor(padding, numTicks=null, tickPadding=3, tickSize=6) {
@@ -203,11 +238,10 @@ class CompactAxis {
 }
 
 class DetailsAxis{
-    constructor(padding, tickPadding=3, tickSize=6, ref_hyp_gap=10) {
+    constructor(padding, tickPadding=3, tickSize=6) {
         this.padding = padding;
         this.tickPadding = tickPadding;
         this.tickSize = tickSize;
-        this.ref_hyp_gap = ref_hyp_gap;
     }
 
     draw(context, scale, position) {
@@ -219,6 +253,7 @@ class DetailsAxis{
             }
         })
         const offset = (scale.bandwidth()) / 4;
+        const match_width = settings.match_width * scale.bandwidth() / 2;
 
         // Clear the axis part of the plot
         context.clearRect(start, position, end - start, this.padding);
@@ -244,10 +279,10 @@ class DetailsAxis{
             context.fill();
             context.stroke();
             context.beginPath();
-            context.moveTo(d.pos - this.ref_hyp_gap, position);
-            context.lineTo(d.pos - this.ref_hyp_gap, position + this.tickSize);
-            context.moveTo(d.pos + this.ref_hyp_gap, position);
-            context.lineTo(d.pos + this.ref_hyp_gap, position + this.tickSize);
+            context.moveTo(d.pos - match_width, position);
+            context.lineTo(d.pos - match_width, position + this.tickSize);
+            context.moveTo(d.pos + match_width, position);
+            context.lineTo(d.pos + match_width, position + this.tickSize);
             context.moveTo(d.pos + scale.bandwidth() / 2, position);
             context.lineTo(d.pos + scale.bandwidth() / 2, position + this.tickSize);
             context.moveTo(d.pos - scale.bandwidth() / 2, position);
@@ -261,6 +296,12 @@ class DetailsAxis{
     }
 }
 
+/**
+ * Add a tooltip to an element. The tooltip is shown when the mouse
+ * enters the element and hidden when the mouse leaves the element.
+ * The tooltip is positioned below the element and shifted so that it
+ * is fully visible and, if possible, centered below the element.
+ */
 function addTooltip(element, tooltip) {
     element.classed("tooltip", true);
     const tooltipcontent = element.append("div").classed("tooltipcontent", true);
@@ -288,11 +329,25 @@ function addTooltip(element, tooltip) {
     return tooltipcontent;
 }
 
+function menu(element) {
+    element.classed("menu-container", true);
+    const m = element.append("div").classed("menu", true)
+        .style("visibility", "hidden");
+    element.on("click", () => {
+        m.style("visibility", "visible");
+    });
+    window.addEventListener("mousedown", (e) => {
+        if (!element.node().contains(e.target)) {
+            m.style("visibility", "hidden");
+        }
+    });
+    return m;
+}
+
 class CanvasPlot {
     element;
     canvas;
     context;
-    position;
     width;
     height;
     x_axis_padding;
@@ -301,27 +356,24 @@ class CanvasPlot {
     y;
 
     /**
-     * Creates a canvas and axis elements to be drawn on a canvas plot
+     * Creates a canvas and axis elements to be drawn on a canvas plot.
+     *
+     * Width and height of the plot are determined by the `element` and can be set by CSS.
      *
      * @param element
-     * @param width
-     * @param height
      * @param x_scale
      * @param y_scale
-     * @returns {{canvas, drawAxes: drawAxes, context: *, width, x: *, clear: clear, y: *, position: {x: number, y: number}, x_axis_padding: *, y_axis_padding: *, height}}
      */
-    constructor(element, width, height, x_scale, y_scale, xAxis, yAxis, invert_y=false, x_axis_label='',) {
-        this.element = element.append("div").style("position", "relative").style("height", height + "px");
-        this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%");
+    constructor(element, x_scale, y_scale, xAxis, yAxis, invert_y=false) {
+        this.element = element.style('position', 'relative');
+        this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%").style("position", "absolute").style("top", 0).style("left", 0);
+
         this.context = this.canvas.node().getContext("2d")
-        this.width = width
-        this.height = height
         this.xAxis = xAxis;
         this.yAxis = yAxis;
         this.x_axis_padding = xAxis?.padding || 0;
         this.y_axis_padding = yAxis?.padding || 0;
         this.invert_y = invert_y
-        this.x_axis_label = x_axis_label;
 
         if (this.xAxis) this.xAxis.horizontal = true;
         if (this.yAxis) this.yAxis.horizontal = false;
@@ -332,8 +384,8 @@ class CanvasPlot {
         this.sizeChangedListeners = [];
         this.canvasSizeChanged();
 
-        // Track size changes of our canvas
-        new ResizeObserver(this.canvasSizeChanged.bind(this)).observe(this.canvas.node());
+        // Track size changes of our canvas.
+        new ResizeObserver(this.canvasSizeChanged.bind(this)).observe(this.element.node());
     }
 
     onSizeChanged(callback) {
@@ -341,8 +393,11 @@ class CanvasPlot {
     }
 
     canvasSizeChanged() {
-        this.width = this.canvas.node().offsetWidth;
-        this.height = this.canvas.node().offsetHeight;
+        // Monitor the size change of the parent div, not the canvas.
+        // The canvas will not shrink below canvas.height.
+        // We set the canvas display to absolute so that the div can shrink
+        this.width = this.element.node().clientWidth;
+        this.height = this.element.node().clientHeight;
         this.canvas.attr("width", this.width);
         this.canvas.attr("height", this.height);
         this.x.range([this.y_axis_padding, this.width])
@@ -377,19 +432,34 @@ class CanvasPlot {
 
 
     function drawMenu(container) {
-        // Font
-        const font_size = container.append("div").classed("pill", true)
-        font_size.append("div").classed("info-label", true).text("Font size");
-        font_size.append("input").attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
+        const menuContainer = container.append("div").classed("pill", true);
+        menuContainer.append("i").classed("fas fa-sliders", true);
+        const m = menu(menuContainer).append("div");
+
+        m.append("div").text("Settings").classed("menu-header", true);
+
+        // Main plot settings
+        m.append("div").classed("menu-section-label", true).text("Main Plot");
+        let menuElement = m.append("div").classed("menu-element", true);
+        menuElement.append("div").classed("menu-label", true).text("Font size:");
+        menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
             settings.font_size = this.value;
             redraw();
         }).node().value = settings.font_size;
+        menuElement = m.append("div").classed("menu-element", true)
+        menuElement.append("div").classed("menu-label", true).text("Match width:");
+        menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "1").attr("max", "90").classed("slider", true).attr("step", 1).on("input", function () {
+            settings.match_width = parseInt(this.value) / 100;
+            redraw();
+        }).node().value = settings.match_width * 100;
 
         // Minimaps
-        const minimaps = container.append("div").classed("pill", true);
-        minimaps.append("div").classed("info-label", true).text("Minimaps");
-        minimaps.append("div").text("#").classed("label", true);
-        const num_minimaps_select = minimaps.append("select").on("change", function () {
+        m.append("div").classed("divider", true);
+        m.append("div").classed("menu-section-label", true).text("Minimaps");
+
+        menuElement = m.append("div").classed("menu-element", true);
+        menuElement.append("div").classed("menu-label", true).text("Number:")
+        const num_minimaps_select = menuElement.append("select").classed("menu-control", true).on("change", function () {
             settings.minimaps.number = this.value;
             rebuild();
             redraw();
@@ -400,10 +470,11 @@ class CanvasPlot {
         num_minimaps_select.append("option").attr("value", 3).text("3");
         num_minimaps_select.node().value = settings.minimaps.number;
 
-        minimaps.append("div").text("Error distribution").classed("label", true);
         // const errorbar_style = container.append("div").classed("pill", true);
         // errorbar_style.append("div").classed("info-label", true).text("Error distribution");
-        const errorbar_style_select = minimaps.append("select").on("change", function () {
+        menuElement = m.append("div").classed("menu-element", true);
+        menuElement.append("div").classed("menu-label", true).text("Error distribution:");
+        const errorbar_style_select = menuElement.append("select").classed("menu-control", true).on("change", function () {
             settings.barplot.style = this.value;
             rebuild();
             redraw();
@@ -415,13 +486,14 @@ class CanvasPlot {
 
         
         // const errorbar_mode = container.append("div").classed("pill", true);
-        minimaps.append("div").text("Scale exclude correct").classed("label", true);
         // errorbar_mode.append("div").classed("info-label", true).text("Scale exclude correct");
-        const errorbar_mode_check = minimaps.append("input").attr("type", "checkbox").on("change", function () {
-            settings.barplot.scaleExcludeCorrect = this.checked;
-            redraw();
-        });
-        errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
+        // menuElement = m.append("div").classed("menu-element", true);
+        // menuElement.append("div").classed("menu-label", true).text("Hi");
+        // const errorbar_mode_check = menuElement.append("input").classed("menu-control", true).attr("type", "checkbox").on("change", function () {
+        //     settings.barplot.scaleExcludeCorrect = this.checked;
+        //     redraw();
+        // });
+        // errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
     }
 
     function drawHelpButton(container) {
@@ -523,7 +595,8 @@ class CanvasPlot {
 
 
     /**
-     * Search bar component. Modifies "words" in-place.
+     * Search bar component. Modifies "words" in-place by setting the `.highlight`
+     * attribute of matching words to `true`.
      */
     class SearchBar {
         constructor(container, words, initial_query) {
@@ -720,18 +793,18 @@ class CanvasPlot {
     }
 
     class Minimap {
-        constructor(element, width, height, x_scale, y_scale, words) {
-            const e = element.append('div').classed("minimap", true)
+        constructor(element, x_scale, y_scale, words) {
+            const e = element.classed("plot minimap", true).style("height", '90px')
 
             if (settings.barplot.style !== "hidden") {
                 this.error_bars = new ErrorBarPlot(
-                    new CanvasPlot(e, width, 40, x_scale,
+                    new CanvasPlot(e.append('div').style('height', '30%'), x_scale,
                     d3.scaleLinear().domain([1, 0]),
                         null, new Axis(50, 3),
                 ), 200, words, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
             }
             this.word_plot = new WordPlot(
-                new CanvasPlot(e, width, 100, x_scale, y_scale,
+                new CanvasPlot(e.append('div').style('height',this.error_bars ? '70%' : '100%'), x_scale, y_scale,
                     new CompactAxis(10, "time"), new Axis(50), true),
                 words
             );
@@ -740,11 +813,9 @@ class CanvasPlot {
                 this.error_bars.plot.element.append("div").classed("plot-label", true).style("margin-left", this.error_bars.plot.y_axis_padding + "px").text("Error distribution");
             }
 
-            
             this.word_plot.plot.element.append("div").classed("plot-label", true).style("margin-left", this.word_plot.plot.y_axis_padding + "px").text("Segments");
 
             this.svg = e.append("svg")
-                // .attr("width", width).attr("height", this.error_bars.plot.height + this.word_plot.plot.height)
                 .style("position", "absolute").style("top", 0).style("left", 0).style("width", "100%").style("height", "100%");
 
             this.brush = d3.brushX()
@@ -755,7 +826,8 @@ class CanvasPlot {
                     ],
                     [this.word_plot.plot.width, this.word_plot.plot.height + (this.error_bars?.plot.height || 0)]])
                 .on("brush", this._onselect.bind(this))
-                .on("end", this._onselect.bind(this));
+                .on("end", this._onselect.bind(this))
+                .touchable(() => true); // Required for touch support for chrome on Laptops
 
             this.brush_group = this.svg.append("g")
                 .attr("class", "brush")
@@ -765,15 +837,51 @@ class CanvasPlot {
 
             this.max_range = this.word_plot.plot.x.range();
             this.selection = this.word_plot.plot.x.range();
+            this.selection_domain = this.word_plot.plot.x.domain();
 
             // Redraw brush when size changes. This is required because the brush range / extent will otherwise keep the old value (in screen size)
             this.word_plot.plot.onSizeChanged(() => {
+                // This seems hacky, but I didn't find another way to modify the height of the brush
+                const height = this.word_plot.plot.height + (this.error_bars?.plot.height || 0);
                 this.brush.extent([
-                    [Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding), 0],
-                    [this.word_plot.plot.width, this.word_plot.plot.height + (this.error_bars?.plot.height || 0)]]);
+                    [
+                        Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding),
+                        0
+                    ],
+                    [this.word_plot.plot.width, height]]
+                );
+                // this.brush.extent modifies the overlay rect, but not the selection rect. We have to set the
+                // selection rect manually
+                this.brush_group.property('__brush').extent[1][1] = height;
+                if ( this.brush_group.property('__brush').selection) {
+                    this.brush_group.property('__brush').selection[1][1] = height;
+
+                    // Set the selection to the currently selected domain so that the brush keeps its
+                    // domain position and the screen position
+                    this.brush_group.property('__brush').selection[0][0] = this.word_plot.plot.x(this.selection_domain[0]);
+                    this.brush_group.property('__brush').selection[1][0] = this.word_plot.plot.x(this.selection_domain[1]);
+                }
+                // Redraw brush
                 this.brush_group.call(this.brush);
-                // No idea how to keep the selection when the size changes, so we just keep the screen position
             });
+
+            // Make the minimap resizable
+            const resize_handle = e.append('div').classed('minimap-resize-handle', true);
+            drag(resize_handle, e => {
+                const parent_top = element.node().getBoundingClientRect().top;
+                const new_height = Math.max(e.clientY - parent_top - 2/*half of resize-handle height*/, 20);
+                element.style('height', new_height + "px");
+            }, () => resize_handle.classed('active', true), () => resize_handle.classed('active', false));
+            resize_handle.on("touchstart", () => resize_handle.classed('active', true));
+            resize_handle.on("touchend", () => resize_handle.classed('active', false));
+            resize_handle.on("touchmove", (e) => {
+                // Select the first touch that started in the touch handle. Any
+                // further touches are ignored.
+                const touch = e.targetTouches[0];
+                const parent_top = element.node().getBoundingClientRect().top;
+                const new_height = Math.max(touch.clientY - parent_top - 2/*half of resize-handle height*/, 20);
+                element.style('height', new_height + "px");
+            })
         }
 
         draw() {
@@ -802,6 +910,7 @@ class CanvasPlot {
                 if (this.selection[0] > this.max_range[0] && this.selection[1] < this.max_range[1]) this.selection = this.max_range;
             } else {
                 this.selection = event.selection;
+                this.selection_domain = this.selection.map(this.word_plot.plot.x.invert);
                 // Remove brush when fully zoomed out
                 if (this.selection[0] <= this.max_range[0] && this.selection[1] >= this.max_range[1]) {
                     this.removeBrush();
@@ -822,127 +931,16 @@ class CanvasPlot {
         }
     }
 
-    class PlayHead {
-        constructor(canvas, context, global_context, global_x_position, x_scale, y_scale, begin, end, src) {
-            this.canvas = canvas;
-            this.context = context;
-            this.x = x_scale;
-            this.y = y_scale;
-            this.begin = begin;
-            this.end = end;
-            
-            this.position = 0;
-            this.animationFrameID = null;
-            this.audio_data = null
-            this.global_context = global_context
-            this.global_x_position = global_x_position
-
-            const self = this;
-            if (src.includes('::')) {
-                // TODO: support full spec
-                
-                const parts = src.split('::');
-                const [begin, end] = parts[1].split(':');
-                src = parts[0]
-            } else {
-                const [begin, end] = [0, null];
-            }
-            fetch(src)
-                .then(r => r.arrayBuffer())
-                .then(b => new AudioContext().decodeAudioData(b))
-                .then(a => {
-                    self.audio_data = a.getChannelData(0);
-                    self.drawAudio();
-                });
-                
-                
-            this.h = new Howl({src: src})
-            this.h.once('end', () => this.remove.bind(this))
-            this.play();
-
-        }
-
-        clearPlayHead() {
-            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
-
-        draw() {
-            const position = this.begin + (this.end - this.begin) * this.position;
-            this.clearPlayHead();
-            this.context.strokeStyle = 'pink';
-            this.context.lineWidth = 4;
-            this.context.beginPath();
-            this.context.moveTo(this.x.bandwidth() / 2 + 20, this.y(position));
-            this.context.lineTo(this.x.bandwidth(), this.y(position));
-            this.context.stroke();
-            this.context.beginPath();
-            this.context.strokeStyle = 'black';
-            this.context.lineWidth = 1;
-            this.context.moveTo(this.x.bandwidth() / 2 + 20, this.y(position));
-            this.context.lineTo(this.x.bandwidth(), this.y(position));
-            this.context.stroke();
-        }
-
-        play() {
-            this.h.stop();
-            this.h.play();
-            this.tick();
-        }
-
-        stop() {
-            this.h.stop();
-        }
-
-        tick() {
-            this.position = (this.h.seek() || 0) / this.h.duration();
-            this.draw();
-            this.animationFrameID = requestAnimationFrame(this.tick.bind(this));
-        }
-
-        remove() {
-            if (this.animationFrameID !== null) cancelAnimationFrame(this.animationFrameID);
-            this.clearPlayHead();
-        }
-
-        drawAudio() {
-            if (this.audio_data == null) return;
-            const begin = this.y(this.begin)
-            const end = this.y(this.end)
-            const length = end - begin;
-            const data_length = this.audio_data.length;
-            const scale = length / data_length;
-            var prevY = 0;
-            var max = 0;
-            const vscale = 100
-
-            this.global_context.beginPath()
-            this.global_context.moveTo(this.global_x_position, begin);
-            for (let i = 0; i <= data_length; i++) {
-                const y = Math.round(i * scale)
-                if (y > prevY) {
-                    const x = this.global_x_position + Math.round(max * vscale)
-                    this.global_context.lineTo(x, prevY + begin)
-                    prevY = y;
-                    max = 0;
-                }
-                max = Math.max(Math.abs(this.audio_data[i] || 0), max)
-            }
-            this.global_context.fillStyle = 'gray';
-            this.global_context.fill();
-        }
-    }
-
 
     class DetailsPlot {
-        constructor(plot, words, utterances, markers, ref_hyp_gap=10) {
+        constructor(plot, words, utterances, markers) {
             this.plot = plot;
-            this.plot.element.classed("minimap", true)
+            this.plot.element.classed("plot", true)
             this.words = words;
             this.filtered_words = words;
             this.utterances = utterances;
             this.filtered_utterances = utterances;
-            this.max_length = plot.y.domain()[1];
-            this.ref_hyp_gap = ref_hyp_gap;
+            this.max_domain = plot.y.domain();
             this.markers = markers;
             this.filtered_markers = markers;
 
@@ -967,14 +965,9 @@ class CanvasPlot {
             this.filtered_matches = this.matches;
 
             this.selected_utterance = null;
-            this.playhead = null;
             this.utteranceSelectListeners = [];
 
-            // Playhead canvas on top of the plot canvas
-            this.playhead_canvas = this.plot.element.append("canvas").style("position", "absolute").style("top", 0).style("left", 0).style("width", "100%").style("height", "100%");
-
             this.onUtteranceSelect(this.draw.bind(this));
-            // this.onUtteranceSelect(this.play.bind(this));
 
             // Plot label
             this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
@@ -987,11 +980,20 @@ class CanvasPlot {
                 const y = self.plot.y.invert(screenY);
 
                 // invert x band scale
+                const match_width = settings.match_width * self.plot.x.bandwidth() / 2;
                 const eachBand = self.plot.x.step();
                 const index = Math.floor((screenX - self.plot.y_axis_padding) / eachBand);
                 const speaker = self.plot.x.domain()[index];
                 const within_speaker_coord = screenX - self.plot.x(speaker);
-                const source = within_speaker_coord < self.plot.x.bandwidth() / 2 - self.ref_hyp_gap ? "reference" : (within_speaker_coord > self.plot.x.bandwidth() / 2 + self.ref_hyp_gap ? "hypothesis" : null);
+                const source = (
+                    within_speaker_coord < self.plot.x.bandwidth() / 2 - match_width
+                        ? "reference"
+                        : (
+                            within_speaker_coord > self.plot.x.bandwidth() / 2 + match_width
+                            ? "hypothesis"
+                            : null
+                        )
+                );
 
                 if (source) {
                     const utterance_candidates = this.filtered_utterances.filter(
@@ -1012,76 +1014,112 @@ class CanvasPlot {
                     // Zoom when ctrl is pressed. Zoom centered on mouse position
                     const mouse_y = this.plot.y.invert(event.layerY);
                     const ratio = (mouse_y - begin) / (end - begin);
-                    begin = Math.max(0, begin - delta * ratio);
-                    end = Math.min(end + delta * (1-ratio), this.max_length);
+                    let beginDelta = -delta * ratio;
+                    if (begin + beginDelta < this.max_domain[0]) {
+                        if (begin < this.max_domain[0]) {
+                            if (beginDelta < 0) beginDelta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            beginDelta = this.max_domain[0] - begin;
+                        }
+                    }
+                    let endDelta = delta * (1 - ratio);
+                    if (end + endDelta > this.max_domain[1]) {
+                        if (end > this.max_domain[1]) {
+                            if (endDelta > 0) endDelta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            endDelta = this.max_domain[1] - end;
+                        }
+                    }
+                    begin += beginDelta;
+                    end += endDelta;
                 } else {
                     // Move when ctrl is not pressed
-                    if (end + delta > this.max_length) delta = this.max_length - end;
-                    if (begin + delta < 0) delta = -begin;
+                    if (begin + delta < this.max_domain[0]) {
+                        if (begin < this.max_domain[0]) {
+                            if (delta < 0) delta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            delta = this.max_domain[0] - begin;
+                        }
+                    }
+                    if (end + delta > this.max_domain[1]) {
+                        if (end > this.max_domain[1]) {
+                            if (delta > 0) delta = 0;
+                            // else: do nothing to prevent jumping
+                        } else {
+                            // Clip to max data domain
+                            delta = this.max_domain[1] - end;
+                        }
+                    }
                     begin = begin + delta;
                     end = end + delta;
                 }
-                // TODO: We shouldn't call zoomTo here because it would create an update loop
                 this._callOnScrollHandlers(begin, end);
                 event.preventDefault();
             }, false)
 
-            this.plot.element.on("mousemove", event => {
-                if (event.buttons !== 1) return;
-                const delta = this.plot.y.invert(event.movementY) - this.plot.y.invert(0);
+            drag(this.plot.element, e => {
+                const delta = this.plot.y.invert(e.movementY) - this.plot.y.invert(0);
                 let [begin, end] = this.plot.y.domain();
                 this._callOnScrollHandlers(begin - delta, end - delta);
-            })
+            });
 
             var lastTouchY = [];
             this.plot.element.on("touchstart", event => {
                 // TouchList doesn't implement iterator
-                alert("touchstart")
                 lastTouchY = [];
-                for (let i = 0; i < event.touches.length; i++) {
-                    lastTouchY.push(event.touches[i].screenY);
+                for (let i = 0; i < event.targetTouches.length; i++) {
+                    lastTouchY.push(event.targetTouches[i].clientY);
                 }
             });
             this.plot.element.on("touchend", event => {
                 // TouchList doesn't implement iterator
-                alert("touchend")
                 lastTouchY = [];
-                for (let i = 0; i < event.touches.length; i++) {
-                    lastTouchY.push(event.touches[i].screenY);
+                for (let i = 0; i < event.targetTouches.length; i++) {
+                    lastTouchY.push(event.targetTouches[i].clientY);
                 }
             });
-            
+
             this.plot.element.on("touchmove", event => {
-                // TODO: fling?
+                // This can happen when a touch move is started outside of the
+                // element and then moved into the element, but the starting
+                // element does not cancel the event. We don't want to mix
+                // multiple touch handlers
+                if (event.cancelable === false) return;
+
                 // TouchList doesn't implement iterator
                 var touchY = [];
-                for (let i = 0; i < event.touches.length; i++) {
-                    touchY.push(event.touches[i].screenY);
+                for (let i = 0; i < event.targetTouches.length; i++) {
+                    touchY.push(event.targetTouches[i].clientY);
                 }
                 if (lastTouchY) {
                     // Use the delta between the touches that are furthest apart
-                    const minY = Math.min(...touchY);
-                    const maxY = Math.max(...touchY);
-                    const lastMinY = Math.min(...lastTouchY);
-                    const lastMaxY = Math.max(...lastTouchY);
-
-                    // Move center to the center of the touch points
-                    const center = this.plot.y.invert((maxY + minY) / 2);
-                    const lastCenter = this.plot.y.invert((lastMaxY + lastMinY) / 2);
-                    const delta = lastCenter - center;
+                    const top = this.plot.element.node().getBoundingClientRect().top;
+                    const minY = Math.min(...touchY) - top;
+                    const maxY = Math.max(...touchY) - top;
+                    const lastMinY = Math.min(...lastTouchY) - top;
+                    const lastMaxY = Math.max(...lastTouchY) - top;
                     let [begin, end] = this.plot.y.domain();
-                    begin += delta;
-                    end += delta;
-                    
-                    // Zoom so that the center point doesn't move 
-                    // TODO: this computation is _slightly_ off, but I don't know why
-                    if (lastMaxY - lastMinY > 0 && maxY - minY > 0) { 
-                        const ratio = (maxY - minY) / (lastMaxY - lastMinY);
-                        const zoomDelta = (end - begin) * (ratio - 1);
-                        const positionRatio = (center - begin) / (end - begin);
-                        begin = Math.max(0, begin + zoomDelta * positionRatio);
-                        end = Math.min(end - zoomDelta * (1-positionRatio), this.max_length);
+
+                    if (lastMaxY - lastMinY > 0 && maxY - minY > 0) {
+                         // At least two touch points. Zoom and move
+                        const newBegin = begin + (end - begin) * (lastMinY*maxY - lastMaxY*minY) / (this.plot.height * (maxY - minY));
+                        end = (this.plot.height / minY - lastMinY / minY) * begin + lastMinY / minY * end + (1 - this.plot.height / minY) * newBegin;
+                        begin = newBegin;
+                    } else {
+                        // Only one touch point
+                        const center = this.plot.y.invert((maxY + minY) / 2);
+                        const lastCenter = this.plot.y.invert((lastMaxY + lastMinY) / 2);
+                        const delta = lastCenter - center;
+                        begin += delta;
+                        end += delta;
                     }
+
                     this._callOnScrollHandlers(begin, end);
                     event.preventDefault()
                 }
@@ -1100,14 +1138,6 @@ class CanvasPlot {
         selectUtterance(utterance) {
             this.selected_utterance = utterance;
             this.utteranceSelectListeners.forEach(c => c(utterance));
-        }
-
-        play(utterance) {
-            this.playhead = new PlayHead(
-                this.playhead_canvas, this.playhead_canvas.node().getContext("2d"),
-                this.plot.context, 0, this.plot.x, this.plot.y, 
-                utterance.start_time,  utterance.end_time, utterance.audio
-            )
         }
 
         onScroll(callback) {
@@ -1134,7 +1164,9 @@ class CanvasPlot {
             const draw_text = filtered_words.length < 400;
             const draw_boxes = filtered_words.length < 1000;
             const draw_utterance_markers = filtered_words.length < 2000;
-            const rectwidth = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
+            const match_width = settings.match_width * this.plot.x.bandwidth() / 2;
+            const stitch_offset = Math.min(10, match_width / 2);
+            const rectwidth = this.plot.x.bandwidth() / 2 - match_width;
             const bandwidth = this.plot.x.bandwidth() / 2;
 
             // Draw background
@@ -1185,8 +1217,8 @@ class CanvasPlot {
                 if (m.type === "range") {
                     const y0 = this.plot.y(m.start_time);
                     const y1 = this.plot.y(m.end_time);
-                    context.fillStyle = "purple";
-                    context.strokeStyle = "purple";
+                    context.fillStyle = m.color ?? "purple";
+                    context.strokeStyle = m.color ?? "purple";
                     context.lineWidth = .5;
                     context.fillRect(this.plot.y_axis_padding, y0, 10, y1 - y0);
                     context.beginPath();
@@ -1197,8 +1229,8 @@ class CanvasPlot {
                     context.stroke();
                 } else if (m.type === "point") {
                     const y = this.plot.y(m.time);
-                    context.fillStyle = "purple";
-                    context.strokeStyle = "purple";
+                    context.fillStyle = m.color ?? "purple";
+                    context.strokeStyle = m.color ?? "purple";
                     context.lineWidth = .5;
                     context.beginPath();
                     context.arc(this.plot.y_axis_padding + 5, y, 5, 0, 2 * Math.PI);
@@ -1213,7 +1245,7 @@ class CanvasPlot {
             filtered_words.forEach(d => {
                 const bandleft = this.plot.x(d.speaker);
                 let rectleft = bandleft;
-                if (d.source === "hypothesis") rectleft += bandwidth + this.ref_hyp_gap;
+                if (d.source === "hypothesis") rectleft += bandwidth + match_width;
 
                 if (d.matches?.length > 0 || d.highlight) {
                     context.beginPath();
@@ -1242,11 +1274,11 @@ class CanvasPlot {
                     if (match_type === 'insertion') {
                         const y = this.plot.y(d.center_time);
                         context.moveTo(rectleft, y);
-                        context.lineTo(rectleft - this.ref_hyp_gap / 2, y);
+                        context.lineTo(rectleft - stitch_offset, y);
                     } else if (match_type === 'deletion') {
                         const y = this.plot.y(d.center_time);
                         context.moveTo(rectleft + rectwidth, y);
-                        context.lineTo(rectleft + rectwidth + this.ref_hyp_gap / 2, y);
+                        context.lineTo(rectleft + rectwidth + stitch_offset, y);
                     }
                     context.stroke();
                 }
@@ -1260,9 +1292,9 @@ class CanvasPlot {
                 const bandleft = this.plot.x(m.speaker);
                 context.strokeStyle = settings.colors[m.match_type];
                 context.moveTo(bandleft + rectwidth, this.plot.y(m.left_center_time));
-                context.lineTo(bandleft + rectwidth + this.ref_hyp_gap / 2, this.plot.y(m.left_center_time));
-                context.lineTo(bandleft + rectwidth + 3 * this.ref_hyp_gap / 2, this.plot.y(m.right_center_time));
-                context.lineTo(bandleft + rectwidth + 2 * this.ref_hyp_gap, this.plot.y(m.right_center_time));
+                context.lineTo(bandleft + rectwidth + stitch_offset, this.plot.y(m.left_center_time));
+                context.lineTo(bandleft + rectwidth + 2 * match_width - stitch_offset, this.plot.y(m.right_center_time));
+                context.lineTo(bandleft + rectwidth + 2 * match_width, this.plot.y(m.right_center_time));
                 context.stroke();
             });
 
@@ -1275,7 +1307,7 @@ class CanvasPlot {
             if (draw_text) filtered_words.forEach(d => {
                 const bandleft = this.plot.x(d.speaker);
                 let rectleft = bandleft;
-                if (d.source === "hypothesis") rectleft += bandwidth + this.ref_hyp_gap;
+                if (d.source === "hypothesis") rectleft += bandwidth + match_width;
 
                 rectleft += rectwidth / 2;
                 let y_ = this.plot.y((d.start_time + d.end_time) / 2);
@@ -1294,9 +1326,9 @@ class CanvasPlot {
 
                 // x is the left side of the marker
                 var x = this.plot.x(d.speaker);
-                const bandwidth = this.plot.x.bandwidth() / 2 - this.ref_hyp_gap;
+                const bandwidth = this.plot.x.bandwidth() / 2 - match_width;
                 if (d.source == "hypothesis") {
-                    x += bandwidth + 2*this.ref_hyp_gap;
+                    x += bandwidth + 2*match_width;
                 }
 
                 // Begin marker
@@ -1331,7 +1363,7 @@ class CanvasPlot {
             // Draw boundary around the selected utterance
             if (this.selected_utterance) {
                 const d = this.selected_utterance;
-                const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + this.ref_hyp_gap : 0);
+                const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + match_width : 0);
                 context.beginPath();
                 context.strokeStyle = "red";
                 context.lineWidth = 3;
@@ -1354,9 +1386,7 @@ class CanvasPlot {
         draw() {
             this.plot.clear();
             this.drawDetails();
-            if (this.playhead !== null) this.playhead.drawAudio();
             this.plot.drawAxes();
-            // this.drawYAxisLabels();
         }
 
         zoomTo(x0, x1) {
@@ -1372,16 +1402,33 @@ class CanvasPlot {
 
     class SelectedDetailsView {
         constructor(container) {
-            this.container = container.append("div").classed("pill tooltip selection-details", true);
+            // this.element contains the tooltip and the expand button
+            this.element = container.append("div").classed("pill tooltip selection-details", true);
+
+            // this.container contains the pills. Can be wrapped or not wrapped with overflow: hidden
+            this.container = this.element.append("div").classed("selection-details-container", true);
+
             this.container.append("div").text("Selected segment:").classed("pill no-border info-label", true);
+
+            this.expandButton = this.element.append("i").classed("selected-utterance-expand fas fa-caret-down", true).on("click", () => {
+               this.container.classed("expanded", !this.container.classed("expanded"));
+                if (this.container.classed("expanded")) {
+                    this.expandButton.classed("fa-caret-down", false);
+                    this.expandButton.classed("fa-caret-up", true);
+                } else {
+                    this.expandButton.classed("fa-caret-up", false);
+                    this.expandButton.classed("fa-caret-down", true);
+                }
+            });
             this.update(null);
 
-            this.blacklist = ["source"]
+            this.blacklist = ["source", "session_id"]
             this.rename = { total: "# words" }
         }
 
         clear() {
-            this.container.selectAll(".utterance-details").remove();
+            this.element.selectAll(".utterance-details").remove();
+            this.expandButton.style("visibility", "hidden");
         }
 
         formatValue(element, key, value) {
@@ -1447,11 +1494,13 @@ class CanvasPlot {
         update(utterance) {
             this.clear();
             if (utterance) {
-                const tooltip = addTooltip(this.container).classed("wrap-60 alignleft utterance-details", true);
+                this.expandButton.style("visibility", "visible");
+                const tooltip = addTooltip(this.element).classed("wrap-60 alignleft utterance-details", true);
                 const tooltipTable = tooltip.append("table").classed("details-table", true).append("tbody");
 
                 for (var [key, value] of Object.entries(utterance)) {
-                    if (this.blacklist.includes(key)) return;
+                    console.log(key, this.blacklist, this.blacklist.includes(key)   );
+                    if (this.blacklist.includes(key)) continue;
                     key = this.rename[key] || key;
 
                     // Pill
@@ -1465,7 +1514,9 @@ class CanvasPlot {
                     this.formatValue(row.append("td"), key, value);
                 }
             } else {
-                this.container.append("div").classed("utterance-details", true).classed("utterance-details-help pill no-border", true).text("Select a segment to display details");
+                this.container.append("div").classed("utterance-details", true)
+                    .classed("utterance-details-help pill no-border", true)
+                    .text("Select a segment to display details");
             }
         }
     }
@@ -1474,15 +1525,42 @@ class CanvasPlot {
         constructor(container) {
             this.container = container.append("div").classed("range-selector", true).classed("pill", true);
             this.container.append("div").classed("info-label", true).text("Selection:");
-            this.lower_input = this.container.append("input").attr("type", "number").classed("range-selector-input", true).attr("min", 0).attr("max", 1).attr("step", 0.01).attr("value", 0).on("change", this._onSelect.bind(this))
-            this.container.append("span").text("-")
-            this.upper_input = this.container.append("input").attr("type", "number").classed("range-selector-input", true).attr("min", 0).attr("max", 1).attr("step", 0.01).attr("value", 0).on("change", this._onSelect.bind(this))
+
+            this.input = this.container.append("input")
+                .attr("type", "text")
+                .classed("range-selector-input", true)
+                .attr("placeholder", "e.g. 0.0 - 1.0")
+                // .attr("value", "0.0 - 1.0")
+                .on("change", this._onSelect.bind(this))
+                .on("input", this._onSelect.bind(this));
+
+            this.selection = [0,0];
+
             this.on_select_callbacks = [];
         }
 
         _onSelect() {
-            let [a, b] = [this.lower_input.node().value, this.upper_input.node().value];
-            if (a < b) this.on_select_callbacks.forEach(c => c(a, b));
+            const value = this.input.node().value;
+
+            const match = /^(?<start>[+-]?([0-9]*[.])?[0-9]+)\s*-\s*(?<end>[+-]?([0-9]*[.])?[0-9]+)$/.exec(value);
+
+            console.log("input", value, match)
+
+            if (match) {
+                const start = parseFloat(match.groups.start),
+                        end = parseFloat(match.groups.end);
+                console.log(match, start, end)
+                if (!isNaN(start) && !isNaN(end) && start < end) {
+                    // This is the only valid case
+                    this.input.classed("input-error", false);
+                    this.selection = [start, end];
+                    this.on_select_callbacks.forEach(c => c(start, end));
+                    return;
+                }
+            }
+
+            // Hint that something is wrong
+            this.input.classed("input-error", true);
         }
 
         onSelect(callback) {
@@ -1490,8 +1568,11 @@ class CanvasPlot {
         }
 
         zoomTo(x0, x1) {
-            this.lower_input.node().value = x0.toFixed(1);
-            this.upper_input.node().value = x1.toFixed(1);
+            x0 = x0.toFixed(1);
+            x1 = x1.toFixed(1);
+            if (this.selection == [x0, x1]) return;
+            this.selection = [x0, x1];
+            this.input.node().value = `${this.selection[0]} - ${this.selection[1]}`;
         }
     }
 
@@ -1500,8 +1581,8 @@ class CanvasPlot {
             // Note: Deleting and adding an audio with the same content doesn't
             //       trigger a load. Hence, no optimization necessary.
             audio_div.selectAll("*").remove();
-            let lower = rangeSelector.lower_input.node().value;
-            let upper = rangeSelector.upper_input.node().value;
+            let lower = rangeSelector.selection[0];
+            let upper = rangeSelector.selection[1];
             let range = lower + " - " + upper;
             let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             if ( parseFloat(lower) < parseFloat(upper) ){
@@ -1515,8 +1596,8 @@ class CanvasPlot {
             }
         };
         let maybe_remove_audio = function (){
-            let lower = rangeSelector.lower_input.node().value;
-            let upper = rangeSelector.upper_input.node().value;
+            let lower = rangeSelector.selection[0];
+            let upper = rangeSelector.selection[1];
             let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             let audio = audio_div.select("audio")
             if ( ! audio.empty() ){
@@ -1530,7 +1611,8 @@ class CanvasPlot {
         let pill = container.append("div").classed("pill", true);
         let audio_tooltip = addTooltip(pill);
 
-        pill.append("span").text((name.trim() !== "") ? "🔊 " + name : "🔊");
+        pill.append("i").classed("fas fa-volume-up", true);
+        if (name.trim()) pill.append("span").text(name);
 
         let input = audio_tooltip.append("div").style("display", "flex");
         let server_path = input.append("input").attr("type", "text").attr("placeholder", "e.g. http://localhost:7777").property("value", "http://localhost:7777");
@@ -1545,24 +1627,20 @@ class CanvasPlot {
 
         pill.on("mouseenter", maybe_remove_audio);
 
-        update_audio()
+        // update_audio()
     }
 
     // Data preprocessing
-    const time_domain = [0, Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
+    const time_domain = [Math.min(0, Math.min.apply(null, (data.utterances.map(d => d.start_time))) - 1), Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
     const speakers = data.utterances .map(d => d.speaker)
 
     // Setup plot elements
-    var margin = {top: 30, right: 30, bottom: 70, left: 60},
-        width = 1500 - margin.left - margin.right,
-        height = 300 - margin.top - margin.bottom;
-
     const top_row_container = root_element.append("div").classed("top-row", true)
     drawHelpButton(top_row_container);
+    drawMenu(top_row_container);
     drawExampleInfo(top_row_container, data.info)
     // drawMenuBar(top_row_container);
     if (settings.show_legend) drawLegend(top_row_container);
-    drawMenu(top_row_container);
     const rangeSelector = new RangeSelector(top_row_container);
     const searchBar = new SearchBar(top_row_container, data.words, settings.search_bar.initial_query);
     var minimaps = [];
@@ -1577,8 +1655,8 @@ class CanvasPlot {
         drawRecordingAudioButton(top_row_container, rangeSelector, key, value);
     }
 
-    const plot_container = root_element.append("div").style("margin", "10px")
-    const plot_div = plot_container.append("div").style("position", "relative")
+    root_element.style("display", "flex").style("flex-direction", "column");
+    const plot_div = root_element.append('div').classed("plot-area", true);
 
     var details_plot = null;
     function rebuild() {
@@ -1588,7 +1666,7 @@ class CanvasPlot {
 
         for (let i = 0; i < settings.minimaps.number; i++) {
             const minimap = new Minimap(
-                plot_div, width, settings.minimaps.height,
+                plot_div.append('div'),
                 d3.scaleLinear().domain(time_domain),
                 d3.scaleBand().domain(speakers).padding(0.1),
                 data.words,
@@ -1601,9 +1679,9 @@ class CanvasPlot {
 
         if (settings.show_details) {
             details_plot = new DetailsPlot(
-                new CanvasPlot(plot_div, width, 700,
+                new CanvasPlot(plot_div.append('div').style('flex-grow', '1'),
                     d3.scaleBand().domain(speakers).padding(0.1),
-                    d3.scaleLinear().domain([time_domain[0], time_domain[1]]),
+                    d3.scaleLinear().domain(time_domain),
                     new DetailsAxis(30), new Axis(50), true
                 ), data.words, data.utterances, data.markers
             )

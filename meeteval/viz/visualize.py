@@ -414,7 +414,24 @@ class AlignmentVisualization:
         output cell. This can cause the browser to hang/crash and may produce
         large ipynb files.
         """
-        return self.html()
+        return  f'''
+            <html>
+            <style>
+                /* Styles for notebook view */
+                body {{
+                    margin: 1px;
+                    padding: 0;
+                    overflow: hidden;
+                }}
+                
+                .meeteval-viz {{
+                    width: 100%;
+                    height: 80vh; /* 80% of the window height roughly aligns with the visible height in a typical notebook setup */
+                }}
+            </style>
+            {self.html()}
+            </html>
+            '''
 
     def html(self):
         """
@@ -433,14 +450,11 @@ class AlignmentVisualization:
         highlight_regex = f'"{self.highlight_regex}"' if self.highlight_regex else 'null'
         html = f'''
             <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
             <style>
                 {css}
             </style>
-            <div style="margin: auto" class="meeteval-viz">
-                <div id='{element_id}'></div>
-            <div>
+            <div class="meeteval-viz" id='{element_id}'><div>
             <script>
                 {visualize_js}
 
@@ -463,7 +477,8 @@ class AlignmentVisualization:
                             search_bar: {{
                                 initial_query: {highlight_regex}
                             }},
-                            recording_file: {json.dumps(self.recording_file, default=os.fspath)}
+                            recording_file: {json.dumps(self.recording_file, default=os.fspath)},
+                            match_width: 0.1,
                         }}
                     );
                     else setTimeout(exec, 100);
@@ -475,7 +490,26 @@ class AlignmentVisualization:
         return html
 
     def dump(self, filename):
-        Path(filename).write_text(self.html())
+        Path(filename).write_text(
+            f'''
+            <html>
+            <style>
+                /* Styles for full-screen view */
+                body {{
+                    margin: 1px;
+                    padding: 0;
+                    overflow: hidden;
+                }}
+                
+                .meeteval-viz {{
+                    width: 100%;
+                    height: 100%;
+                }}
+            </style>
+            {self.html()}
+            </html>
+            '''
+        )
 
 
 def cli():
