@@ -217,6 +217,11 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
     if alignment_transform is None:
         alignment_transform = lambda x: x
 
+    ref_session_ids = set(ref.T['session_id'])
+    for h in hyp:
+        hyp_session_ids = set(h.T['session_id'])
+        assert 1 == len(ref_session_ids) and ref_session_ids == hyp_session_ids, f'Expect a single session ID/filename and the same for reference an hypothesis, got {ref_session_ids} and {hyp_session_ids}.'
+
     # Add information about ref/hyp to each utterance
     ref = ref.map(lambda s: {**s, 'source': 'reference'})
     # TODO: how to encode hypothesis correctly? I want to be able to name them from outside.
@@ -408,13 +413,13 @@ class AlignmentVisualization:
         d['markers'] = self.markers
         return d
 
-    def _repr_html_(self):
+    def _iypnb_html_(self):
         """
         Be aware that this writes _a lot of data_ in json format into the
         output cell. This can cause the browser to hang/crash and may produce
         large ipynb files.
         """
-        return  f'''
+        return f'''
             <html>
             <style>
                 /* Styles for notebook view */
@@ -432,6 +437,46 @@ class AlignmentVisualization:
             {self.html()}
             </html>
             '''
+
+    def _ipython_display_(self):
+        from IPython.display import HTML, display
+
+        reference = meeteval.io.asseglst(self.reference)
+        hypothesis = meeteval.io.asseglst(self.hypothesis)
+
+        ref_session_ids = reference.unique('session_id')
+        hyp_session_ids = hypothesis.unique('session_id')
+
+        if len(ref_session_ids) > 1 or len(hyp_session_ids) > 1:
+            session_ids = sorted(ref_session_ids & hyp_session_ids)
+            assert len(session_ids) >= 1, (session_ids, ref_session_ids, hyp_session_ids)
+            import ipywidgets
+
+            r = reference.groupby('session_id')
+            h = hypothesis.groupby('session_id')
+
+            cache = {}
+            def func(session_id, alignment):
+                key = (session_id, alignment)
+                if key not in cache:
+                    try:
+                        self.reference = r[session_id]
+                        self.hypothesis = h[session_id]
+                        self.alignment = alignment
+                        cache[key] = self._iypnb_html_()
+                        del self.data
+                    finally:
+                        self.reference = reference
+                        self.hypothesis = hypothesis
+                return HTML(cache[key])
+
+            session_id = ipywidgets.Dropdown(
+                options=session_ids, value=session_ids[0])
+            alignment = ipywidgets.Dropdown(
+                options=['tcp', 'cp'], value=self.alignment)
+            ipywidgets.interact(func, session_id=session_id, alignment=alignment)
+        else:
+            display(HTML(self._iypnb_html_()))
 
     def html(self):
         """
