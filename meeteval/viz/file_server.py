@@ -12,6 +12,8 @@ python -m meeteval.viz.file_server
 
 import io
 import functools
+import os
+import sys
 from pathlib import Path
 from aiohttp import web
 
@@ -53,9 +55,19 @@ def _parse_audio_slice(path, start, stop):
                 raise TypeError(type(num), num)
             yield num
 
+    def get_sample_rate(path):
+        try:
+            return soundfile.info(os.fspath(path)).samplerate
+        except RuntimeError:
+            if Path(path).exists():
+                raise
+            else:
+                raise FileNotFoundError(path) from None
+
     if '::' in path:
         path, slice = path.split('::')
-        samplerate = soundfile.info(path).samplerate
+        path = root_map(path)
+        samplerate = get_sample_rate(path)
         start, stop = to_number(start, stop)
         assert slice[0] == '[' and slice[-1] == ']', slice
         start_, stop_ = to_number(*slice[1:-1].split(':'))
@@ -65,10 +77,11 @@ def _parse_audio_slice(path, start, stop):
             # Arguments are applied on the [...:...]
             start, stop = start + start_, stop + start_
     else:
-        samplerate = soundfile.info(path).samplerate
+        samplerate = get_sample_rate(path)
         start, stop = to_number(start, stop)
 
-    assert (stop - start) < samplerate * 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate)
+    if start is not None and start is not None:
+        assert (stop - start) < samplerate * 120, ('For stability: Limit the max duration to 2 min', start, stop, samplerate)
     return path, start, stop
 
 
@@ -80,6 +93,7 @@ class Backend:
         try:
             name = request.match_info.get('name', "Anonymous")
             name = '/' + name
+            print(f'Requested: {name}')
 
             start = request.query.get('start', None)
             stop = request.query.get('stop', None)
@@ -88,7 +102,13 @@ class Backend:
             name = Path(name)
 
             if name.suffix in ['.wav', '.flac']:
-                data, sample_rate = soundfile.read(str(name), start=start, stop=stop)
+                try:
+                    data, sample_rate = soundfile.read(str(name), start=start, stop=stop)
+                except RuntimeError:
+                    if Path(name).exists():
+                        raise
+                    else:
+                        raise FileNotFoundError(name) from None
                 data = data * 0.95 / np.amax(np.abs(data))
                 bytes = io.BytesIO()
                 # Wav files produce in some browsers artefacts in the audio.
