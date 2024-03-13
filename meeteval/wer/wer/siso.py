@@ -51,6 +51,18 @@ def _siso_error_rate(
             type(reference), type(hypothesis), type(reference[0]),
             type(hypothesis[0]), reference[0], hypothesis[0]
         )
+    except ZeroDivisionError:
+        # kaldialign-0.9 introduced err_rate, that is not defined, when the
+        # reference is empty. Before it was working.
+        assert len(reference) == 0, (len(reference), reference, hypothesis)
+        result = {
+            'ins': len(hypothesis),
+            'del': 0,
+            'sub': 0,
+            'total': len(hypothesis),
+            'ref_len': 0,
+            # 'err_rate': ...,  #  Introduced in kaldialign-0.9 and buggy
+        }
 
     return ErrorRate(
         result['total'],
