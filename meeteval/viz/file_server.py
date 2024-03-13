@@ -66,7 +66,6 @@ def _parse_audio_slice(path, start, stop):
 
     if '::' in path:
         path, slice = path.split('::')
-        path = root_map(path)
         samplerate = get_sample_rate(path)
         start, stop = to_number(start, stop)
         assert slice[0] == '[' and slice[-1] == ']', slice
