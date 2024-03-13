@@ -3,6 +3,7 @@ from typing import Hashable
 
 from meeteval.io.py import NestedStructure
 from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.utils import kaldialign_edit_distance
 from meeteval.io.seglst import asseglst
 
 if typing.TYPE_CHECKING:
@@ -42,27 +43,13 @@ def siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
 def _siso_error_rate(
         reference: 'list[Hashable]', hypothesis: 'list[Hashable]'
 ) -> ErrorRate:
-    import kaldialign
-
     try:
-        result = kaldialign.edit_distance(reference, hypothesis)
+        result = kaldialign_edit_distance(reference, hypothesis)
     except TypeError:
         raise TypeError(
             type(reference), type(hypothesis), type(reference[0]),
             type(hypothesis[0]), reference[0], hypothesis[0]
         )
-    except ZeroDivisionError:
-        # kaldialign-0.9 introduced err_rate, that is not defined, when the
-        # reference is empty. Before it was working.
-        assert len(reference) == 0, (len(reference), reference, hypothesis)
-        result = {
-            'ins': len(hypothesis),
-            'del': 0,
-            'sub': 0,
-            'total': len(hypothesis),
-            'ref_len': 0,
-            # 'err_rate': ...,  #  Introduced in kaldialign-0.9 and buggy
-        }
 
     return ErrorRate(
         result['total'],
