@@ -147,13 +147,14 @@ def orcwer(
         hypothesis_sort='segment',
         uem=None,
         partial=False,
+        normalizer=None,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     from meeteval.wer.wer.orc import orc_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
-        uem=uem,
+        uem=uem, normalizer=normalizer,
     )
     results = orc_word_error_rate_multifile(reference, hypothesis, partial=partial)
     return results
@@ -213,7 +214,7 @@ def tcpwer(
 ):
     """Computes the time-constrained minimum permutation WER"""
     from meeteval.wer.wer.time_constrained import tcp_word_error_rate_multifile
-    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex, uem=uem)
+    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex, uem=uem, normalizer=normalizer)
     results = tcp_word_error_rate_multifile(
         reference, hypothesis,
         reference_pseudo_word_level_timing=ref_pseudo_word_timing,
@@ -246,7 +247,7 @@ def tcorcwer(
 ):
     """Computes the time-constrained ORC WER"""
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer_multifile
-    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex, uem=uem)
+    reference, hypothesis = _load_texts(reference, hypothesis, regex=regex, uem=uem, normalizer=normalizer)
     results = time_constrained_orc_wer_multifile(
         reference, hypothesis,
         reference_pseudo_word_level_timing=ref_pseudo_word_timing,
@@ -254,7 +255,6 @@ def tcorcwer(
         collar=collar,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
-        normalizer=normalizer,
         partial=partial,
     )
     from meeteval.wer import combine_error_rates
