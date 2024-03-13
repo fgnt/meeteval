@@ -105,8 +105,10 @@ class Backend:
                 # ], stdout=subprocess.PIPE, check=True)
                 # return web.Response(body=cp.stdout)
         except Exception:
-            import traceback
-            traceback.print_exc()
+            import traceback, textwrap
+            print(textwrap.indent(
+                traceback.format_exc(), ' | ',
+            ))
         return web.Response(status=web.HTTPUnauthorized().status_code)
 
     def main(self):
