@@ -188,13 +188,14 @@ def cpwer(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False,
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
     results = meeteval.wer.cpwer(
         reference, hypothesis, regex=regex,
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
-        uem=uem, partial=partial,
+        uem=uem, partial=partial, normalizer=normalizer,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -207,13 +208,14 @@ def mimower(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False,
 ):
     """Computes the MIMO WER"""
     results = meeteval.wer.mimower(
         reference, hypothesis, regex=regex,
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
-        uem=uem, partial=partial
+        uem=uem, partial=partial, normalizer=normalizer,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -229,6 +231,7 @@ def tcpwer(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False,
 ):
     """Computes the time-constrained minimum permutation WER"""
@@ -239,7 +242,7 @@ def tcpwer(
         collar=collar,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
-        uem=uem, partial=partial,
+        uem=uem, normalizer=normalizer, partial=partial,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -255,6 +258,7 @@ def tcorcwer(
         hypothesis_sort='segment',
         reference_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False,
 ):
     """Computes the time-constrained ORC WER (tcORC WER)"""
@@ -265,7 +269,8 @@ def tcorcwer(
         ref_pseudo_word_timing=ref_pseudo_word_timing,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
-        uem=uem, partial=partial
+        uem=uem, partial=partial,
+        normalizer=normalizer,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -504,6 +509,15 @@ class CLI:
                 help='UEM file that defines the scoring regions. Only supported when reference and hypothesis files '
                      'contain time-stamps.',
                 nargs='+', action=self.extend_action,
+            )
+        elif name == 'normalizer':
+            command_parser.add_argument(
+                '--normalizer',
+                help='A normalizer that is applied to the transcript.\n'
+                     'Choices:\n'
+                     '- None: Do nothing (default)\n'
+                     '- lower,rm(.?!,): Lowercase the transcript and remove punctuations (.,?!).',
+                choices=[None, 'lower,rm(.?!,)'],
             )
         elif name == 'partial':
             command_parser.add_argument(

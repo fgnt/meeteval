@@ -43,6 +43,7 @@ def _load_texts(
         reference_sort: 'bool | str' = False,
         hypothesis_sort: 'bool | str' = False,
         file_format=None,
+        normalizer=None,
         uem=None,
 ) -> 'tuple[meeteval.io.SegLST, meeteval.io.SegLST]':
     """Load and validate reference and hypothesis texts.
@@ -126,6 +127,16 @@ def _load_texts(
             f'Unknown choice for hypothesis_sort: {hypothesis_sort}'
         )
 
+    if normalizer is not None:
+        if normalizer == 'lower,rm(.?!,)':
+            def normalizer(seg):
+                seg['words'] = seg['words'].lower().replace('.', '').replace('?', '').replace('!', '').replace(',', '')
+                return seg
+        else:
+            raise NotImplementedError(normalizer)
+        reference = reference.map(normalizer)
+        hypothesis = hypothesis.map(normalizer)
+
     return reference, hypothesis
 
 
@@ -154,6 +165,7 @@ def cpwer(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False
 ):
     """Computes the Concatenated minimum-Permutation Word Error Rate (cpWER)"""
@@ -161,7 +173,7 @@ def cpwer(
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
-        uem=uem,
+        uem=uem, normalizer=normalizer,
     )
     results = cp_word_error_rate_multifile(reference, hypothesis, partial=partial)
     return results
@@ -173,6 +185,7 @@ def mimower(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False,
 ):
     """Computes the MIMO WER"""
@@ -180,7 +193,7 @@ def mimower(
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
-        uem=uem,
+        uem=uem, normalizer=normalizer
     )
     results = mimo_word_error_rate_multifile(reference, hypothesis, partial=partial)
     return results
@@ -195,6 +208,7 @@ def tcpwer(
         reference_sort='segment',
         hypothesis_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False,
 ):
     """Computes the time-constrained minimum permutation WER"""
@@ -227,6 +241,7 @@ def tcorcwer(
         hypothesis_sort='segment',
         reference_sort='segment',
         uem=None,
+        normalizer=None,
         partial=False,
 ):
     """Computes the time-constrained ORC WER"""
@@ -239,6 +254,7 @@ def tcorcwer(
         collar=collar,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
+        normalizer=normalizer,
         partial=partial,
     )
     from meeteval.wer import combine_error_rates
