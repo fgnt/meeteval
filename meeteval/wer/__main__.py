@@ -169,6 +169,7 @@ def orcwer(
         hypothesis_sort='segment',
         uem=None,
         partial=False,
+        normalizer=None,
 ):
     """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
     results = meeteval.wer.orcwer(
@@ -176,6 +177,7 @@ def orcwer(
         reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
         uem=uem,
         partial=partial,
+        normalizer=normalizer,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
