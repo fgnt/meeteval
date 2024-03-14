@@ -13,6 +13,7 @@ def create_viz_folder(
         out,
         alignment='tcp',
         regex=None,
+        normalizer=None,
 ):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -24,6 +25,7 @@ def create_viz_folder(
             reference, hypothesis, regex=regex,
             reference_sort='segment',
             hypothesis_sort='segment',
+            normalizer=normalizer,
         )
 
         r = r.groupby('session_id')
@@ -34,7 +36,7 @@ def create_viz_folder(
         if xor:
             print(f'Ignore {xor}, because they are not available in reference and hypothesis.')
 
-        for session_id in session_ids:
+        for session_id in tqdm.tqdm(session_ids):
             av = AlignmentVisualization(r[session_id],
                                         h[session_id],
                                         alignment=alignment)
@@ -142,6 +144,7 @@ def html(
         hypothesis,
         alignment='tcp',
         regex=None,
+        normalizer=None,
         out='viz',
 ):
     def prepare(i: int, h: str):
@@ -165,6 +168,7 @@ def html(
         out=out,
         alignment=alignment,
         regex=regex,
+        normalizer=normalizer,
     )
 
 

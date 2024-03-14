@@ -33,32 +33,33 @@ ext_modules = cythonize(
      ]
 )
 
-extras_require = {
-    'cli': [
-        'pyyaml',
-        'fire',
-        'simplejson',
-        'aiohttp',
-        'soundfile',
-    ],
-    'test': [
+extras_require = {}
+extras_require['cli'] = [
+    'pyyaml',
+    'fire',
+    'simplejson',
+    'aiohttp',
+    'soundfile',
+    'tqdm',  # Used in meeteval.viz.__main__.py
+    'yattag',  # Used in meeteval.viz.__main__.py
+]
+extras_require['test'] = [
         'editdistance',     # Faulty for long sequences, but useful for testing
         'pytest',
         'hypothesis',
-        'click',
         'coverage',
         'pytest-cov',
         'ipython',  # IPython.lib.pretty.pprint
-        'pyyaml',
-        'simplejson',
-        'aiohttp',
-        'soundfile',
-    ],
-    'all': [  # List only missing from the other lists
-        'lazy_dataset',
-    ],
-}
-extras_require['all'] = list(dict.fromkeys(sum(extras_require.values(), [])))
+        *extras_require['cli'],
+]
+extras_require['all'] = [
+    'lazy_dataset',
+    'ipywidgets',  # Used to provide dropdown menu in ipynb
+    *sum(extras_require.values(), []),
+]
+extras_require = {
+    k: list(dict.fromkeys(v))  # Drop duplicates
+    for k, v in extras_require.items()}
 
 # Get the long description from the relevant file
 try:

@@ -30,3 +30,24 @@ def check_single_filename(reference: SegLST, hypothesis: SegLST):
             f"Expected the same session ID in reference and hypothesis, but "
             f"got {reference_session_ids} and {hypothesis_session_ids}"
         )
+
+
+def kaldialign_edit_distance(reference, hypothesis):
+    """
+    Call kaldialign.edit_distance and fix ZeroDivisionError.
+    """
+    import kaldialign
+    try:
+        return kaldialign.edit_distance(reference, hypothesis)
+    except ZeroDivisionError:
+        # kaldialign-0.9 introduced err_rate, that is not defined, when the
+        # reference is empty. Before it was working.
+        assert len(reference) == 0, (len(reference), reference, hypothesis)
+        return {
+            'ins': len(hypothesis),
+            'del': 0,
+            'sub': 0,
+            'total': len(hypothesis),
+            'ref_len': 0,
+            # 'err_rate': ...,  #  Introduced in kaldialign-0.9 and buggy
+        }

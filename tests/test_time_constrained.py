@@ -98,7 +98,8 @@ def test_time_constrained_levenshtein_distance_vs_with_alignment(a, b):
 @settings(deadline=None)
 def test_time_constrained_levenshtein_distance_with_alignment_against_kaldialign(a, b):
     """Check that the returned alignment matches kaldialign then the time intervals span the full length"""
-    from kaldialign import align as kaldi_align, edit_distance
+    from kaldialign import align as kaldi_align
+    from meeteval.wer.wer.utils import kaldialign_edit_distance
     from meeteval.wer.wer.time_constrained import index_alignment_to_kaldi_alignment
     from meeteval.wer.matching import time_constrained_levenshtein_distance_with_alignment
 
@@ -106,7 +107,7 @@ def test_time_constrained_levenshtein_distance_with_alignment_against_kaldialign
     b_timing = [(0, 1)] * len(b)
 
     kaldialign_alignment = kaldi_align(a, b, '*')
-    kaldialign_statistics = edit_distance(a, b)
+    kaldialign_statistics = kaldialign_edit_distance(a, b)
     statistics = time_constrained_levenshtein_distance_with_alignment(a, b, a_timing, b_timing)
     alignment = statistics.pop('alignment')
     alignment = index_alignment_to_kaldi_alignment(alignment, a, b)

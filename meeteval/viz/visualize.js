@@ -1432,7 +1432,7 @@ class CanvasPlot {
         }
 
         formatValue(element, key, value) {
-            if (/^([a-zA-Z0-9_/.-]+\.(wav|flac))$/.test(value)) {
+            if (/^([a-zA-Z0-9_/.-]+\.(wav|flac)(::\[[\d.:]+])?)$/.test(value)) {
                 // Audio path: Display audio player
                 let audio = element.append("audio")
                 audio.classed("info-value", true)
@@ -1458,7 +1458,8 @@ class CanvasPlot {
                         "\nWith access to the audio file, a player will appear. Options:\n" +
                         " - With 'python -m meeteval.viz.file_server' you can start a process, that exposes normalized wav files on http://localhost:7777\n" +
                         " - A standalone HTML file has access to the filesystem and doesn't need a server, but it cannot normalize the audio.\n" +
-                        " - In Jupyter Notebooks only a server can deliver audio files."
+                        " - In Jupyter Notebooks only a server can deliver audio files.\n" +
+                        "Slices (e.g. audio.wav::[0.5:1.0]) require a server."
                     );
                     audio.on('error', function() {
                         audio.remove();
