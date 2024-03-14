@@ -56,6 +56,7 @@ extras_require = {
     ],
     'all': [  # List only missing from the other lists
         'lazy_dataset',
+        'ipywidgets',  # Used to provide dropdown menu in ipynb
     ],
 }
 extras_require['all'] = list(dict.fromkeys(sum(extras_require.values(), [])))
