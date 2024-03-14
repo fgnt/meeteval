@@ -157,3 +157,11 @@ def test_burn_average():
 
 def test_burn_siso():
     run(f'python -m meeteval.wer wer -h text_hyp -r text_ref')
+
+
+def test_viz_html():
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm')
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --normalizer="lower,rm(.?!,)"')
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=tcp')
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=cp')
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --out=viz')
