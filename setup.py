@@ -40,6 +40,7 @@ extras_require = {
         'simplejson',
         'aiohttp',
         'soundfile',
+        'tqdm',  # Used in meeteval.viz.__main__.py
     ],
     'test': [
         'editdistance',     # Faulty for long sequences, but useful for testing
