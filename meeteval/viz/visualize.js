@@ -493,11 +493,20 @@ class CanvasPlot {
             settings.minimaps.number = this.value;
             rebuild();
             redraw();
+
+            var url = new URL(window.location.href);
+            url.searchParams.set('minimaps', settings.minimaps.number);
+            history.pushState(null, null, url);
         });
         num_minimaps_select.append("option").attr("value", 0).text("0");
         num_minimaps_select.append("option").attr("value", 1).text("1");
         num_minimaps_select.append("option").attr("value", 2).text("2");
         num_minimaps_select.append("option").attr("value", 3).text("3");
+
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('minimaps')) {
+            settings.minimaps.number = urlParams.get('minimaps')
+        }
         num_minimaps_select.node().value = settings.minimaps.number;
 
         // const errorbar_style = container.append("div").classed("pill", true);
@@ -633,6 +642,12 @@ class CanvasPlot {
             this.words = words;
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
             this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
+
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('regex')) {
+                initial_query = urlParams.get('regex');
+            }
+
             if (initial_query) this.text_input.node().value = initial_query;
             this.on_search_callbacks = [];
 
@@ -656,6 +671,17 @@ class CanvasPlot {
                 for (const w of this.words) w.highlight = re.test(w.words);
             }
             this.on_search_callbacks.forEach(c => c());
+
+            var url = new URL(window.location.href);
+            if (regex) {
+                url.searchParams.set('regex', regex);
+            } else {
+                var searchParams = new URLSearchParams(url.search);
+                searchParams.delete('regex');
+                url.search = searchParams.toString();
+            }
+            // Push the new state to the history stack
+            history.pushState(null, null, url);
         }
 
         onSearch(callback) {
@@ -1568,6 +1594,14 @@ class CanvasPlot {
             this.selection = [0,0];
 
             this.on_select_callbacks = [];
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('selection')) {
+                console.log("Setting selection from URL", urlParams.get('selection'));
+                this.input.property("value", urlParams.get('selection'));
+            } else {
+                this.input.property("value", `${min_and_max[0]}-${min_and_max[1]}`);
+            }
+            this._onSelect();
         }
 
         _onSelect() {
@@ -1598,12 +1632,20 @@ class CanvasPlot {
             this.on_select_callbacks.push(callback);
         }
 
+        setURL() {
+            var url = new URL(window.location.href);
+            url.searchParams.set('selection', `${this.selection[0]}-${this.selection[1]}`);
+            // Push the new state to the history stack
+            history.pushState(null, null, url);
+        }
+
         zoomTo(x0, x1) {
             x0 = x0.toFixed(1);
             x1 = x1.toFixed(1);
             if (this.selection == [x0, x1]) return;
             this.selection = [x0, x1];
             this.input.node().value = `${this.selection[0]} - ${this.selection[1]}`;
+            call_delayed_throttled(this.setURL.bind(this), this.setURL, 200);
         }
     }
 
@@ -1740,6 +1782,6 @@ class CanvasPlot {
     }
 
     rebuild();
-    searchBar.search(settings.search_bar.initial_query);
+    searchBar.search_button.node().click();
     redraw();
 }
