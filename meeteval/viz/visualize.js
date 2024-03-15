@@ -973,9 +973,20 @@ class CanvasPlot {
         }
         
         moveBrush(x0, x1) {
-            this.brush_group.call(this.brush.move, [
-                this.word_plot.plot.x(x0), this.word_plot.plot.x(x1)
-            ])
+            if (equal(this.selection_domain, [x0, x1])) return;  // break cycle call
+
+            let view_area = this.word_plot.plot.x.domain();
+            if (x0 < view_area[0] && x1 > view_area[1]) {
+                this.zoomTo(x0, x1);
+            } else if (x0 < view_area[0]) {
+                this.zoomTo(x0, x0 + view_area[1] - view_area[0]);
+            } else if (x1 > view_area[1]) {
+                this.zoomTo(x1 - view_area[1] + view_area[0], x1);
+            } else {
+                this.brush_group.call(this.brush.move, [
+                    this.word_plot.plot.x(x0), this.word_plot.plot.x(x1)
+                ])
+            }
         }
 
         removeBrush(){
@@ -1636,15 +1647,28 @@ class CanvasPlot {
 
             const match = /^(?<start>[+-]?([0-9]*[.])?[0-9]+)\s*-\s*(?<end>[+-]?([0-9]*[.])?[0-9]+)$/.exec(value);
 
-
             if (match) {
                 const start = parseFloat(match.groups.start),
                         end = parseFloat(match.groups.end);
-                console.log(match, start, end)
                 if (!isNaN(start) && !isNaN(end) && start < end) {
-                    // This is the only valid case
-                    this.input.classed("input-error", false);
-                    this.selection = [start, end];
+
+                    if (start < this.min_and_max[0] && end > this.min_and_max[1]) {
+                        this.input.classed("input-error", true);
+                        this.selection = this.min_and_max;
+                        console.log("Invalid range: outside of min and max", start, end, this.min_and_max, 'use', this.selection);
+                    } else if (start < this.min_and_max[0]) {
+                        this.input.classed("input-error", true);
+                        this.selection = [this.min_and_max[0], Math.max(end, this.min_and_max[1])];
+                        console.log("Invalid range: below min", start, end, this.min_and_max, 'use', this.selection);
+                    } else if (end > this.min_and_max[1]) {
+                        this.input.classed("input-error", true);
+                        this.selection = [Math.min(start, this.min_and_max[0]), this.min_and_max[1]];
+                        console.log("Invalid range: above max", start, end, this.min_and_max, this.selection);
+                    } else {
+                        // This is the only valid case
+                        this.input.classed("input-error", false);
+                        this.selection = [start, end];
+                    }
                     this.on_select_callbacks.forEach(c => c(start, end));
                     return;
                 }
