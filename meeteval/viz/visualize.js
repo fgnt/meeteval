@@ -59,18 +59,39 @@ function alignment_visualization(
         if (settings.colors[label] === undefined) throw `Missing key in "colors" setting: ${label}`;
     }
 
-    function call_throttled(fn, delay=5) {
-        if (!fn.timerId) {
+    function call_throttled(fn, object, delay=5) {
+        // Example call: call_throttled(this.draw.bind(this), this.draw);
+        // Distance between calls is at least delay ms.
+        // If the code is called again within the delay, the call is postponed.
+        //
+        // Expects that the function does always the same thing.
+        // The object is used to store the timerId and the call_pending flag.
+        // (Cannot be stored in fn, because it is created with bind.)
+        if (!object.timerId) {
             // Call immediately
             fn()
 
             // Set timer to prevent further calls
-            fn.timerId = setTimeout(() => {
-                fn.timerId = undefined;
-                fn.call_pending = false;
-                if (fn.call_pending) fn();
+            object.timerId = setTimeout(() => {
+                object.timerId = undefined;
+                if (object.call_pending) fn();
+                object.call_pending = false;
             }, delay);
-        } else {fn.call_pending = true;}
+        } else {object.call_pending = true;}
+    }
+
+    function call_delayed_throttled(fn, object, delay=5) {
+        // Example call: call_delayed_throttled(this.setURL.bind(this), this.setURL, 200);
+        // Call after delay ms, but only if no other call is made in the meantime.
+        // If the code is called again within the delay, the first call is canceled
+        // and the second call is postponed by delay ms.
+        if (object.timerId) {
+            clearTimeout(object.timerId);
+        }
+        object.timerId = setTimeout(() => {
+            fn()
+            object.timerId = undefined;
+        }, delay);
     }
 
     let root_element = d3.select(element_id);
@@ -699,7 +720,7 @@ class CanvasPlot {
             if ([x0, x1] == this.plot.x.domain()) return;
             this.plot.x.domain([x0, x1]);
             this.updateBins();
-            this.draw();
+            call_throttled(this.draw.bind(this), this.draw);
         }
 
         drawBars() {
@@ -791,7 +812,7 @@ class CanvasPlot {
 
         zoomTo(x0, x1) {
             this.plot.x.domain([x0, x1]);
-            this.draw();
+            call_throttled(this.draw.bind(this), this.draw);
         }
 
         draw() {
@@ -1405,7 +1426,7 @@ class CanvasPlot {
             this.filtered_markers = this.markers ? this.markers.filter(m => m.start_time < x1 && m.end_time > x0) : null;
             this.filtered_matches = this.matches.filter(m => m.start_time <= x1 && m.end_time > x0);
 
-            call_throttled(this.draw.bind(this));
+            call_throttled(this.draw.bind(this), this.draw);
         }
     }
 
