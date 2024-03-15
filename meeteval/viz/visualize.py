@@ -360,6 +360,7 @@ class AlignmentVisualization:
             alignment_transform=None,
             markers=None,
             recording_file: 'str | Path | dict[str, str | Path]' = None,
+            js_debug=False,  # If True, don't embed js (and css) code and use absolute paths
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -377,6 +378,7 @@ class AlignmentVisualization:
         self.highlight_regex = highlight_regex
         self.alignment_transform = alignment_transform
         self.markers = markers
+        self.js_debug = js_debug
         if recording_file:
             if not isinstance(recording_file, dict):
                 recording_file = {"": os.fspath(recording_file)}
@@ -490,18 +492,28 @@ class AlignmentVisualization:
         element_id = 'viz-' + str(uuid.uuid4())
 
         # Generate HTML and JS for data
-        visualize_js = (Path(__file__).parent / 'visualize.js').read_text()
-        css = (Path(__file__).parent / 'visualize.css').read_text()
+        visualize_js = Path(__file__).parent / 'visualize.js'
+        if self.js_debug:
+            visualize_js = f'''<script src="{visualize_js}" charset="utf-8"></script>'''
+        else:
+            visualize_js = f'<script>{visualize_js.read_text()}</script>'
+
+        css = (Path(__file__).parent / 'visualize.css')
+        if self.js_debug:
+            css = f'<link rel="stylesheet" href="{css}"/>'
+        else:
+            css = f'<style>{css.read_text()}</style>'
+
         highlight_regex = f'"{self.highlight_regex}"' if self.highlight_regex else 'null'
+
+
         html = f'''
             <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-            <style>
-                {css}
-            </style>
+            {css}
             <div class="meeteval-viz" id='{element_id}'><div>
+            {visualize_js}
             <script>
-                {visualize_js}
 
                 function exec() {{
                     // Wait for d3 to load
