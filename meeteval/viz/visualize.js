@@ -326,6 +326,11 @@ class DetailsAxis{
     }
 }
 
+function equal(a, b){
+    // Note: a == [0, 1] will always return false, because arrays are compared by reference, not values
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
 /**
  * Add a tooltip to an element. The tooltip is shown when the mouse
  * enters the element and hidden when the mouse leaves the element.
@@ -743,7 +748,6 @@ class CanvasPlot {
         }
 
         zoomTo(x0, x1) {
-            if ([x0, x1] == this.plot.x.domain()) return;
             this.plot.x.domain([x0, x1]);
             this.updateBins();
             call_throttled(this.draw.bind(this), this.draw);
@@ -808,6 +812,7 @@ class CanvasPlot {
             this.plot = plot;
             this.words = words;
             this.plot.onSizeChanged(this.draw.bind(this));
+            this.on_zoom_to_callbacks = [];
         }
 
         drawWords() {
@@ -839,6 +844,11 @@ class CanvasPlot {
         zoomTo(x0, x1) {
             this.plot.x.domain([x0, x1]);
             call_throttled(this.draw.bind(this), this.draw);
+            this.on_zoom_to_callbacks.forEach(c => c(x0, x1));
+        }
+
+        onZoomTo(callback) {
+            this.on_zoom_to_callbacks.push(callback);
         }
 
         draw() {
@@ -849,7 +859,7 @@ class CanvasPlot {
     }
 
     class Minimap {
-        constructor(element, x_scale, y_scale, words) {
+        constructor(element, x_scale, y_scale, words, initial_view=null, initial_brush=null) {
             const e = element.classed("plot minimap", true).style("height", '90px')
 
             if (settings.barplot.style !== "hidden") {
@@ -938,6 +948,13 @@ class CanvasPlot {
                 const new_height = Math.max(touch.clientY - parent_top - 2/*half of resize-handle height*/, 20);
                 element.style('height', new_height + "px");
             })
+
+            if (initial_view) {
+                this.zoomTo(initial_view[0], initial_view[1]);
+            }
+            if (initial_brush) {
+                this.moveBrush(initial_brush[0], initial_brush[1]);
+            }
         }
 
         draw() {
@@ -946,6 +963,10 @@ class CanvasPlot {
         }
 
         zoomTo(x0, x1) {
+            let view_area = this.word_plot.plot.x.domain();
+            if (equal(view_area, [x0, x1])) return;  // break cycle call
+//            console.log('Minimap.zoomTo', x0, x1, view_area, equal(this.view_area, [x0, x1]));
+
             if (this.error_bars) this.error_bars.zoomTo(x0, x1);
             this.word_plot.zoomTo(x0, x1);
             this._callOnSelectCallbacks();
@@ -989,7 +1010,7 @@ class CanvasPlot {
 
 
     class DetailsPlot {
-        constructor(plot, words, utterances, markers) {
+        constructor(plot, words, utterances, markers, initial=null) {
             this.plot = plot;
             this.plot.element.classed("plot", true)
             this.words = words;
@@ -1185,6 +1206,10 @@ class CanvasPlot {
             this.onscrollhandlers = [];
 
             this.plot.onSizeChanged(this.draw.bind(this));
+
+            if (initial) {
+                this.zoomTo(initial[0], initial[1]);
+            }
         }
 
         onUtteranceSelect(callback) {
@@ -1446,6 +1471,8 @@ class CanvasPlot {
         }
 
         zoomTo(x0, x1) {
+            if (equal(this.plot.y.domain(), [x0, x1])) return;  // break cycle call
+//            console.log("DetailsPlot.zoomTo", x0, x1);
             this.plot.y.domain([x0, x1]);
             this.filtered_words = this.words.filter(w => w.start_time < x1 && w.end_time > x0);
             this.filtered_utterances = this.utterances.filter(w => w.start_time < x1 && w.end_time > x0);
@@ -1579,9 +1606,10 @@ class CanvasPlot {
     }
 
     class RangeSelector {
-        constructor(container) {
+        constructor(container, min_and_max) {
             this.container = container.append("div").classed("range-selector", true).classed("pill", true);
             this.container.append("div").classed("info-label", true).text("Selection:");
+            this.min_and_max = min_and_max;
 
             this.input = this.container.append("input")
                 .attr("type", "text")
@@ -1591,9 +1619,8 @@ class CanvasPlot {
                 .on("change", this._onSelect.bind(this))
                 .on("input", this._onSelect.bind(this));
 
-            this.selection = [0,0];
-
             this.on_select_callbacks = [];
+
             var urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('selection')) {
                 console.log("Setting selection from URL", urlParams.get('selection'));
@@ -1609,7 +1636,6 @@ class CanvasPlot {
 
             const match = /^(?<start>[+-]?([0-9]*[.])?[0-9]+)\s*-\s*(?<end>[+-]?([0-9]*[.])?[0-9]+)$/.exec(value);
 
-            console.log("input", value, match)
 
             if (match) {
                 const start = parseFloat(match.groups.start),
@@ -1642,7 +1668,7 @@ class CanvasPlot {
         zoomTo(x0, x1) {
             x0 = x0.toFixed(1);
             x1 = x1.toFixed(1);
-            if (this.selection == [x0, x1]) return;
+
             this.selection = [x0, x1];
             this.input.node().value = `${this.selection[0]} - ${this.selection[1]}`;
             call_delayed_throttled(this.setURL.bind(this), this.setURL, 200);
@@ -1714,7 +1740,7 @@ class CanvasPlot {
     drawExampleInfo(top_row_container, data.info)
     // drawMenuBar(top_row_container);
     if (settings.show_legend) drawLegend(top_row_container);
-    const rangeSelector = new RangeSelector(top_row_container);
+    const rangeSelector = new RangeSelector(top_row_container, time_domain);
     const searchBar = new SearchBar(top_row_container, data.words, settings.search_bar.initial_query);
     var minimaps = [];
     searchBar.onSearch(() => {
@@ -1738,14 +1764,26 @@ class CanvasPlot {
         details_plot = null;
 
         for (let i = 0; i < settings.minimaps.number; i++) {
+
+            let interpolate = (a, b, c) => {
+                c = Math.max(Math.min(c, 1), 0);
+                return [a[0] * c + b[0] * (1 - c), a[1] * c + b[1] * (1 - c)]
+            };
+
             const minimap = new Minimap(
                 plot_div.append('div'),
                 d3.scaleLinear().domain(time_domain),
                 d3.scaleBand().domain(speakers).padding(0.1),
                 data.words,
+                interpolate(time_domain, rangeSelector.selection, 1-(i) / (settings.minimaps.number-1)),
+                interpolate(time_domain, rangeSelector.selection, 1-(i+1) / (settings.minimaps.number-1)),
+                // (i != 0) ? time_domain : rangeSelector.selection,
+                // (i != 0) ? rangeSelector.selection : null,
             )
-            if (minimaps[i-1] !== undefined) {
-                minimaps[i-1].onSelect(minimap.zoomTo.bind(minimap));
+            if (minimaps[minimaps.length-1] !== undefined) {
+                minimaps[minimaps.length-1].onSelect(minimap.zoomTo.bind(minimap));
+                minimap.word_plot.onZoomTo(minimaps[minimaps.length-1].moveBrush.bind(minimaps[minimaps.length-1]));
+
             }
             minimaps.push(minimap);
         }
@@ -1756,7 +1794,8 @@ class CanvasPlot {
                     d3.scaleBand().domain(speakers).padding(0.1),
                     d3.scaleLinear().domain(time_domain),
                     new DetailsAxis(30), new Axis(50), true
-                ), data.words, data.utterances, data.markers
+                ), data.words, data.utterances, data.markers,
+                rangeSelector.selection
             )
 
             details_plot.onUtteranceSelect(selectedUtteranceDetails.update.bind(selectedUtteranceDetails));
