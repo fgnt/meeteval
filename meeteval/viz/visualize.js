@@ -45,6 +45,15 @@ function alignment_visualization(
         match_width: 10,
     }
 ) {
+    // Set the custom locale globally
+    d3.formatDefaultLocale({
+        "decimal": ".",
+        "thousands": "\u202F",  // https://en.wikipedia.org/wiki/Decimal_separator#Digit_grouping
+        "grouping": [3], // Specify the grouping of thousands (e.g., [3] means every 3 digits)
+        // "currency": ["$", ""], // Optional: specify currency symbols
+        // "dateTime": "%a %b %e %X %Y", // Optional: specify date/time formats
+    });
+
     // Validate settings
     for (const label of ['correct', 'substitution', 'insertion', 'deletion']) {
         if (settings.colors[label] === undefined) throw `Missing key in "colors" setting: ${label}`;
