@@ -765,7 +765,7 @@ class CanvasPlot {
         zoomTo(x0, x1) {
             this.plot.x.domain([x0, x1]);
             this.updateBins();
-            call_throttled(this.draw.bind(this), this.draw);
+            this.draw();
         }
 
         drawBars() {
@@ -858,7 +858,7 @@ class CanvasPlot {
 
         zoomTo(x0, x1) {
             this.plot.x.domain([x0, x1]);
-            call_throttled(this.draw.bind(this), this.draw);
+            this.draw();
             this.on_zoom_to_callbacks.forEach(c => c(x0, x1));
         }
 
@@ -874,8 +874,9 @@ class CanvasPlot {
     }
 
     class Minimap {
-        constructor(element, x_scale, y_scale, words, initial_view=null, initial_brush=null) {
+        constructor(element, x_scale, y_scale, words, initial_view=null, initial_brush=null, index=null) {
             const e = element.classed("plot minimap", true).style("height", '90px')
+            this.index = index
 
             if (settings.barplot.style !== "hidden") {
                 this.error_bars = new ErrorBarPlot(
@@ -986,22 +987,27 @@ class CanvasPlot {
             this.word_plot.zoomTo(x0, x1);
             this._callOnSelectCallbacks();
         }
-        
-        moveBrush(x0, x1) {
 
+        moveBrush(x0, x1) {
             if (similar_range(this.selection_domain, [x0, x1])) return;  // break cycle call
             let view_area = this.word_plot.plot.x.domain();
-            if (x0 < view_area[0] && x1 > view_area[1]) {
-                this.zoomTo(x0, x1);
-            } else if (x0 < view_area[0]) {
-                this.zoomTo(x0, x0 + view_area[1] - view_area[0]);
-            } else if (x1 > view_area[1]) {
-                this.zoomTo(x1 - view_area[1] + view_area[0], x1);
-            } else {
-                this.brush_group.call(this.brush.move, [
-                    this.word_plot.plot.x(x0), this.word_plot.plot.x(x1)
-                ])
-            }
+            // console.log('Minimap.moveBrush', this.index, x0, x1, this.selection_domain, view_area);
+            call_throttled(
+                () => {
+                    if (x0 < view_area[0] && x1 > view_area[1]) {
+                        this.zoomTo(x0, x1)
+                    } else if (x0 < view_area[0]) {
+                        this.zoomTo(x0, x0 + view_area[1] - view_area[0]);
+                    } else if (x1 > view_area[1]) {
+                        this.zoomTo(x1 - view_area[1] + view_area[0], x1);
+                    }
+                    // else {
+                    this.brush_group.call(this.brush.move, [
+                        this.word_plot.plot.x(x0), this.word_plot.plot.x(x1)
+                    ])
+                }, this.brush_group,
+                (settings.minimaps.number == this.index+1)? 100 : 500  // higher update rate for last minimap
+                )
         }
 
         removeBrush(){
