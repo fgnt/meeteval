@@ -1115,7 +1115,7 @@ class CanvasPlot {
                     else this.selectUtterance(null);
                 } else this.selectUtterance(null);
             })
-            
+
             this.wheel_hits = 0
             this.plot.element.on("wheel", (event) => {
                 // Collate multiple wheel events as one "big" wheel event.
@@ -1752,15 +1752,17 @@ class CanvasPlot {
             }
         };
         let maybe_remove_audio = function (){
-            let lower = rangeSelector.selection[0];
-            let upper = rangeSelector.selection[1];
-            let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
-            let audio = audio_div.select("audio")
-            if ( ! audio.empty() ){
-                if ( audio.attr("src") !== path ){
-                    audio_div.selectAll("*").remove();
+            if (rangeSelector.selection){
+                let lower = rangeSelector.selection[0];
+                let upper = rangeSelector.selection[1];
+                let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
+                let audio = audio_div.select("audio")
+                if ( ! audio.empty() ){
+                    if ( audio.attr("src") !== path ){
+                        audio_div.selectAll("*").remove();
+                    }
+                    console.log(audio.attr("src") +  " vs " + path);
                 }
-                console.log(audio.attr("src") +  " vs " + path);
             }
         };
 
