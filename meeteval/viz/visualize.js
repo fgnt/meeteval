@@ -1726,6 +1726,8 @@ class CanvasPlot {
 
             this.selection = [x0, x1];
             this.input.node().value = `${this.selection[0]} - ${this.selection[1]}`;
+
+            this.input.classed("input-error", false);
             call_delayed_throttled(this.setURL.bind(this), this.setURL, 200);
         }
     }
