@@ -45,6 +45,14 @@ function alignment_visualization(
         match_width: 10,
     }
 ) {
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('minimaps')) {
+        settings.minimaps.number = urlParams.get('minimaps')
+    }
+    if (urlParams.has('regex')) {
+        settings.search_bar.initial_query = urlParams.get('regex');
+    }
+
     // Set the custom locale globally
     d3.formatDefaultLocale({
         "decimal": ".",
@@ -509,10 +517,6 @@ class CanvasPlot {
         num_minimaps_select.append("option").attr("value", 2).text("2");
         num_minimaps_select.append("option").attr("value", 3).text("3");
 
-        var urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('minimaps')) {
-            settings.minimaps.number = urlParams.get('minimaps')
-        }
         num_minimaps_select.node().value = settings.minimaps.number;
 
         // const errorbar_style = container.append("div").classed("pill", true);
@@ -649,11 +653,6 @@ class CanvasPlot {
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
             this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
 
-            var urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('regex')) {
-                initial_query = urlParams.get('regex');
-            }
-
             if (initial_query) this.text_input.node().value = initial_query;
             this.on_search_callbacks = [];
 
@@ -682,9 +681,7 @@ class CanvasPlot {
             if (regex) {
                 url.searchParams.set('regex', regex);
             } else {
-                var searchParams = new URLSearchParams(url.search);
-                searchParams.delete('regex');
-                url.search = searchParams.toString();
+                url.searchParams.delete('regex')
             }
             // Push the new state to the history stack
             history.pushState(null, null, url);
