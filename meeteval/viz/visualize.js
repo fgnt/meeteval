@@ -1797,9 +1797,34 @@ class CanvasPlot {
 
         for (let i = 0; i < settings.minimaps.number; i++) {
 
-            let interpolate = (a, b, c) => {
-                c = Math.max(Math.min(c, 1), 0);
-                return [a[0] * c + b[0] * (1 - c), a[1] * c + b[1] * (1 - c)]
+            let interpolate = (a, b, c, d) => {
+                // Interpolate between a and b
+                // If c is zero, return a, if c == d, then return b.
+                // If c is between 0 and d, return an interpolation of a and b.
+
+                if (c == 0 || !b) {
+                    // For speedup and numeric
+                    ret = a
+                } else if (c >= d) {
+                    // For speedup and numeric
+                    ret = b
+                } else {
+                    // Interpolate such, that the length ratio between c and c+1 is constant.
+                    length_a = a[1] - a[0];
+                    length_b = b[1] - b[0];
+                    log_length_a = Math.log(length_a);
+                    log_length_b = Math.log(length_b);
+
+                    length = Math.exp(log_length_b  + ((log_length_a - log_length_b) * (d-c) / d));
+
+                    ratio = (length - length_b) / (length_a - length_b)
+
+                    ratio = 1 - Math.max(Math.min(ratio, 1), 0);
+                    ratio_2 = 1 - ratio
+                    ret = [a[0] * ratio_2 + b[0] * ratio, a[1] * ratio_2 + b[1] * ratio]
+                }
+
+                return ret
             };
 
             const minimap = new Minimap(
@@ -1807,8 +1832,9 @@ class CanvasPlot {
                 d3.scaleLinear().domain(time_domain),
                 d3.scaleBand().domain(speakers).padding(0.1),
                 data.words,
-                interpolate(time_domain, rangeSelector.selection, 1-(i) / (settings.minimaps.number-1)),
-                interpolate(time_domain, rangeSelector.selection, 1-(i+1) / (settings.minimaps.number-1)),
+                interpolate(time_domain, rangeSelector.selection, i, settings.minimaps.number),
+                interpolate(time_domain, rangeSelector.selection,i+1, settings.minimaps.number),
+                index=i,
                 // (i != 0) ? time_domain : rangeSelector.selection,
                 // (i != 0) ? rangeSelector.selection : null,
             )
