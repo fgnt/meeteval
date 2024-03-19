@@ -67,6 +67,7 @@ function alignment_visualization(
         // Expects that the function does always the same thing.
         // The object is used to store the timerId and the call_pending flag.
         // (Cannot be stored in fn, because it is created with bind.)
+        object.timerId_fn = fn
         if (!object.timerId) {
             // Call immediately
             fn()
@@ -74,7 +75,7 @@ function alignment_visualization(
             // Set timer to prevent further calls
             object.timerId = setTimeout(() => {
                 object.timerId = undefined;
-                if (object.call_pending) fn();
+                if (object.call_pending) object.timerId_fn();
                 object.call_pending = false;
             }, delay);
         } else {object.call_pending = true;}
