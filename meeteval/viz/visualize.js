@@ -1092,61 +1092,71 @@ class CanvasPlot {
                     else this.selectUtterance(null);
                 } else this.selectUtterance(null);
             })
-
+            
+            this.wheel_hits = 0
             this.plot.element.on("wheel", (event) => {
-                let [begin, end] = this.plot.y.domain();
-                let delta = (this.plot.y.invert(event.deltaY) - this.plot.y.invert(0)) * 0.5    // TODO: magic number
-                if (event.ctrlKey) {
-                    // Zoom when ctrl is pressed. Zoom centered on mouse position
-                    const mouse_y = this.plot.y.invert(event.layerY);
-                    const ratio = (mouse_y - begin) / (end - begin);
-                    let beginDelta = -delta * ratio;
-                    if (begin + beginDelta < this.max_domain[0]) {
-                        if (begin < this.max_domain[0]) {
-                            if (beginDelta < 0) beginDelta = 0;
-                            // else: do nothing to prevent jumping
-                        } else {
-                            // Clip to max data domain
-                            beginDelta = this.max_domain[0] - begin;
+                // Collate multiple wheel events as one "big" wheel event.
+                // 5 milliseconds aren't noticeable, but prevent freezing from free rolling mouse wheels
+                clearTimeout(this.wheel_timeoutID);
+                this.wheel_hits += 1;
+                this.wheel_timeoutID = setTimeout(() => {
+                    let [begin, end] = this.plot.y.domain();
+                    let delta = (this.plot.y.invert(event.deltaY) - this.plot.y.invert(0)) * 0.5 * this.wheel_hits   // TODO: magic number
+                    if (self.wheel_hits > 1)
+                        console.log('High frequently appearing wheel events. Group', self.wheel_hits, 'events together.')
+                    this.wheel_hits = 0
+                    if (event.ctrlKey) {
+                        // Zoom when ctrl is pressed. Zoom centered on mouse position
+                        const mouse_y = this.plot.y.invert(event.layerY);
+                        const ratio = (mouse_y - begin) / (end - begin);
+                        let beginDelta = -delta * ratio;
+                        if (begin + beginDelta < this.max_domain[0]) {
+                            if (begin < this.max_domain[0]) {
+                                if (beginDelta < 0) beginDelta = 0;
+                                // else: do nothing to prevent jumping
+                            } else {
+                                // Clip to max data domain
+                                beginDelta = this.max_domain[0] - begin;
+                            }
                         }
-                    }
-                    let endDelta = delta * (1 - ratio);
-                    if (end + endDelta > this.max_domain[1]) {
-                        if (end > this.max_domain[1]) {
-                            if (endDelta > 0) endDelta = 0;
-                            // else: do nothing to prevent jumping
-                        } else {
-                            // Clip to max data domain
-                            endDelta = this.max_domain[1] - end;
+                        let endDelta = delta * (1 - ratio);
+                        if (end + endDelta > this.max_domain[1]) {
+                            if (end > this.max_domain[1]) {
+                                if (endDelta > 0) endDelta = 0;
+                                // else: do nothing to prevent jumping
+                            } else {
+                                // Clip to max data domain
+                                endDelta = this.max_domain[1] - end;
+                            }
                         }
-                    }
-                    begin += beginDelta;
-                    end += endDelta;
-                } else {
-                    // Move when ctrl is not pressed
-                    if (begin + delta < this.max_domain[0]) {
-                        if (begin < this.max_domain[0]) {
-                            if (delta < 0) delta = 0;
-                            // else: do nothing to prevent jumping
-                        } else {
-                            // Clip to max data domain
-                            delta = this.max_domain[0] - begin;
+                        begin += beginDelta;
+                        end += endDelta;
+                    } else {
+                        // Move when ctrl is not pressed
+                        if (begin + delta < this.max_domain[0]) {
+                            if (begin < this.max_domain[0]) {
+                                if (delta < 0) delta = 0;
+                                // else: do nothing to prevent jumping
+                            } else {
+                                // Clip to max data domain
+                                delta = this.max_domain[0] - begin;
+                            }
                         }
-                    }
-                    if (end + delta > this.max_domain[1]) {
-                        if (end > this.max_domain[1]) {
-                            if (delta > 0) delta = 0;
-                            // else: do nothing to prevent jumping
-                        } else {
-                            // Clip to max data domain
-                            delta = this.max_domain[1] - end;
+                        if (end + delta > this.max_domain[1]) {
+                            if (end > this.max_domain[1]) {
+                                if (delta > 0) delta = 0;
+                                // else: do nothing to prevent jumping
+                            } else {
+                                // Clip to max data domain
+                                delta = this.max_domain[1] - end;
+                            }
                         }
+                        begin = begin + delta;
+                        end = end + delta;
                     }
-                    begin = begin + delta;
-                    end = end + delta;
-                }
-                this._callOnScrollHandlers(begin, end);
-                event.preventDefault();
+                    this._callOnScrollHandlers(begin, end);
+                    event.preventDefault();
+                }, 10)
             }, false)
 
             drag(this.plot.element, e => {
