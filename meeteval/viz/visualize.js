@@ -335,9 +335,26 @@ class DetailsAxis{
     }
 }
 
-function equal(a, b){
+function similar_range(a, b, tolerance=0.00001){
     // Note: a == [0, 1] will always return false, because arrays are compared by reference, not values
-    return JSON.stringify(a) === JSON.stringify(b);
+    if (JSON.stringify(a) === JSON.stringify(b)) {
+        return true
+    }
+
+    if (!a)
+        return false
+
+    delta = Math.min(a[1] - a[0], b[1] - b[0]) * tolerance
+
+    if (a.length !== b.length) {
+        return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+        if (Math.abs(a[i] - b[i]) > delta) {
+            return false; // Return false if any elements are different
+        }
+    }
+    return true
 }
 
 /**
@@ -962,8 +979,8 @@ class CanvasPlot {
 
         zoomTo(x0, x1) {
             let view_area = this.word_plot.plot.x.domain();
-            if (equal(view_area, [x0, x1])) return;  // break cycle call
-//            console.log('Minimap.zoomTo', x0, x1, view_area, equal(this.view_area, [x0, x1]));
+            if (similar_range(view_area, [x0, x1])) return;  // break cycle call
+            // console.log('Minimap.zoomTo', this.index, x0, x1, view_area,);
 
             if (this.error_bars) this.error_bars.zoomTo(x0, x1);
             this.word_plot.zoomTo(x0, x1);
@@ -971,8 +988,8 @@ class CanvasPlot {
         }
         
         moveBrush(x0, x1) {
-            if (equal(this.selection_domain, [x0, x1])) return;  // break cycle call
 
+            if (similar_range(this.selection_domain, [x0, x1])) return;  // break cycle call
             let view_area = this.word_plot.plot.x.domain();
             if (x0 < view_area[0] && x1 > view_area[1]) {
                 this.zoomTo(x0, x1);
@@ -1490,8 +1507,8 @@ class CanvasPlot {
         }
 
         zoomTo(x0, x1) {
-            if (equal(this.plot.y.domain(), [x0, x1])) return;  // break cycle call
-//            console.log("DetailsPlot.zoomTo", x0, x1);
+            if (similar_range(this.plot.y.domain(), [x0, x1])) return;  // break cycle call
+           // console.log("DetailsPlot.zoomTo", x0, x1);
             this.plot.y.domain([x0, x1]);
             this.filtered_words = this.words.filter(w => w.start_time < x1 && w.end_time > x0);
             this.filtered_utterances = this.utterances.filter(w => w.start_time < x1 && w.end_time > x0);
