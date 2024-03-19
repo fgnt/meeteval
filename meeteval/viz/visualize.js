@@ -1683,15 +1683,18 @@ class CanvasPlot {
                         end = parseFloat(match.groups.end);
                 if (!isNaN(start) && !isNaN(end) && start < end) {
 
-                    if (start < this.min_and_max[0] && end > this.min_and_max[1]) {
+                    // Fix rounding issue of selection field. e.g. max is 360.78, while selection is 360.8
+                    let margin = 0.5
+
+                    if (start < this.min_and_max[0]-margin && end > this.min_and_max[1]+margin) {
                         this.input.classed("input-error", true);
                         this.selection = this.min_and_max;
                         console.log("Invalid range: outside of min and max", start, end, this.min_and_max, 'use', this.selection);
-                    } else if (start < this.min_and_max[0]) {
+                    } else if (start < this.min_and_max[0]-margin) {
                         this.input.classed("input-error", true);
                         this.selection = [this.min_and_max[0], Math.max(end, this.min_and_max[1])];
                         console.log("Invalid range: below min", start, end, this.min_and_max, 'use', this.selection);
-                    } else if (end > this.min_and_max[1]) {
+                    } else if (end > this.min_and_max[1]+margin) {
                         this.input.classed("input-error", true);
                         this.selection = [Math.min(start, this.min_and_max[0]), this.min_and_max[1]];
                         console.log("Invalid range: above max", start, end, this.min_and_max, this.selection);
