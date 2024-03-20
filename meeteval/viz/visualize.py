@@ -29,7 +29,10 @@ from meeteval.io.seglst import asseglst, SegLST
 
 
 def dumps_json(
-        obj, *, indent=2, sort_keys=True, **kwargs):
+        obj, *, indent=2, sort_keys=True,
+        float_round=None,
+        **kwargs,
+):
     import io
     fd = io.StringIO()
     dump_json(
@@ -38,13 +41,17 @@ def dumps_json(
         indent=indent,
         create_path=False,
         sort_keys=sort_keys,
+        float_round=float_round,
         **kwargs,
     )
     return fd.getvalue()
 
 
 def dump_json(
-        obj, path, *, indent=2, create_path=True, sort_keys=False, **kwargs):
+        obj, path, *, indent=2, create_path=True, sort_keys=False,
+        float_round=None,
+        **kwargs,
+):
     """
     Numpy types will be converted to the equivalent Python type for dumping the
     object.
@@ -59,6 +66,23 @@ def dump_json(
     import io
     import simplejson
 
+    if float_round is not None:
+        import decimal
+
+        def nested_round(obj):
+            if isinstance(obj, (tuple, list)):
+                return [nested_round(e) for e in obj]
+            elif isinstance(obj, dict):
+                return {nested_round(k): nested_round(v) for k, v in
+                        obj.items()}
+            elif isinstance(obj, (float, decimal.Decimal)):
+                return round(obj, float_round)
+            elif type(obj) in [int, str, type(None)]:
+                return obj
+            else:
+                raise TypeError(type(obj))
+        obj = nested_round(obj)
+
     if isinstance(path, io.IOBase):
         simplejson.dump(obj, path, indent=indent,
                         sort_keys=sort_keys, **kwargs)
@@ -70,7 +94,9 @@ def dump_json(
 
         with path.open('w') as f:
             simplejson.dump(obj, f, indent=indent,
-                            sort_keys=sort_keys, **kwargs)
+                            sort_keys=sort_keys,
+                            for_json=True,
+                            **kwargs)
     else:
         raise TypeError(path)
 
@@ -283,9 +309,40 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         **w,
         'words': w['original_words'],
         'transformed_words': w['words'],
-        'center_time': (w['start_time'] + w['end_time']) / 2,  # Point where the stitches attach
+        'duration': w['end_time'] - w['start_time'],
     })
-    data['words'] = words.segments
+
+    compress = True
+    if compress:
+        data['words'] = {k: words.T.get(k) for k in words.T.all_keys()}
+        data['words'] = {
+            k: data['words'][k]
+            for k in [
+                'words',
+                'source',
+                'matches',
+                'speaker',
+                'start_time',
+                'duration',
+            ]
+        }
+        def compress(m):
+            if not m:
+                return m
+            if isinstance(m, (tuple, list)):
+                return [compress(e) for e in m]
+            if isinstance(m, str):
+                return {
+                    'insertion': 'i',
+                    'deletion': 'd',
+                    'substitution': 's',
+                    'correct': 'c',
+                }[m]
+            return m
+        data['words']['matches'] = [compress(m) for m in data['words']['matches']]
+        data['words']['source'] = [{'hypothesis': 'h', 'reference': 'r'}[s] for s in data['words']['source']]
+    else:
+        data['words'] = words.segments
 
     # Add utterances to data. Add total number of words to each utterance
     data['utterances'] = [{**l, 'total': len(l['words'].split())} for l in u]
@@ -546,7 +603,7 @@ class AlignmentVisualization:
                 function exec() {{
                     // Wait for d3 to load
                     if (typeof d3 !== 'undefined') alignment_visualization(
-                        {dumps_json(self.data, indent=None, sort_keys=False)}, 
+                        {dumps_json(self.data, indent=None, sort_keys=False, separators=(',', ':'), float_round=4)},
                         "#{element_id}",
                         {{
                             colors: {self._get_colormap()},
@@ -562,7 +619,7 @@ class AlignmentVisualization:
                             search_bar: {{
                                 initial_query: {highlight_regex}
                             }},
-                            recording_file: {json.dumps(self.recording_file, default=os.fspath)},
+                            recording_file: {dumps_json(self.recording_file, default=os.fspath)},
                             match_width: 0.1,
                         }}
                     );

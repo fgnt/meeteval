@@ -80,6 +80,32 @@ function alignment_visualization(
         settings.search_bar.initial_query = urlParams.get('regex');
     }
 
+    // Decompress data
+    var transposed_words = []
+    Object.keys(data.words).forEach(function(key) {
+        data.words[key].forEach(function(value, index) {
+            if (!transposed_words[index]) {
+                transposed_words[index] = {};
+            }
+            transposed_words[index][key] = value;
+        });
+    });
+    transposed_words.forEach(function(word, index) {
+        word.end_time = word.start_time + word.duration;
+        word.center_time = (word.start_time + word.end_time) / 2;  // Point where the stitches attach
+        if (word.source == 'h') {word.source = 'hypothesis';}
+        else if (word.source == 'r') {word.source = 'reference';}
+        word.matches?.forEach(function(match) {
+            switch (match[1]) {
+                case 'c': match[1] = 'correct'; break;
+                case 's': match[1] = 'substitution'; break;
+                case 'd': match[1] = 'deletion'; break;
+                case 'i': match[1] = 'insertion'; break;
+            }
+        })
+    });
+    data.words = transposed_words;
+
     // Set the custom locale globally
     d3.formatDefaultLocale({
         "decimal": ".",
@@ -671,7 +697,7 @@ class CanvasPlot {
         )
         if (info.wer.reference_self_overlap?.overlap_rate) label(
             "Reference self-overlap:", 
-            (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%", 
+            (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%",
             icons["warning"],
             c => c.append('div').classed('wrap-40').text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "On the reference, this is usually an indication for annotation errors.\n" +
