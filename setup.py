@@ -55,6 +55,7 @@ extras_require['test'] = [
 extras_require['all'] = [
     'lazy_dataset',
     'ipywidgets',  # Used to provide dropdown menu in ipynb
+    'platformdirs',  # Used in meeteval.viz
     *sum(extras_require.values(), []),
 ]
 extras_require = {
