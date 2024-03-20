@@ -2,6 +2,9 @@ import logging
 import os
 import json
 
+import urllib.request
+import platformdirs
+
 import meeteval
 from meeteval.wer import ErrorRate
 
@@ -510,10 +513,31 @@ class AlignmentVisualization:
 
         highlight_regex = f'"{self.highlight_regex}"' if self.highlight_regex else 'null'
 
+        cdn = {
+            'd3': 'https://cdn.jsdelivr.net/npm/d3@7',
+            # 'font_awesome': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css',
+        }
 
+        cache_dir = Path(platformdirs.user_data_dir('meeteval'))
+        def load_cdn(name, url):
+            file = cache_dir / name
+            try:
+                return file.read_text()
+            except FileNotFoundError:
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                urllib.request.urlretrieve(url, file)
+                return file.read_text()
+
+        if False and self.js_debug:
+            d3 = f'<script src="{cdn["d3"]}"></script>'
+            # font_awesome = f'<link rel="stylesheet" href="{cdn["font_awesome"]}" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />'
+        else:
+            d3 = f'<script>{load_cdn("d3.js", cdn["d3"])}</script>'
+            # font_awesome = f'<style>{load_cdn("d3font_awesome.css", cdn["font_awesome"])}</style>'
+        font_awesome = ''
         html = f'''
-            <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            {d3}
+            {font_awesome}
             {css}
             <div class="meeteval-viz" id='{element_id}'><div>
             {visualize_js}
