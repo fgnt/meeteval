@@ -449,6 +449,10 @@ class AlignmentVisualization:
         ref_session_ids = reference.unique('session_id')
         hyp_session_ids = hypothesis.unique('session_id')
 
+        if self.js_debug:
+            print('WARNING: js_debug is not supported in ipynb. Disable it.')
+            self.js_debug = False
+
         if len(ref_session_ids) > 1 or len(hyp_session_ids) > 1:
             session_ids = sorted(ref_session_ids & hyp_session_ids)
             assert len(session_ids) >= 1, (session_ids, ref_session_ids, hyp_session_ids)
