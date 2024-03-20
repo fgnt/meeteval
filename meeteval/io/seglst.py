@@ -175,11 +175,24 @@ class SegLST(BaseABC):
                 *[set(s.keys()) for s in self._outer.segments]
             )
 
+        def all_keys(self):
+            if len(self._outer) == 0:
+                return set()
+            return set.union(
+                *[set(s.keys()) for s in self._outer.segments]
+            )
+
         def __getitem__(self, key: _SegLstSegment_keys):
             """
             Returns the values for `key` of all segments as a list.
             """
             return [s[key] for s in self._outer.segments]
+
+        def get(self, key, default=None):
+            """
+            Returns the values for `key` of all segments as a list.
+            """
+            return [s.get(key, default) for s in self._outer.segments]
 
         def __class_getitem__(cls, item: _SegLstSegment_keys) -> 'list':
             """
@@ -267,6 +280,7 @@ class SegLST(BaseABC):
         segments for which `fn` returns true.
         """
         return SegLST([s for s in self.segments if fn(s)])
+
 
     @classmethod
     def merge(cls, *t) -> 'SegLST':
