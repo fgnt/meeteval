@@ -23,6 +23,33 @@ var colormaps = {
     }
 }
 
+//<!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
+// Add new icons:
+//  - Open e.g. https://fontawesome.com/icons/copy?f=classic&s=solid
+//  - Click SVG
+//  - Copy source code and append it to the following object (key is taken from HTML code, e.g. <i class="fa-solid fa-copy"></i>)
+//  - Add `class="icon" aria-hidden="true" focusable="false"` to the source code.
+var _icons = {
+    'fa-solid fa-sliders': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" focusable="false" viewBox="0 0 512 512"><path d="M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z"/></svg>',
+    'fa-circle-question': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" focusable="false" viewBox="0 0 512 512"><path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3h58.3c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24V250.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1H222.6c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>',
+    'fa-solid fa-volume-high': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" focusable="false" viewBox="0 0 640 512"><path d="M533.6 32.5C598.5 85.2 640 165.8 640 256s-41.5 170.7-106.4 223.5c-10.3 8.4-25.4 6.8-33.8-3.5s-6.8-25.4 3.5-33.8C557.5 398.2 592 331.2 592 256s-34.5-142.2-88.7-186.3c-10.3-8.4-11.8-23.5-3.5-33.8s23.5-11.8 33.8-3.5zM473.1 107c43.2 35.2 70.9 88.9 70.9 149s-27.7 113.8-70.9 149c-10.3 8.4-25.4 6.8-33.8-3.5s-6.8-25.4 3.5-33.8C475.3 341.3 496 301.1 496 256s-20.7-85.3-53.2-111.8c-10.3-8.4-11.8-23.5-3.5-33.8s23.5-11.8 33.8-3.5zm-60.5 74.5C434.1 199.1 448 225.9 448 256s-13.9 56.9-35.4 74.5c-10.3 8.4-25.4 6.8-33.8-3.5s-6.8-25.4 3.5-33.8C393.1 284.4 400 271 400 256s-6.9-28.4-17.7-37.3c-10.3-8.4-11.8-23.5-3.5-33.8s23.5-11.8 33.8-3.5zM301.1 34.8C312.6 40 320 51.4 320 64V448c0 12.6-7.4 24-18.9 29.2s-25 3.1-34.4-5.3L131.8 352H64c-35.3 0-64-28.7-64-64V224c0-35.3 28.7-64 64-64h67.8L266.7 40.1c9.4-8.4 22.9-10.4 34.4-5.3z"/></svg>',
+    'fa-solid fa-check': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" focusable="false" viewBox="0 0 448 512"><path d="M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"/></svg>',
+    'fa-solid fa-copy': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" focusable="false" viewBox="0 0 448 512"><path d="M208 0H332.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H208c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128h80v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z"/></svg>',
+    'fa-solid fa-caret-up': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" focusable="false" viewBox="0 0 320 512"><path d="M182.6 137.4c-12.5-12.5-32.8-12.5-45.3 0l-128 128c-9.2 9.2-11.9 22.9-6.9 34.9s16.6 19.8 29.6 19.8H288c12.9 0 24.6-7.8 29.6-19.8s2.2-25.7-6.9-34.9l-128-128z"/></svg>',
+    'fa-solid fa-caret-down': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" viewBox="0 0 320 512"><path d="M137.4 374.6c12.5 12.5 32.8 12.5 45.3 0l128-128c9.2-9.2 11.9-22.9 6.9-34.9s-16.6-19.8-29.6-19.8L32 192c-12.9 0-24.6 7.8-29.6 19.8s-2.2 25.7 6.9 34.9l128 128z"/></svg>',
+    'fa-solid fa-triangle-exclamation': '<svg xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true" focusable="false" viewBox="0 0 512 512"><path d="M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7 .2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8 .2-40.1l216-368C228.7 39.5 241.8 32 256 32zm0 128c-13.3 0-24 10.7-24 24V296c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24zm32 224a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/></svg>',
+}
+var icons = {
+    'menu': _icons['fa-solid fa-sliders'],
+    'audio': _icons['fa-solid fa-volume-high'],
+    'help': _icons['fa-circle-question'],
+    'warning': _icons['fa-solid fa-triangle-exclamation'],
+    'check': _icons['fa-solid fa-check'],
+    'copy': _icons['fa-solid fa-copy'],
+    'caret-up': _icons['fa-solid fa-caret-up'],
+    'caret-down': _icons['fa-solid fa-caret-down'],
+}
+
 function alignment_visualization(
     data,
     element_id = '#my_dataviz',
@@ -494,7 +521,7 @@ class CanvasPlot {
 
     function drawMenu(container) {
         const menuContainer = container.append("div").classed("pill", true);
-        menuContainer.append("i").classed("fas fa-sliders", true);
+        menuContainer.append("div").html(icons['menu']);
         const m = menu(menuContainer).append("div");
 
         m.append("div").text("Settings").classed("menu-header", true);
@@ -564,8 +591,8 @@ class CanvasPlot {
 
     function drawHelpButton(container) {
         const pill = container.append("a").attr("href", "https://github.com/fgnt/meeteval").classed("pill", true)
-        pill.append("i").classed("fas fa-question-circle", true);
-        pill.append("div").text("Help");
+        pill.append('div').html(icons['help']).style("margin-right", "5px");;
+        pill.append('div').text(' Help');
     }
 
     function drawExampleInfo(container, info) {
@@ -573,7 +600,7 @@ class CanvasPlot {
 
         label = (label, value, icon=null, tooltip=null) => {
             var l = root.append("div").classed("pill", true)
-            if (icon) l.append("i").classed("fas " + icon, true);
+            if (icon) l.append("div").html(icon);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
             if (tooltip) addTooltip(l, tooltip);
@@ -645,7 +672,7 @@ class CanvasPlot {
         if (info.wer.reference_self_overlap?.overlap_rate) label(
             "Reference self-overlap:", 
             (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%", 
-            "fa-triangle-exclamation",
+            icons["warning"],
             c => c.append('div').classed('wrap-40').text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "On the reference, this is usually an indication for annotation errors.\n" +
             "Extreme self-overlap can lead to unexpected WERs!")
@@ -653,7 +680,7 @@ class CanvasPlot {
         if (info.wer.hypothesis_self_overlap?.overlap_rate) label(
             "Hypothesis self-overlap:", 
             (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%",
-            "fa-triangle-exclamation",
+            icons["warning"],
             c => c.append('div').classed('wrap-40').text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "Extreme self-overlap can lead to unexpected WERs!")
         ).classed("warn", true);
@@ -1535,14 +1562,12 @@ class CanvasPlot {
 
             this.container.append("div").text("Selected segment:").classed("pill no-border info-label", true);
 
-            this.expandButton = this.element.append("i").classed("selected-utterance-expand fas fa-caret-down", true).on("click", () => {
+            this.expandButton = this.element.append("div").classed("selected-utterance-expand", true).html(icons['caret-down']).on("click", () => {
                this.container.classed("expanded", !this.container.classed("expanded"));
                 if (this.container.classed("expanded")) {
-                    this.expandButton.classed("fa-caret-down", false);
-                    this.expandButton.classed("fa-caret-up", true);
+                    this.expandButton.html(icons['caret-up'])
                 } else {
-                    this.expandButton.classed("fa-caret-up", false);
-                    this.expandButton.classed("fa-caret-down", true);
+                    this.expandButton.html(icons['caret-down'])
                 }
             });
             this.update(null);
@@ -1589,24 +1614,22 @@ class CanvasPlot {
                     audio.on('error', function() {
                         audio.remove();
                         fallback_text_box.text(value + ' ');
-                        fallback_text_box.append("i").classed("fas fa-triangle-exclamation", true);
+                        fallback_text_box.append('div').html(icons['warning']);
                         copy_button;
                     })
                 });
 
                 // Add a copy button
                 let copy_button = element.append('button').classed("copybutton", true)
-                let icon = copy_button.append("i");
-                icon.classed("fas fa-copy", true);
+                let icon = copy_button.append("div");
+                icon.html(icons['copy']);
                 copy_button.on('click', function() {
                   // Click animation
                   navigator.clipboard.writeText(value);
 
-                  icon.classed("fas fa-copy", false);
-                  icon.classed("fas fa-check", true);
+                  icon.html(icons['check']);
                   setTimeout(function() {
-                      icon.classed("fas fa-check", false);
-                      icon.classed("fas fa-copy", true);
+                icon.html(icons['copy']);
                   }, 700)
                 });
 
@@ -1772,7 +1795,7 @@ class CanvasPlot {
         let pill = container.append("div").classed("pill", true);
         let audio_tooltip = addTooltip(pill);
 
-        pill.append("i").classed("fas fa-volume-up", true);
+        pill.append("div").html(icons['audio']);
         if (name.trim()) pill.append("span").text(name);
 
         let input = audio_tooltip.append("div").style("display", "flex");
