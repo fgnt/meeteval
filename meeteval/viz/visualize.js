@@ -1175,6 +1175,7 @@ class CanvasPlot {
                 // 5 milliseconds aren't noticeable, but prevent freezing from free rolling mouse wheels
                 clearTimeout(this.wheel_timeoutID);
                 this.wheel_hits += 1;
+                event.preventDefault();
                 this.wheel_timeoutID = setTimeout(() => {
                     let [begin, end] = this.plot.y.domain();
                     let delta = (this.plot.y.invert(event.deltaY) - this.plot.y.invert(0)) * 0.5 * this.wheel_hits   // TODO: magic number
@@ -1231,7 +1232,6 @@ class CanvasPlot {
                         end = end + delta;
                     }
                     this._callOnScrollHandlers(begin, end);
-                    event.preventDefault();
                 }, 10)
             }, false)
 
