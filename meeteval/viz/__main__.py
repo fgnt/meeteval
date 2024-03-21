@@ -1,5 +1,6 @@
 from pathlib import Path
 import collections
+import itertools
 
 import meeteval
 from meeteval.viz.visualize import AlignmentVisualization
@@ -11,7 +12,7 @@ def create_viz_folder(
         reference,
         hypothesiss,
         out,
-        alignment='tcp',
+        alignments='tcp',
         regex=None,
         normalizer=None,
 ):
@@ -19,7 +20,10 @@ def create_viz_folder(
     out.mkdir(parents=True, exist_ok=True)
 
     avs = {}
-    for i, hypothesis in tqdm.tqdm(hypothesiss.items()):
+    for (i, hypothesis), alignment in tqdm.tqdm(list(itertools.product(
+            hypothesiss.items(),
+            alignments.split(','),
+    ))):
 
         r, h = _load_texts(
             reference, hypothesis, regex=regex,
@@ -40,8 +44,8 @@ def create_viz_folder(
             av = AlignmentVisualization(r[session_id],
                                         h[session_id],
                                         alignment=alignment)
-            av.dump(out / f'{session_id}_{i}.html')
-            avs.setdefault(i, {})[session_id] = av
+            av.dump(out / f'{session_id}_{i}_{alignment}.html')
+            avs.setdefault((i, alignment), {})[session_id] = av
 
     ###########################################################################
 
@@ -61,9 +65,9 @@ def create_viz_folder(
         # With 100 % there is a scroll bar -> use 99 %
         with tag('html', style="height: 99%; margin: 0;"):
             with tag('body', style="width: 100%; height: 100%; margin: 0; display: flex;"):
-                for i, av in v.items():
+                for (i, alignment), av in v.items():
                     with tag('div', style='flex-grow: 1'):
-                        with tag('iframe', src=f'{session_id}_{i}.html',
+                        with tag('iframe', src=f'{session_id}_{i}_{alignment}.html',
                                  title="right", width="100%",
                                  height="100%", style="border-width: 0"):
                             pass
@@ -89,20 +93,22 @@ def create_viz_folder(
     doc.asis('<!DOCTYPE html>')
     with tag('html'):
         with tag('head'):
+            # When offline, the page will still work.
+            # The sort will break and the table style rested.
             with tag('script', src='https://code.jquery.com/jquery-3.6.4.min.js'):
                 pass
             with tag('script', src='https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/js/jquery.tablesorter.min.js'):
                 pass
             doc.asis('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">')
         with tag('body'):
-            with tag('table', klass='tablesorter', id='myTable'):
+            with tag('table', klass='tablesorter', id='myTable', style='width: auto;'):
                 with tag('thead'), tag('tr'):
                     for s in [
                         'Session ID',
                         *[
                             col
-                            for k, v in avs.items()
-                            for col in [k, f'WER: {get_wer(v)}']
+                            for (k, alignment), v in avs.items()
+                            for col in [k, f'{alignment}WER: {get_wer(v)}']
                         ]
                     ]:
                         with tag('th'):
@@ -113,18 +119,19 @@ def create_viz_folder(
                         with tag('tr'):
                             with tag('td'):
                                 doc.text(f'{session_id}')
-                            for i, av in v.items():
+                            for (i, alignment), av in v.items():
                                 with tag('td'):
                                     with tag('a',
-                                             href=f'{session_id}_{i}.html'):
-                                        doc.text('viz')
+                                             href=f'{session_id}_{i}_{alignment}.html'):
+                                        doc.text('View')
                                 with tag('td'):
                                     wer = av.data['info']['wer']['hypothesis']['error_rate']
                                     doc.text(f"{wer * 100:.2f} %")
 
-                            with tag('td'):
-                                with tag('a', href=f'{session_id}.html'):
-                                    doc.text('SideBySide viz')
+                            if len(v) > 1:
+                                with tag('td'):
+                                    with tag('a', href=f'{session_id}.html'):
+                                        doc.text('View SideBySide')
             doc.asis('''
 <script>
     $(document).ready(function() {
@@ -153,7 +160,10 @@ def html(
             name, path = h.split(':', maxsplit=1)
             return name, path
         else:
-            return f'sys{i}', h
+            if len(hypothesis) > 1:
+                return f'System {i}', h
+            else:
+                return f'System', h
 
     assert len(reference) == 1, (len(reference), 'At the moment only shared reference is supported.')
 
@@ -166,7 +176,7 @@ def html(
         reference=reference,
         hypothesiss=hypothesis,
         out=out,
-        alignment=alignment,
+        alignments=alignment,
         regex=regex,
         normalizer=normalizer,
     )
@@ -181,7 +191,7 @@ def cli():
             if name == 'alignment':
                 command_parser.add_argument(
                     '--alignment',
-                    choices=['tcp', 'cp'],
+                    choices=['tcp', 'cp', 'tcp,cp', 'cp,tcp'],
                     help='Specifies which alignment is used.\n'
                          '- cp: Find the permutation that minimizes the cpWER and use the "classical" alignment.\n'
                          '- tcp: Find the permutation that minimizes the tcpWER and use a time constraint alignment.'
