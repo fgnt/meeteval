@@ -3,7 +3,6 @@ import os
 import json
 
 import urllib.request
-import platformdirs
 
 import meeteval
 from meeteval.wer import ErrorRate
@@ -314,7 +313,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
 
     compress = True
     if compress:
-        data['words'] = {k: words.T.get(k) for k in words.T.all_keys()}
+        data['words'] = {k: words.T.get(k) for k in words.T.keys(all=True)}
         data['words'] = {
             k: data['words'][k]
             for k in [
@@ -510,7 +509,7 @@ class AlignmentVisualization:
         hyp_session_ids = hypothesis.unique('session_id')
 
         if self.js_debug:
-            print('WARNING: js_debug is not supported in ipynb. Disable it.')
+            print('WARNING: js_debug is not supported in ipynb.')
             self.js_debug = False
 
         if len(ref_session_ids) > 1 or len(hyp_session_ids) > 1:
@@ -552,6 +551,8 @@ class AlignmentVisualization:
             libraries, so the visualization will not work offline!
             TODO: Add an option to embed the dependencies into the HTML file.
         """
+        import platformdirs
+
         # Generate data
         element_id = 'viz-' + str(uuid.uuid4())
 
@@ -585,12 +586,9 @@ class AlignmentVisualization:
                 urllib.request.urlretrieve(url, file)
                 return file.read_text()
 
-        if False and self.js_debug:
-            d3 = f'<script src="{cdn["d3"]}"></script>'
-            # font_awesome = f'<link rel="stylesheet" href="{cdn["font_awesome"]}" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />'
-        else:
-            d3 = f'<script>{load_cdn("d3.js", cdn["d3"])}</script>'
-            # font_awesome = f'<style>{load_cdn("d3font_awesome.css", cdn["font_awesome"])}</style>'
+        d3 = f'<script>{load_cdn("d3.js", cdn["d3"])}</script>'
+        # font_awesome = f'<style>{load_cdn("d3font_awesome.css", cdn["font_awesome"])}</style>'
+
         font_awesome = ''
         html = f'''
             {d3}
