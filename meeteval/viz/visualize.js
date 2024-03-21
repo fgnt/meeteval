@@ -458,6 +458,19 @@ function menu(element) {
     return m;
 }
 
+
+function set_url_param(key, value){
+    var url = new URL(window.location.href);
+    if (value) {
+        url.searchParams.set(key, value);
+    } else {
+        url.searchParams.delete(key)
+    }
+    // history.pushState(null, null, url);  // update url and add to history
+    history.replaceState(null, null, url);  // update url and keep history
+    // window.location.replace(url);  // update url, but trigger page reload
+}
+
 class CanvasPlot {
     element;
     canvas;
@@ -577,10 +590,7 @@ class CanvasPlot {
             settings.minimaps.number = this.value;
             rebuild();
             redraw();
-
-            var url = new URL(window.location.href);
-            url.searchParams.set('minimaps', settings.minimaps.number);
-            history.pushState(null, null, url);
+            set_url_param('minimaps', settings.minimaps.number);
         });
         num_minimaps_select.append("option").attr("value", 0).text("0");
         num_minimaps_select.append("option").attr("value", 1).text("1");
@@ -746,15 +756,7 @@ class CanvasPlot {
                 for (const w of this.words) w.highlight = re.test(w.words);
             }
             this.on_search_callbacks.forEach(c => c());
-
-            var url = new URL(window.location.href);
-            if (regex) {
-                url.searchParams.set('regex', regex);
-            } else {
-                url.searchParams.delete('regex')
-            }
-            // Push the new state to the history stack
-            history.pushState(null, null, url);
+            set_url_param('regex', regex)
         }
 
         onSearch(callback) {
@@ -1766,10 +1768,7 @@ class CanvasPlot {
         }
 
         setURL() {
-            var url = new URL(window.location.href);
-            url.searchParams.set('selection', `${this.selection[0]}-${this.selection[1]}`);
-            // Push the new state to the history stack
-            history.pushState(null, null, url);
+            set_url_param('selection', `${this.selection[0]}-${this.selection[1]}`)
         }
 
         zoomTo(x0, x1) {
