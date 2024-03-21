@@ -42,20 +42,20 @@ extras_require['cli'] = [
     'soundfile',
     'tqdm',  # Used in meeteval.viz.__main__.py
     'yattag',  # Used in meeteval.viz.__main__.py
+    'platformdirs',  # Used in meeteval.viz.visualize.py
 ]
 extras_require['test'] = [
-        'editdistance',     # Faulty for long sequences, but useful for testing
-        'pytest',
-        'hypothesis',
-        'coverage',
-        'pytest-cov',
-        'ipython',  # IPython.lib.pretty.pprint
-        *extras_require['cli'],
+    'editdistance',     # Faulty for long sequences, but useful for testing
+    'pytest',
+    'hypothesis',
+    'coverage',
+    'pytest-cov',
+    'ipython',  # IPython.lib.pretty.pprint
+    *extras_require['cli'],
 ]
 extras_require['all'] = [
     'lazy_dataset',
     'ipywidgets',  # Used to provide dropdown menu in ipynb
-    'platformdirs',  # Used in meeteval.viz
     *sum(extras_require.values(), []),
 ]
 extras_require = {
