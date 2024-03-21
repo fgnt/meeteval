@@ -177,8 +177,16 @@ function alignment_visualization(
                 if (stopDrag) stopDrag(e);
             }
 
+
         function _drag(e) {
-            drag(e);
+            if (!this.lastY) {
+                this.lastY = e.y
+                drag(e)
+            } else {
+                // e.movementY: CB: Movement for canvas? It is too large for the details plot (maybe 20%).
+                drag(e, delta_y=e.y - this.lastY);
+                this.lastY = e.y;
+            };
             e.preventDefault();
         }
 
@@ -1237,10 +1245,14 @@ class CanvasPlot {
                 }, 10)
             }, false)
 
-            drag(this.plot.element, e => {
-                const delta = this.plot.y.invert(e.movementY) - this.plot.y.invert(0);
-                let [begin, end] = this.plot.y.domain();
-                this._callOnScrollHandlers(begin - delta, end - delta);
+            drag(this.plot.element, (e, delta_y) => {
+                if (delta_y){
+                    const delta = this.plot.y.invert(delta_y) - this.plot.y.invert(0);
+                    let [begin, end] = this.plot.y.domain();
+                    console.log(delta_y, delta, begin - delta, end - delta, e)
+                    this._callOnScrollHandlers(begin - delta, end - delta);
+                    this.zoomTo(begin - delta, end - delta);
+                }
             });
 
             var lastTouchY = [];
