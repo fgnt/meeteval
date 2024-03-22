@@ -168,7 +168,7 @@ class SegLST(BaseABC):
         def keys(self, *, all=False):
             """
             The keys that are common among all segments (all=False) or all
-            keys (all=False).
+            keys (all=True).
 
             Use the get method to fill defaults for missing values.
             """
