@@ -1249,7 +1249,6 @@ class CanvasPlot {
                 if (delta_y){
                     const delta = this.plot.y.invert(delta_y) - this.plot.y.invert(0);
                     let [begin, end] = this.plot.y.domain();
-                    console.log(delta_y, delta, begin - delta, end - delta, e)
                     this._callOnScrollHandlers(begin - delta, end - delta);
                     this.zoomTo(begin - delta, end - delta);
                 }
