@@ -228,6 +228,9 @@ visible area.
     opacity: 0;
     transition: opacity 0.3s;
     transition-delay: 2s;
+    max-width: 100vw;
+    overflow: scroll;
+    box-sizing: border-box;
 
     /* Width: fit content size. Size is limited by children */
     inline-size: fit-content;

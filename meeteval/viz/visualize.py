@@ -630,14 +630,19 @@ class AlignmentVisualization:
         return html
 
     def dump(self, filename):
+        # For standalone HTML, we have to
+        #   - disable zooming for mobile devices (viewport setting)
+        #   - Scale the visualization to the full window size
         Path(filename).write_text(
             f'''
             <html>
+            <meta name="viewport" content="width=device-width, user-scalable=no" />
             <style>
                 /* Styles for full-screen view */
                 body {{
                     margin: 1px;
                     padding: 0;
+                    /* Make sure that no scroll bars appear */
                     overflow: hidden;
                 }}
                 

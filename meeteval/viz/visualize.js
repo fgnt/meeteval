@@ -445,9 +445,20 @@ function addTooltip(element, tooltip) {
             shift = Math.max(bound.right - e.right, bound.left - e.left);
         }
         tooltipcontent.style("translate", shift + "px");
+
+        // Scale the element if its width or height are larger than the root
+        // element
+        if (e.width > bound.width) {
+            tooltipcontent.style("width", bound.width + "px");
+        }
+        if (e.height > bound.bottom - e.top) {
+            tooltipcontent.style("height", (bound.bottom - e.top) + "px");
+        }
     });
     element.on("mouseleave", () => {
         tooltipcontent.node().style.translate = null;
+        tooltipcontent.node().style.width = null;
+        tooltipcontent.node().style.height = null;
     });
     return tooltipcontent;
 }
@@ -536,6 +547,9 @@ class CanvasPlot {
         this.height = this.element.node().clientHeight;
         this.canvas.attr("width", this.width);
         this.canvas.attr("height", this.height);
+        // The canvas size must match the pixel size exactly
+        this.canvas.style("width", this.width + "px");
+        this.canvas.style("height", this.height + "px");
         this.x.range([this.y_axis_padding, this.width])
         if (this.invert_y) {
             this.y.range([0, this.height - this.x_axis_padding])
