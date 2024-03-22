@@ -175,6 +175,7 @@ function alignment_visualization(
                 window.removeEventListener("mouseup", _stopDrag);
                 dragActive = false;
                 if (stopDrag) stopDrag(e);
+                this.lastY = undefined;
             }
 
 
