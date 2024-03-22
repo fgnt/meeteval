@@ -3,6 +3,12 @@
     font-family: Arial, Helvetica, sans-serif;
 }
 
+.icon {
+  width: 1em;
+  height: 1.125em;
+  vertical-align: -0.125em;
+}
+
 .meeteval-viz {
     margin: auto;
     /* Prevents scroll + zoom on touch devices. We handle scrolling + zooming

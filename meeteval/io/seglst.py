@@ -165,13 +165,20 @@ class SegLST(BaseABC):
         def __init__(self, outer):
             self._outer = outer
 
-        def keys(self):
+        def keys(self, *, all=False):
             """
-            The keys that are common among all segments
+            The keys that are common among all segments (all=False) or all
+            keys (all=True).
+
+            Use the get method to fill defaults for missing values.
             """
             if len(self._outer) == 0:
                 return set()
-            return set.intersection(
+            if all:
+                op = set.union
+            else:
+                op = set.intersection
+            return op(
                 *[set(s.keys()) for s in self._outer.segments]
             )
 
@@ -180,6 +187,13 @@ class SegLST(BaseABC):
             Returns the values for `key` of all segments as a list.
             """
             return [s[key] for s in self._outer.segments]
+
+        def get(self, key, default=None):
+            """
+            Returns the values for `key` of all segments as a list, or default,
+            when key is not present.
+            """
+            return [s.get(key, default) for s in self._outer.segments]
 
         def __class_getitem__(cls, item: _SegLstSegment_keys) -> 'list':
             """
@@ -267,6 +281,7 @@ class SegLST(BaseABC):
         segments for which `fn` returns true.
         """
         return SegLST([s for s in self.segments if fn(s)])
+
 
     @classmethod
     def merge(cls, *t) -> 'SegLST':
