@@ -424,13 +424,25 @@ function similar_range(a, b, tolerance=0.00001){
  * enters the element and hidden when the mouse leaves the element.
  * The tooltip is positioned below the element and shifted so that it
  * is fully visible and, if possible, centered below the element.
+ *
+ * @param {d3.Selection} element The element to add the tooltip to
+ * @param {string|function} tooltip The content of the tooltip. If a
+ * function is provided, it is called with the tooltip element as
+ * argument.
+ * @param {function} preShow A function that is called before the
+ * tooltip is shown. This can be used to update the tooltip content
+ * dynamically. The tooltip position is corrected after this function
+ * is called.
  */
-function addTooltip(element, tooltip) {
+function addTooltip(element, tooltip, preShow) {
     element.classed("tooltip", true);
     const tooltipcontent = element.append("div").classed("tooltipcontent", true);
     if (typeof tooltip === "string") tooltipcontent.text(tooltip)
     else if (tooltip) tooltip(tooltipcontent);
     element.on("mouseenter", () => {
+        // Call setup function before the position is corrected
+        if (preShow) preShow();
+
         // Correct position if it would be outside the visualization
         // space. Prioritize left over right because scrolling is
         // not supported to the left.
@@ -454,8 +466,13 @@ function addTooltip(element, tooltip) {
         if (e.height > bound.bottom - e.top) {
             tooltipcontent.style("height", (bound.bottom - e.top) + "px");
         }
+
+        // Show tooltip
+        tooltipcontent.classed("visible", true);
     });
     element.on("mouseleave", () => {
+        // Hide tooltip and reset tooltip position
+        tooltipcontent.classed("visible", false)
         tooltipcontent.node().style.translate = null;
         tooltipcontent.node().style.width = null;
         tooltipcontent.node().style.height = null;
@@ -1843,26 +1860,22 @@ class CanvasPlot {
             }
         };
 
-        let pill = container.append("div").classed("pill", true);
-        let audio_tooltip = addTooltip(pill);
+        const pill = container.append("div").classed("pill", true);
+        const audio_tooltip = addTooltip(pill, null, maybe_remove_audio);
 
         pill.append("div").html(icons['audio']);
         if (name.trim()) pill.append("span").text(name);
 
-        let input = audio_tooltip.append("div").style("display", "flex");
-        let server_path = input.append("input").attr("type", "text").attr("placeholder", "e.g. http://localhost:7777").property("value", "http://localhost:7777");
-        let file_path = input.append("input").attr("type", "text").style("width", "30em").attr("placeholder", "e.g. /path/to/file.wav").property("value", recording_file);
+        const input = audio_tooltip.append("div").style("display", "flex");
+        const server_path = input.append("input").attr("type", "text").attr("placeholder", "e.g. http://localhost:7777").property("value", "http://localhost:7777");
+        const file_path = input.append("input").attr("type", "text").style("width", "30em").attr("placeholder", "e.g. /path/to/file.wav").property("value", recording_file);
 
-        let audio_div = audio_tooltip.append("div").style("display", "flex");
+        const audio_div = audio_tooltip.append("div").style("display", "flex");
 
         input.append("button").text("Load").on("click", () => update_audio());
         server_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
         file_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
         pill.on("click", () => {update_audio(); audio_div.select("audio").node().play()});
-
-        pill.on("mouseenter", maybe_remove_audio);
-
-        // update_audio()
     }
 
     // Data preprocessing
