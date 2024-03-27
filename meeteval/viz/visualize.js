@@ -279,7 +279,7 @@ function alignment_visualization(
         call_delayed_throttled(
             () => {
                 const selection = state.viewAreas[state.viewAreas.length - 1];
-                set_url_param('selection', `${selection[0]}-${selection[1]}`)
+                set_url_param('selection', `${selection[0].toFixed(1)}-${selection[1].toFixed(1)}`)
             },
             urlTracker,
             200
@@ -570,7 +570,7 @@ function similar_range(a, b, tolerance=0.00001){
         return true
     }
 
-    if (!a || isNaN(a) || isNaN(b))
+    if (!a || a.some(isNaN) || a.some(isNaN))
         return false
 
     const delta = Math.min(a[1] - a[0], b[1] - b[0]) * tolerance
@@ -1215,7 +1215,6 @@ class CanvasPlot {
         }
 
         draw() {
-            if (this.index === 1) console.log('drawing', this.index)
             if (this.error_bars) this.error_bars.draw();
             this.word_plot.draw();
         }
