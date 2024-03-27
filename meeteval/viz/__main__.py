@@ -45,7 +45,8 @@ def create_viz_folder(
             av = AlignmentVisualization(r[session_id],
                                         h[session_id],
                                         alignment=alignment,
-                                        js_debug=js_debug)
+                                        js_debug=js_debug,
+                                        sync_id=1)
             av.dump(out / f'{session_id}_{i}_{alignment}.html')
             avs.setdefault((i, alignment), {})[session_id] = av
 

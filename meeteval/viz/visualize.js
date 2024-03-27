@@ -23,6 +23,89 @@ var colormaps = {
     }
 }
 
+/**
+ * Interpolate between a and b with ratio c/d.
+ * If c <= 0, return a, if c >= d, then return b.
+ */
+function interpolate (a, b, c, d) {
+    if (c <= 0 || !b) {
+        // For speedup and numeric
+        return a
+    } else if (c >= d) {
+        // For speedup and numeric
+        return b
+    } else {
+        // Interpolate such that the length ratio between c and c+1 is constant.
+        const length_a = a[1] - a[0];
+        const length_b = b[1] - b[0];
+        const log_length_a = Math.log(length_a);
+        const log_length_b = Math.log(length_b);
+
+        const length = Math.exp(log_length_b  + ((log_length_a - log_length_b) * (d-c) / d));
+
+        let ratio = (length - length_b) / (length_a - length_b)
+
+        if (isNaN(ratio)) return a;
+
+        ratio = 1 - Math.max(Math.min(ratio, 1), 0);
+        let ratio_2 = 1 - ratio
+        return [a[0] * ratio_2 + b[0] * ratio, a[1] * ratio_2 + b[1] * ratio]
+    }
+}
+
+/**
+ * Ensures that every entry (index i) lies within its parent (index i - 1).
+ *
+ * Keeps the viewArea at `anchor` fixed.
+ *
+ * Returns an array of booleans indicating which viewAreas were changed.
+ */
+function adjustViewAreas(viewAreas, anchor) {
+    const dirty = viewAreas.map(() => false);
+    for (let j = anchor + 1; j < viewAreas.length; j++) {
+        let v = viewAreas[j];
+        const parent = viewAreas[j - 1];
+        if (parent[1] - parent[0] < v[1] - v[0]) {
+            v = parent;
+            dirty[j] = true;
+        } else if (v[0] < parent[0]) {
+            const diff = parent[0] - v[0];
+            v[0] += diff;
+            v[1] += diff;
+            dirty[j] = true;
+        } else if (v[1] > parent[1]) {
+            const diff = parent[1] - v[1];
+            v[0] += diff;
+            v[1] += diff;
+            dirty[j] = true;
+        }
+        viewAreas[j] = v;
+    }
+
+    // Update above (j > i)
+    for (let j = anchor - 1; j >= 0; j--) {
+        let v = viewAreas[j];
+        const child = viewAreas[j + 1];
+        if (child[1] - child[0] > v[1] - v[0]) {
+            v = child;
+            dirty[j] = true;
+        } else if (v[0] > child[0]) {
+            const diff = child[0] - v[0];
+            viewAreas[j][0] += diff;
+            viewAreas[j][1] += diff;
+            dirty[j] = true;
+        } else if (v[1] < child[1]) {
+            const diff = child[1] - v[1];
+            viewAreas[j][0] += diff;
+            viewAreas[j][1] += diff;
+            dirty[j] = true;
+        }
+        viewAreas[j] = v;
+    }
+    return dirty;
+}
+
+
 //<!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
 // Add new icons:
 //  - Open e.g. https://fontawesome.com/icons/copy?f=classic&s=solid
@@ -68,7 +151,8 @@ function alignment_visualization(
         },
         recording_file: "",
         match_width: 10,
-    }
+        syncID: null,
+    },
 ) {
     var urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('minimaps')) {
@@ -142,36 +226,6 @@ function alignment_visualization(
         dirty: [],
     };
 
-     let interpolate = (a, b, c, d) => {
-        // Interpolate between a and b
-        // If c is zero, return a, if c == d, then return b.
-        // If c is between 0 and d, return an interpolation of a and b.
-
-        if (c === 0 || !b) {
-            // For speedup and numeric
-            return a
-        } else if (c >= d) {
-            // For speedup and numeric
-            return b
-        } else {
-            // Interpolate such that the length ratio between c and c+1 is constant.
-            const length_a = a[1] - a[0];
-            const length_b = b[1] - b[0];
-            const log_length_a = Math.log(length_a);
-            const log_length_b = Math.log(length_b);
-
-            const length = Math.exp(log_length_b  + ((log_length_a - log_length_b) * (d-c) / d));
-
-            let ratio = (length - length_b) / (length_a - length_b)
-
-            if (isNaN(ratio)) return a;
-
-            ratio = 1 - Math.max(Math.min(ratio, 1), 0);
-            let ratio_2 = 1 - ratio
-            return [a[0] * ratio_2 + b[0] * ratio, a[1] * ratio_2 + b[1] * ratio]
-        }
-    };
-
     function initializeViewAreas(domain, finalViewArea=null) {
         state.viewAreas = [];
         var urlParams = new URLSearchParams(window.location.search);
@@ -197,53 +251,20 @@ function alignment_visualization(
     function setViewArea(i, viewArea) {
         state.viewAreas[i] = viewArea;
         state.dirty[i] = true;
-
-        // Update below (j > i):
-        // - move if one end is outside j-1
-        // - make smaller if still not in j-1
-        for (let j = i + 1; j < state.viewAreas.length; j++) {
-            let v = state.viewAreas[j];
-            const parent = state.viewAreas[j - 1];
-            if (parent[1] - parent[0] < v[1] - v[0]) {
-                v = parent;
-                state.dirty[j] = true;
-            } else if (v[0] < parent[0]) {
-                const diff = parent[0] - v[0];
-                v[0] += diff;
-                v[1] += diff;
-                state.dirty[j] = true;
-            } else if (v[1] > parent[1]) {
-                const diff = parent[1] - v[1];
-                v[0] += diff;
-                v[1] += diff;
-                state.dirty[j] = true;
-            }
-            state.viewAreas[j] = v;
-        }
-
-        // Update above (j > i)
-        for (let j = i - 1; j >= 0; j--) {
-            let v = state.viewAreas[j];
-            const child = state.viewAreas[j + 1];
-            if (child[1] - child[0] > v[1] - v[0]) {
-                v = child;
-                state.dirty[j] = true;
-            } else if (v[0] > child[0]) {
-                const diff = child[0] - v[0];
-                state.viewAreas[j][0] += diff;
-                state.viewAreas[j][1] += diff;
-                state.dirty[j] = true;
-            } else if (v[1] < child[1]) {
-                const diff = child[1] - v[1];
-                state.viewAreas[j][0] += diff;
-                state.viewAreas[j][1] += diff;
-                state.dirty[j] = true;
-            }
-            state.viewAreas[j] = v;
+        const dirty = adjustViewAreas(state.viewAreas, i);
+        for (let j = 0; j < state.viewAreas.length; j++) {
+            state.dirty[j] |= dirty[j];
         }
     }
 
-    function updatePlots() {
+    /**
+     * Updates the views to be consistent with the current state.
+     * Includes the plots, the selection and the URL.
+     *
+     * TODO: throttle here
+     */
+    function update() {
+        // Update minimaps
         minimaps.forEach((minimap, j) => {
             const viewArea = state.viewAreas[j];
             if (state.dirty[j]) {
@@ -256,6 +277,8 @@ function alignment_visualization(
                 minimap.updateBrush()
             state.dirty[j] = false;
         });
+
+        // Update details plot
         if (state.dirty[state.dirty.length - 1]){
             const viewArea = state.viewAreas[state.viewAreas.length - 1];
             state.filteredWords[state.dirty.length - 1] = (state.filteredWords[state.dirty.length - 2] ?? data.words)
@@ -267,16 +290,7 @@ function alignment_visualization(
             );
         }
 
-    }
-
-    let handlingWindowEvent = false;
-    const urlTracker = {}
-    function updateViewArea(i, viewArea) {
-        if (similar_range(state.viewAreas[i], viewArea)) return;
-        setViewArea(i, viewArea);
-        updatePlots();
-
-        // Update URL
+         // Update URL
         call_delayed_throttled(
             () => {
                 const selection = state.viewAreas[state.viewAreas.length - 1];
@@ -292,26 +306,43 @@ function alignment_visualization(
             window.parent.postMessage({
                 type: 'viewAreas',
                 viewAreas: state.viewAreas,
+                syncID: settings.syncID,
+                sourceID: element_id,
                 }, '*'
             )
         }
     }
-    window.addEventListener("message", event => {
-        if (event.data.type === 'viewAreas') {
-            handlingWindowEvent = true;
-            state.viewAreas.forEach((viewArea, i) => {
-                const newViewArea = event.data.viewAreas[i];
-                if (i === state.viewAreas.length - 1)
-                    updateViewArea(state.viewAreas.length - 1, event.data.viewAreas[event.data.viewAreas.length - 1]);
-                else if (newViewArea)
-                    updateViewArea(i, newViewArea);
-                else {
-                    updateViewArea(i, event.data.viewAreas[event.data.viewAreas - 1]);
-                }
-            });
-            handlingWindowEvent = false;
-        }
-    })
+
+    let handlingWindowEvent = false;
+    const urlTracker = {}
+    function updateViewArea(i, viewArea) {
+        if (similar_range(state.viewAreas[i], viewArea)) return;
+        setViewArea(i, viewArea);
+        update();
+    }
+
+    if (settings.syncID !== null) {
+        window.addEventListener("message", event => {
+            if (
+                event.data.type === 'viewAreas' &&
+                event.data.syncID === settings.syncID &&
+                event.data.sourceID !== element_id
+            ) {
+                handlingWindowEvent = true;
+                state.viewAreas.forEach((viewArea, i) => {
+                    const newViewArea = event.data.viewAreas[i];
+                    if (i === state.viewAreas.length - 1)
+                        updateViewArea(state.viewAreas.length - 1, event.data.viewAreas[event.data.viewAreas.length - 1]);
+                    else if (newViewArea)
+                        updateViewArea(i, newViewArea);
+                    else {
+                        updateViewArea(i, event.data.viewAreas[event.data.viewAreas - 1]);
+                    }
+                });
+                handlingWindowEvent = false;
+            }
+        })
+    }
 
     function call_throttled(fn, object, delay=5) {
         // Example call: call_throttled(this.draw.bind(this), this.draw);
@@ -2054,7 +2085,7 @@ class CanvasPlot {
         )
 
         details_plot.onUtteranceSelect(selectedUtteranceDetails.update.bind(selectedUtteranceDetails));
-        updatePlots();
+        update();
     }
 
     function redraw() {

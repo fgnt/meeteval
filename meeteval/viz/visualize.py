@@ -420,6 +420,7 @@ class AlignmentVisualization:
             markers=None,
             recording_file: 'str | Path | dict[str, str | Path]' = None,
             js_debug=False,  # If True, don't embed js (and css) code and use absolute paths
+            sync_id=None,
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -446,6 +447,7 @@ class AlignmentVisualization:
         else:
             recording_file = {'': ''}
         self.recording_file = recording_file
+        self.sync_id = sync_id
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -619,7 +621,8 @@ class AlignmentVisualization:
                             }},
                             recording_file: {dumps_json(self.recording_file, default=os.fspath)},
                             match_width: 0.1,
-                        }}
+                            syncID: {dumps_json(self.sync_id, default='null')},
+                        }},
                     );
                     else setTimeout(exec, 100);
                 }}
