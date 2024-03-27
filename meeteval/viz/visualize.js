@@ -269,6 +269,7 @@ function alignment_visualization(
 
     }
 
+    let handlingWindowEvent = false;
     const urlTracker = {}
     function updateViewArea(i, viewArea) {
         if (similar_range(state.viewAreas[i], viewArea)) return;
@@ -285,7 +286,32 @@ function alignment_visualization(
             200
         )
         rangeSelector.update(state.viewAreas[state.viewAreas.length - 1]);
+
+        // Send message to window for synchronization
+        if (!handlingWindowEvent) {
+            window.parent.postMessage({
+                type: 'viewAreas',
+                viewAreas: state.viewAreas,
+                }, '*'
+            )
+        }
     }
+    window.addEventListener("message", event => {
+        if (event.data.type === 'viewAreas') {
+            handlingWindowEvent = true;
+            state.viewAreas.forEach((viewArea, i) => {
+                const newViewArea = event.data.viewAreas[i];
+                if (i === state.viewAreas.length - 1)
+                    updateViewArea(state.viewAreas.length - 1, event.data.viewAreas[event.data.viewAreas.length - 1]);
+                else if (newViewArea)
+                    updateViewArea(i, newViewArea);
+                else {
+                    updateViewArea(i, event.data.viewAreas[event.data.viewAreas - 1]);
+                }
+            });
+            handlingWindowEvent = false;
+        }
+    })
 
     function call_throttled(fn, object, delay=5) {
         // Example call: call_throttled(this.draw.bind(this), this.draw);
