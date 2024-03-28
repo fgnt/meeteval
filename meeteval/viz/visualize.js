@@ -161,8 +161,9 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
         viewAreas[j] = v;
     }
 
-    // Update parents of anchor (j < i)
-    for (let j = anchor - 1; j >= 0; j--) {
+    // Update parents of anchor (j < i). Index 0 is the global domain and
+    // should not be changed.
+    for (let j = anchor - 1; j > 0; j--) {
         let v = viewAreas[j];
         const child = viewAreas[j + 1];
         if (child[1] - child[0] > v[1] - v[0]) {
@@ -426,6 +427,7 @@ function alignment_visualization(
             ) {
                 handlingWindowEvent = true;
                 state.viewAreas.forEach((viewArea, i) => {
+                    if (i === 0) return;
                     const newViewArea = event.data.viewAreas[i];
                     if (i === state.viewAreas.length - 1)
                         updateViewArea(state.viewAreas.length - 1, event.data.viewAreas[event.data.viewAreas.length - 1]);
