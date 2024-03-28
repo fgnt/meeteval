@@ -24,6 +24,48 @@ var colormaps = {
 }
 
 /**
+ * Throttles a function call. Tracks different instances via `object`.
+ *
+ * Example call: `call_throttled(() => console.log('call')), trackerObject);`
+ * Distance between calls is at least `delay` ms.
+ * If the code is called again within the delay, the call is postponed.
+ */
+function call_throttled(fn, object, delay=10) {
+    // Expects that the function does always the same thing.
+    // The object is used to store the timerId and the call_pending flag.
+    // (Cannot be stored in fn, because it is created with bind.)
+    object.timerId_fn = fn
+    if (!object.timerId) {
+        // Call immediately
+        fn()
+
+        // Set timer to prevent further calls
+        object.timerId = setTimeout(() => {
+            object.timerId = undefined;
+            if (object.call_pending) object.timerId_fn();
+            object.call_pending = false;
+        }, delay);
+    } else {object.call_pending = true;}
+}
+
+/**
+ * Call `fn` earliest after `delay` ms, but only if no other call is made in the meantime.
+ * If the function is called again within `delay` ms, the first call is canceled
+ * and the second call is postponed by `delay` ms.
+ *
+ * Example call: `call_delayed_throttled(this.setURL.bind(this), this.setURL, 200);`
+ */
+function call_delayed_throttled(fn, object, delay=5) {
+    if (object.timerId) {
+        clearTimeout(object.timerId);
+    }
+    object.timerId = setTimeout(() => {
+        fn()
+        object.timerId = undefined;
+    }, delay);
+}
+
+/**
  * Interpolate between a and b with ratio c/d.
  * If c <= 0, return a, if c >= d, then return b.
  */
@@ -54,18 +96,55 @@ function interpolate (a, b, c, d) {
 }
 
 /**
+ * Checks whether two ranges `a` and `b` are similar by relative tolerance `tolerance`.
+ */
+function similar_range(a, b, tolerance=0.00001){
+    // Note: a == [0, 1] will always return false, because arrays are compared by reference, not values
+    if (JSON.stringify(a) === JSON.stringify(b)) {
+        return true
+    }
+
+    if (!a || a.some(isNaN) || a.some(isNaN))
+        return false
+
+    const delta = Math.min(a[1] - a[0], b[1] - b[0]) * tolerance
+
+    if (a.length !== b.length) {
+        return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+        if (Math.abs(a[i] - b[i]) > delta) {
+            return false; // Return false if any elements are different
+        }
+    }
+    return true
+}
+
+/**
  * Ensures that every entry (index i) lies within its parent (index i - 1).
  *
  * Keeps the viewArea at `anchor` fixed.
  *
  * Returns an array of booleans indicating which viewAreas were changed.
  */
-function adjustViewAreas(viewAreas, anchor) {
+function adjustViewAreas(viewAreas, anchor, viewArea) {
     const dirty = viewAreas.map(() => false);
+
+    const oldViewAreas = [...viewAreas];
+
+    if (viewArea) {
+        viewAreas[anchor] = viewArea;
+        dirty[anchor] = true;
+    }
+
+    // Update children of anchor (j > i)
     for (let j = anchor + 1; j < viewAreas.length; j++) {
         let v = viewAreas[j];
         const parent = viewAreas[j - 1];
-        if (parent[1] - parent[0] < v[1] - v[0]) {
+        if (parent[1] - parent[0] < v[1] - v[0] || similar_range(oldViewAreas[j - 1], v)) {
+            // Select the full parent when the previous child area was bigger
+            // or the child area is similar to the previous parent area (i.e.,
+            // no brush in the UI)
             v = parent;
             dirty[j] = true;
         } else if (v[0] < parent[0]) {
@@ -82,7 +161,7 @@ function adjustViewAreas(viewAreas, anchor) {
         viewAreas[j] = v;
     }
 
-    // Update above (j > i)
+    // Update parents of anchor (j < i)
     for (let j = anchor - 1; j >= 0; j--) {
         let v = viewAreas[j];
         const child = viewAreas[j + 1];
@@ -217,9 +296,12 @@ function alignment_visualization(
     // Global state management
     // Constraint: every view area (i) must be contained within its parent (i-1)
     let state = {
+        // State of minimaps and details plot
         viewAreas: [],
         filteredWords: [],
-        // This scale is shared betwen all plots
+        //
+        selectedSegment: null,
+        // This scale is shared between all plots
         speakerScale: d3.scaleBand().domain(speakers).padding(0.1),
         words: data.words,
         // Track which viewAreas changed
@@ -249,46 +331,51 @@ function alignment_visualization(
     initializeViewAreas(time_domain);
 
     function setViewArea(i, viewArea) {
-        state.viewAreas[i] = viewArea;
-        state.dirty[i] = true;
-        const dirty = adjustViewAreas(state.viewAreas, i);
+        // state.viewAreas[i] = viewArea;
+        // state.dirty[i] = true;
+        const dirty = adjustViewAreas(state.viewAreas, i, viewArea);
         for (let j = 0; j < state.viewAreas.length; j++) {
             state.dirty[j] |= dirty[j];
         }
     }
 
+    // Tracker objects for throttling
+    const urlTracker = {};
+    const drawTracker = {};
     /**
      * Updates the views to be consistent with the current state.
      * Includes the plots, the selection and the URL.
-     *
-     * TODO: throttle here
      */
     function update() {
-        // Update minimaps
-        minimaps.forEach((minimap, j) => {
-            const viewArea = state.viewAreas[j];
-            if (state.dirty[j]) {
-                state.filteredWords[j] = (state.filteredWords[j-1] ?? data.words)
-                    .filter(w => w.start_time < viewArea[1] && w.end_time > viewArea[0])
-            }
-            if (state.dirty[j])
-                minimap.updateViewArea();
-            if (state.dirty[j] || state.dirty[j+1])
-                minimap.updateBrush()
-            state.dirty[j] = false;
-        });
+        call_throttled(() => {
+            const dirty = [...state.dirty];
+            state.dirty.fill(false);
 
-        // Update details plot
-        if (state.dirty[state.dirty.length - 1]){
-            const viewArea = state.viewAreas[state.viewAreas.length - 1];
-            state.filteredWords[state.dirty.length - 1] = (state.filteredWords[state.dirty.length - 2] ?? data.words)
+            // Update minimaps
+            minimaps.forEach((minimap, j) => {
+                const viewArea = state.viewAreas[j];
+                if (dirty[j]) {
+                    state.filteredWords[j] = (state.filteredWords[j - 1] ?? data.words)
+                        .filter(w => w.start_time < viewArea[1] && w.end_time > viewArea[0])
+                }
+                if (dirty[j])
+                    minimap.updateViewArea();
+                if (dirty[j] || dirty[j + 1])
+                    minimap.updateBrush()
+            });
+
+            // Update details plot
+            if (dirty[dirty.length - 1]) {
+                const viewArea = state.viewAreas[state.viewAreas.length - 1];
+                state.filteredWords[dirty.length - 1] = (state.filteredWords[dirty.length - 2] ?? data.words)
                     .filter(w => w.start_time < viewArea[1] && w.end_time > viewArea[0])
-                state.dirty[state.dirty.length - 1] = false;
-            details_plot.update(
-                viewArea,
-                state.filteredWords[state.filteredWords.length - 1],
-            );
-        }
+                details_plot.update(
+                    viewArea,
+                    state.filteredWords[state.filteredWords.length - 1],
+                );
+            }
+
+        }, drawTracker);
 
          // Update URL
         call_delayed_throttled(
@@ -299,9 +386,12 @@ function alignment_visualization(
             urlTracker,
             200
         )
+
+        // Update range selector field. This is cheap, so no throttling
         rangeSelector.update(state.viewAreas[state.viewAreas.length - 1]);
 
-        // Send message to window for synchronization
+        // Send message to window for synchronization. We want this to be
+        // instantanous, so no throttling.
         if (!handlingWindowEvent) {
             window.parent.postMessage({
                 type: 'viewAreas',
@@ -314,10 +404,16 @@ function alignment_visualization(
     }
 
     let handlingWindowEvent = false;
-    const urlTracker = {}
     function updateViewArea(i, viewArea) {
         if (similar_range(state.viewAreas[i], viewArea)) return;
         setViewArea(i, viewArea);
+        update();
+    }
+
+    function selectSegment(segment) {
+        state.selectedSegment = segment;
+        state.dirty[state.dirty.length - 1] = true;
+        selectedUtteranceDetails.update(segment)
         update();
     }
 
@@ -344,46 +440,10 @@ function alignment_visualization(
         })
     }
 
-    function call_throttled(fn, object, delay=5) {
-        // Example call: call_throttled(this.draw.bind(this), this.draw);
-        // Distance between calls is at least delay ms.
-        // If the code is called again within the delay, the call is postponed.
-        //
-        // Expects that the function does always the same thing.
-        // The object is used to store the timerId and the call_pending flag.
-        // (Cannot be stored in fn, because it is created with bind.)
-        object.timerId_fn = fn
-        if (!object.timerId) {
-            // Call immediately
-            fn()
-
-            // Set timer to prevent further calls
-            object.timerId = setTimeout(() => {
-                object.timerId = undefined;
-                if (object.call_pending) object.timerId_fn();
-                object.call_pending = false;
-            }, delay);
-        } else {object.call_pending = true;}
-    }
-
-    function call_delayed_throttled(fn, object, delay=5) {
-        // Example call: call_delayed_throttled(this.setURL.bind(this), this.setURL, 200);
-        // Call after delay ms, but only if no other call is made in the meantime.
-        // If the code is called again within the delay, the first call is canceled
-        // and the second call is postponed by delay ms.
-        if (object.timerId) {
-            clearTimeout(object.timerId);
-        }
-        object.timerId = setTimeout(() => {
-            fn()
-            object.timerId = undefined;
-        }, delay);
-    }
-
     let root_element = d3.select(element_id);
 
     /* Mouse drag */
-    let dragActive = false;
+    let dragActive = false; // We can only have one drag at a time globally
 
     /**
      * Start dragging an element. Do nothing if a drag is currently active.
@@ -621,28 +681,6 @@ class DetailsAxis{
     }
 }
 
-function similar_range(a, b, tolerance=0.00001){
-    // Note: a == [0, 1] will always return false, because arrays are compared by reference, not values
-    if (JSON.stringify(a) === JSON.stringify(b)) {
-        return true
-    }
-
-    if (!a || a.some(isNaN) || a.some(isNaN))
-        return false
-
-    const delta = Math.min(a[1] - a[0], b[1] - b[0]) * tolerance
-
-    if (a.length !== b.length) {
-        return false;
-    }
-    for (var i = 0; i < a.length; i++) {
-        if (Math.abs(a[i] - b[i]) > delta) {
-            return false; // Return false if any elements are different
-        }
-    }
-    return true
-}
-
 /**
  * Add a tooltip to an element. The tooltip is shown when the mouse
  * enters the element and hidden when the mouse leaves the element.
@@ -831,13 +869,15 @@ class CanvasPlot {
         menuElement.append("div").classed("menu-label", true).text("Font size:");
         menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "5").attr("max", "30").classed("slider", true).attr("step", 1).on("input", function () {
             settings.font_size = this.value;
-            redraw();
+            state.dirty[state.dirty.length - 1] = true;
+            update();
         }).node().value = settings.font_size;
         menuElement = m.append("div").classed("menu-element", true)
         menuElement.append("div").classed("menu-label", true).text("Match width:");
         menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "1").attr("max", "90").classed("slider", true).attr("step", 1).on("input", function () {
             settings.match_width = parseInt(this.value) / 100;
-            redraw();
+            state.dirty[state.dirty.length - 1] = true;
+            update();
         }).node().value = settings.match_width * 100;
 
         // Minimaps
@@ -849,7 +889,6 @@ class CanvasPlot {
         const num_minimaps_select = menuElement.append("select").classed("menu-control", true).on("change", function () {
             settings.minimaps.number = this.value;
             rebuild();
-            redraw();
             set_url_param('minimaps', settings.minimaps.number);
         });
         num_minimaps_select.append("option").attr("value", 0).text("0");
@@ -866,23 +905,11 @@ class CanvasPlot {
         const errorbar_style_select = menuElement.append("select").classed("menu-control", true).on("change", function () {
             settings.barplot.style = this.value;
             rebuild();
-            redraw();
         });
         errorbar_style_select.append("option").attr("value", "absolute").text("Absolute");
         errorbar_style_select.append("option").attr("value", "relative").text("Relative");
         errorbar_style_select.append("option").attr("value", "hidden").text("Hidden");
         errorbar_style_select.node().value = settings.barplot.style;
-
-
-        // const errorbar_mode = container.append("div").classed("pill", true);
-        // errorbar_mode.append("div").classed("info-label", true).text("Scale exclude correct");
-        // menuElement = m.append("div").classed("menu-element", true);
-        // menuElement.append("div").classed("menu-label", true).text("Hi");
-        // const errorbar_mode_check = menuElement.append("input").classed("menu-control", true).attr("type", "checkbox").on("change", function () {
-        //     settings.barplot.scaleExcludeCorrect = this.checked;
-        //     redraw();
-        // });
-        // errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
     }
 
     function drawHelpButton(container) {
@@ -988,13 +1015,12 @@ class CanvasPlot {
      * attribute of matching words to `true`.
      */
     class SearchBar {
-        constructor(container, words, initial_query) {
-            this.words = words;
+        constructor(container, state, initial_query) {
+            this.state = state;
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
             this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
 
             if (initial_query) this.text_input.node().value = initial_query;
-            this.on_search_callbacks = [];
 
             // Start search when clicking on the button
             this.search_button = this.container.append("button").text("Search").on("click", () => this.search(this.text_input.node().value));
@@ -1010,17 +1036,14 @@ class CanvasPlot {
         search(regex) {
             // Test all words against the regex. Use ^ and $ to get full match
             if (regex === "")  {
-                this.words.forEach(w => w.highlight = false);
+                this.state.words.forEach(w => w.highlight = false);
             } else {
                 const re = new RegExp("^" + regex + "$", "i");
-                for (const w of this.words) w.highlight = re.test(w.words);
+                for (const w of this.state.words) w.highlight = re.test(w.words);
             }
-            this.on_search_callbacks.forEach(c => c());
+            this.state.dirty.fill(true);
+            update();
             set_url_param('regex', regex)
-        }
-
-        onSearch(callback) {
-            this.on_search_callbacks.push(callback);
         }
     }
 
@@ -1035,11 +1058,11 @@ class CanvasPlot {
             this.plot.onSizeChanged(this.draw.bind(this));
         }
 
-        updateBins() {
+        updateBins(words, viewArea) {
             var bin_max = 0;
             const self = this;
 
-            this.binned_words = this.bin.domain(this.plot.x.domain())(this.words).map(d => {
+            this.binned_words = this.bin.domain(viewArea)(words).map(d => {
                 // This is for utterances
                 // d.substitutions = d.map(i => i.substitutions).reduce((a, b) => a + b, 0);
                 // d.insertions = d.map(i => i.insertions || 0).reduce((a, b) => a + b, 0);
@@ -1076,8 +1099,9 @@ class CanvasPlot {
         }
 
         update(viewArea, filteredWords) {
+            this.plot.x.domain(viewArea);
             this.words = filteredWords;
-            this.updateBins();
+            this.updateBins(filteredWords, viewArea);
         }
 
         drawBars() {
@@ -1276,10 +1300,6 @@ class CanvasPlot {
             this.word_plot.draw();
         }
 
-        drawThrottled() {
-            call_throttled(this.draw.bind(this), this.drawTracker, 5)
-        }
-
         updateViewArea() {
             const viewArea = this.state.viewAreas[this.index];
             const words = this.state.filteredWords[this.index];
@@ -1287,7 +1307,7 @@ class CanvasPlot {
             // Update sub-plots
             if (this.error_bars) this.error_bars.update(viewArea, words);
             this.word_plot.update(viewArea, words);
-            this.drawThrottled();
+            this.draw();
         }
 
         updateBrush() {
@@ -1295,8 +1315,11 @@ class CanvasPlot {
             const brushArea = this.state.viewAreas[this.index + 1];
             // Prevent update loops with brush
             this.updating = true;
-            if (similar_range(viewArea, brushArea)) {
-                // Remove brush
+            if (!brushArea || similar_range(viewArea, brushArea)) {
+                // Remove brush.
+                // !brushArea is a bit hacky, but we get a sizeChanged event
+                // when the minimap is removed, in which case the brushArea
+                // becomes null.
                 this.brush_group.call(this.brush.move, null);
             } else {
                 this.brush_group.call(this.brush.move, [
@@ -1351,10 +1374,7 @@ class CanvasPlot {
             });
             this.filtered_matches = this.matches;
 
-            this.selected_utterance = null;
             this.utteranceSelectListeners = [];
-
-            this.onUtteranceSelect(this.draw.bind(this));
 
             // Plot label
             this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
@@ -1388,10 +1408,10 @@ class CanvasPlot {
                     )
                     if (utterance_candidates.length > 0) {
                         self.last_utterance_candidates_index = (self.last_utterance_candidates_index+1) % utterance_candidates.length
-                        this.selectUtterance(utterance_candidates[self.last_utterance_candidates_index]);
+                        selectSegment(utterance_candidates[self.last_utterance_candidates_index]);
                     }
-                    else this.selectUtterance(null);
-                } else this.selectUtterance(null);
+                    else selectSegment(null);
+                } else selectSegment(null);
             })
 
             this.wheel_hits = 0
@@ -1527,18 +1547,7 @@ class CanvasPlot {
                 lastTouchY = touchY;
             })
 
-            this.onscrollhandlers = [];
-
             this.plot.onSizeChanged(this.draw.bind(this));
-        }
-
-        onUtteranceSelect(callback) {
-            this.utteranceSelectListeners.push(callback);
-        }
-
-        selectUtterance(utterance) {
-            this.selected_utterance = utterance;
-            this.utteranceSelectListeners.forEach(c => c(utterance));
         }
 
         drawDetails() {
@@ -1577,26 +1586,16 @@ class CanvasPlot {
             if (draw_utterance_markers) {
                 context.strokeStyle = "black";
                 context.lineWidth = .1;
-                // context.beginPath();
-                // filtered_utterances.forEach(d => {
-                    //     var y = this.plot.y(d.start_time) - 1;
-                    //     context.moveTo(minX, y);
-                    //     context.lineTo(maxX, y);
-                    //     y = this.plot.y(d.end_time) + 1;
-                    //     context.moveTo(minX, y);
-                    //     context.lineTo(maxX, y);
-                    // });
-                    // context.stroke();
 
-                if (this.selected_utterance) {
+                if (this.state.selectedSegment) {
                     const [minX, maxX] = this.plot.x.range();
                     context.lineWidth = .5;
                     context.strokeStyle = 'red';
-                    var y = this.plot.y(this.selected_utterance.start_time) - 1;
+                    var y = this.plot.y(this.state.selectedSegment.start_time) - 1;
                     context.beginPath();
                     context.moveTo(minX, y);
                     context.lineTo(maxX, y);
-                    y = this.plot.y(this.selected_utterance.end_time) + 1;
+                    y = this.plot.y(this.state.selectedSegment.end_time) + 1;
                     context.moveTo(minX, y);
                     context.lineTo(maxX, y);
                     context.stroke();
@@ -1754,8 +1753,8 @@ class CanvasPlot {
             });
 
             // Draw boundary around the selected utterance
-            if (this.selected_utterance) {
-                const d = this.selected_utterance;
+            if (this.state.selectedSegment) {
+                const d = this.state.selectedSegment;
                 const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + match_width : 0);
                 context.beginPath();
                 context.strokeStyle = "red";
@@ -1782,10 +1781,6 @@ class CanvasPlot {
             this.plot.drawAxes();
         }
 
-        drawThrottled() {
-            call_throttled(this.draw.bind(this), this.draw, 5)
-        }
-
         update(viewArea, filteredWords) {
             this.plot.y.domain(viewArea);
             const [x0, x1] = viewArea;
@@ -1794,7 +1789,7 @@ class CanvasPlot {
             this.filtered_markers = this.markers ? this.markers.filter(m => m.start_time < x1 && m.end_time > x0) : null;
             this.filtered_matches = this.matches.filter(m => m.start_time <= x1 && m.end_time > x0);
 
-            this.drawThrottled();
+            this.draw();
         }
     }
 
@@ -1943,7 +1938,6 @@ class CanvasPlot {
         }
 
         _onChange() {
-            console.log('onchange')
             updateViewArea(this.state.viewAreas.length - 1, this.parsedValue)
         }
 
@@ -2049,12 +2043,8 @@ class CanvasPlot {
     drawExampleInfo(top_row_container, data.info)
     drawLegend(top_row_container);
     const rangeSelector = new RangeSelector(top_row_container, state);
-    const searchBar = new SearchBar(top_row_container, data.words, settings.search_bar.initial_query);
+    const searchBar = new SearchBar(top_row_container, state, settings.search_bar.initial_query);
     var minimaps = [];
-    searchBar.onSearch(() => {
-        for (const minimap of minimaps) minimap.error_bars.updateBins();
-        redraw();
-    });
     const selectedUtteranceDetails = new SelectedDetailsView(root_element.append("div").classed("top-row", true));
     // const status = d3.select(element_id).append("div").classed("top-row", true).append("div").text("status");
 
@@ -2067,9 +2057,9 @@ class CanvasPlot {
 
     var details_plot = null;
     function rebuild() {
-        initializeViewAreas(time_domain);
         plot_div.selectAll("*").remove();
         minimaps = [];
+        initializeViewAreas(time_domain);
         details_plot = null;
 
         for (let i = 0; i < settings.minimaps.number; i++) {
@@ -2084,16 +2074,9 @@ class CanvasPlot {
             ), state, data.utterances, data.markers,
         )
 
-        details_plot.onUtteranceSelect(selectedUtteranceDetails.update.bind(selectedUtteranceDetails));
         update();
-    }
-
-    function redraw() {
-        if (settings.show_details) details_plot.draw();
-        for (const minimap of minimaps) minimap.draw();
     }
 
     rebuild();
     searchBar.search_button.node().click();
-    redraw();
 }
