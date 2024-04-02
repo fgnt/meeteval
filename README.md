@@ -46,7 +46,7 @@ pip install -e ./meeteval
  - [Segmental Time Mark](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75) (`STM`)
  - [Time Marked Conversation](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L286) (`CTM`)
  - [SEGment-wise Long-form Speech Transcription annotation](#segment-wise-long-form-speech-transcription-annotation-seglst) (`SegLST`), the file format used in the [CHiME challenges](https://www.chimechallenge.org)
- - [Rich Transcription Time Marked](https://github.com/nryant/dscore?tab=readme-ov-file#rttm) (`RTTM`) files (only for Diarizaiton Error Rate)
+ - [Rich Transcription Time Marked](https://github.com/nryant/dscore?tab=readme-ov-file#rttm) (`RTTM`) files (only for Diarization Error Rate)
 
 
 > [!NOTE]
