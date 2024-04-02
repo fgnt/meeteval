@@ -619,6 +619,7 @@ class AlignmentVisualization:
                             }},
                             recording_file: {dumps_json(self.recording_file, default=os.fspath)},
                             match_width: 0.1,
+                            audio_server: 'http://localhost:7777',
                         }}
                     );
                     else setTimeout(exec, 100);
@@ -639,6 +640,7 @@ class AlignmentVisualization:
                     margin: 1px;
                     padding: 0;
                     overflow: hidden;
+                    font-family: Arial, Helvetica, sans-serif;
                 }}
                 
                 .meeteval-viz {{

@@ -643,6 +643,7 @@ class CanvasPlot {
 
         menuElement
             .append("input")
+            .classed("menu-control", true)
             .attr("type", "text")
             .attr("placeholder", "e.g. http://localhost:7777")
             .on("input", function () {
@@ -1681,11 +1682,11 @@ class CanvasPlot {
                 let tooltip = addTooltip(element, false).classed("wrap-60 alignleft", true)
 
                 tooltip.append("div").attr('align', 'left').text(value)
-                let warning_field = tooltip.append("div").attr('align', 'left').style("display", "none").text(
+                let warning_field = tooltip.append("div").attr('align', 'left').style("display", "none").html(
                     "\nIssue while loading\n  " + settings.audio_server + value +
                     "\nWith access to the audio file (either via audio server from the menu, or directly from the filesystem), a player will appear.\n" +
                     "Options:\n" +
-                    " - With 'python -m meeteval.viz.file_server' you can start a process, that exposes normalized wav files on http://localhost:7777\n" +
+                    " - With <code>python -m meeteval.viz.file_server</code> you can start a process, that exposes normalized wav files on http://localhost:7777\n" +
                     " - A standalone HTML file has access to the filesystem and doesn't need a server, but it cannot normalize the audio.\n" +
                     " - In Jupyter Notebooks only a server can deliver audio files.\n" +
                     "Slices (e.g. audio.wav::[0.5:1.0]) require a server."
@@ -1889,7 +1890,7 @@ class CanvasPlot {
         let audio_tooltip = addTooltip(pill);
 
         pill.append("div").html(icons['audio']);
-        if (name.trim()) pill.append("span").text(name);
+        if (name.trim()) pill.append("span").text(name).style("margin-left", "5px");
 
         let input = audio_tooltip.append("div").style("display", "flex");
         let server_path = input.append("div").text(settings.audio_server).attr("title", "To change the audio server address, edit the settings in the top left corner.");
