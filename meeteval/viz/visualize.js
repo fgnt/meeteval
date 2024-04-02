@@ -120,6 +120,12 @@ function similar_range(a, b, tolerance=0.00001){
     return true
 }
 
+
+function brushExceedsViewArea(viewArea, brushArea, tolerance=0.00001) {
+    const delta = Math.min(brushArea[1] - brushArea[0], viewArea[1] - viewArea[0]) * tolerance
+    return brushArea[0] < viewArea[0] + delta && brushArea[1] > viewArea[1] - delta;
+}
+
 /**
  * Ensures that every entry (index i) lies within its parent (index i - 1).
  *
@@ -158,7 +164,7 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
             v[1] += diff;
             dirty[j] = true;
         }
-        viewAreas[j] = v;
+        viewAreas[j] = [...v];
     }
 
     // Update parents of anchor (j < i). Index 0 is the global domain and
@@ -180,7 +186,7 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
             viewAreas[j][1] += diff;
             dirty[j] = true;
         }
-        viewAreas[j] = v;
+        viewAreas[j] = [...v];
     }
     return dirty;
 }
@@ -292,7 +298,8 @@ function alignment_visualization(
 
     // Data preprocessing
     const time_domain = [Math.min(0, Math.min.apply(null, (data.utterances.map(d => d.start_time))) - 1), Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
-    const speakers = data.utterances .map(d => d.speaker)
+    const speakers = [...new Set(data.utterances.map(d => d.speaker))];
+    speakers.sort();
 
     // Global state management
     // Constraint: every view area (i) must be contained within its parent (i-1)
@@ -376,7 +383,7 @@ function alignment_visualization(
                 );
             }
 
-        }, drawTracker);
+        }, drawTracker, 20);
 
          // Update URL
         call_delayed_throttled(
@@ -1317,7 +1324,8 @@ class CanvasPlot {
             const brushArea = this.state.viewAreas[this.index + 1];
             // Prevent update loops with brush
             this.updating = true;
-            if (!brushArea || similar_range(viewArea, brushArea)) {
+            // brush area is greater than view area
+            if (!brushArea || brushExceedsViewArea(viewArea, brushArea)) {
                 // Remove brush.
                 // !brushArea is a bit hacky, but we get a sizeChanged event
                 // when the minimap is removed, in which case the brushArea
@@ -1416,20 +1424,24 @@ class CanvasPlot {
                 } else selectSegment(null);
             })
 
-            this.wheel_hits = 0
             this.wheel_tracker = {}
-            let wheel_hits = 0;
+            let deltaY = 0;
+            let hitCount = 0;
             this.plot.element.on("wheel", (event) => {
                 // Collate multiple wheel events as one "big" wheel event.
                 // 5 milliseconds aren't noticeable, but prevent freezing from free rolling mouse wheels
-                wheel_hits += 1;
+                deltaY += event.deltaY;
+                hitCount += 1;
                 event.preventDefault();
+                // console.log(event)
                 call_throttled(() => {
                     let [begin, end] = this.plot.y.domain();
-                    let delta = (this.plot.y.invert(event.deltaY) - this.plot.y.invert(0)) * 0.5 * wheel_hits   // TODO: magic number
-                    if (wheel_hits > 1)
-                        console.log('High frequently appearing wheel events. Group', wheel_hits, 'events together.')
-                    wheel_hits = 0
+                    let delta = deltaY;
+                    deltaY = 0;
+                    delta = (this.plot.y.invert(delta) - this.plot.y.invert(0)) * 0.5   // TODO: magic number
+                    if (hitCount > 1)
+                        console.log('High frequently appearing wheel events. Group', hitCount, 'events together.')
+                    hitCount = 0;
 
                     if (event.ctrlKey) {
                         // Zoom when ctrl is pressed. Zoom centered on mouse position
@@ -1481,7 +1493,7 @@ class CanvasPlot {
                         end = end + delta;
                     }
                     updateViewArea(this.state.viewAreas.length - 1, [begin, end]);
-                }, this.wheel_tracker, 10)
+                }, this.wheel_tracker, 25)
             }, false)
 
             drag(this.plot.element, (e, delta_y) => {
