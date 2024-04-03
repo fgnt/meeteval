@@ -70,6 +70,7 @@ function alignment_visualization(
         },
         recording_file: "",
         match_width: 10,
+        audio_server: 'http://localhost:7777',
     }
 ) {
     var urlParams = new URLSearchParams(window.location.search);
@@ -632,6 +633,24 @@ class CanvasPlot {
         //     redraw();
         // });
         // errorbar_mode_check.node().checked = settings.barplot.scaleExcludeCorrect;
+
+
+        // Audio
+        m.append("div").classed("divider", true);
+        m.append("div").classed("menu-section-label", true).text("Audio Server");
+        menuElement = m.append("div").classed("menu-element", true);
+        menuElement.append("div").classed("menu-label", true).text("Adress:")
+
+        menuElement
+            .append("input")
+            .classed("menu-control", true)
+            .attr("type", "text")
+            .attr("placeholder", "e.g. http://localhost:7777")
+            .on("input", function () {
+                settings.audio_server = this.value;
+            })
+            .property("value", settings.audio_server)
+        ;
     }
 
     function drawHelpButton(container) {
@@ -1624,10 +1643,37 @@ class CanvasPlot {
         formatValue(element, key, value) {
             if (/^([a-zA-Z0-9_/.-]+\.(wav|flac)(::\[[\d.:]+])?)$/.test(value)) {
                 // Audio path: Display audio player
+
+                let trials = []
+                let url = new URL(value, window.location.href);
+                if (window.location.protocol == 'file:') {
+                    if (value[0] === '/'){
+                        trials.push(settings.audio_server + value);
+                        trials.push("file:////" + value);
+                    } else {
+                        trials.push(settings.audio_server + url.pathname);
+                        trials.push(settings.audio_server + value);  // usually fails, but audio_server could define a prefix
+                        trials.push("file:////" + url.pathname);
+                        trials.push("file:////" + value);  // Can this work?
+                    }
+                } else {  // http or https
+                    // file:// is not allowed in the browser for http(s), so we can't use it
+                    if (value[0] === '/'){
+                        trials.push(settings.audio_server + value);
+                        trials.push(url.href);
+                    } else {
+                        trials.push(settings.audio_server + value);  // usually fails, but audio_server could define a prefix
+                        // trials.push(settings.audio_server + url.pathname);  // could this work?
+                        trials.push(url.href);
+                    }
+                }
+
+                console.log("Audio candidates", trials)
+
                 let audio = element.append("audio")
                 audio.classed("info-value", true)
                     .attr("controls", "true")
-                    .attr("src", "http://localhost:7777" + value)
+                    .attr("src", trials.shift())  // pop the first entry from trials
                     .text(value);
 
                 let fallback_text_box = element.append('div').classed("info-value", true)
@@ -1636,28 +1682,37 @@ class CanvasPlot {
                 let tooltip = addTooltip(element, false).classed("wrap-60 alignleft", true)
 
                 tooltip.append("div").attr('align', 'left').text(value)
+                let warning_field = tooltip.append("div").attr('align', 'left').style("display", "none").html(
+                    "\nIssue while loading\n  " + settings.audio_server + value +
+                    "\nWith access to the audio file (either via audio server from the menu, or directly from the filesystem), a player will appear.\n" +
+                    "Options:\n" +
+                    " - With <code>python -m meeteval.viz.file_server</code> you can start a process, that exposes normalized wav files on http://localhost:7777\n" +
+                    " - A standalone HTML file has access to the filesystem and doesn't need a server, but it cannot normalize the audio.\n" +
+                    " - In Jupyter Notebooks only a server can deliver audio files.\n" +
+                    "Slices (e.g. audio.wav::[0.5:1.0]) require a server."
+                );
 
                 // On error,
                 //  - Add hint to tooltip when the play button works
                 //  - Try to access local file
                 //  - If that also doesn't work, show the file name and an
                 //    exclamation mark to indicate an issue (Tooltip contains hints).
-                audio.on('error', function() {
-                    audio.attr("src", "file:////" + value);
-                    tooltip.append("div").attr('align', 'left').text(
-                        "\nWith access to the audio file, a player will appear. Options:\n" +
-                        " - With 'python -m meeteval.viz.file_server' you can start a process, that exposes normalized wav files on http://localhost:7777\n" +
-                        " - A standalone HTML file has access to the filesystem and doesn't need a server, but it cannot normalize the audio.\n" +
-                        " - In Jupyter Notebooks only a server can deliver audio files.\n" +
-                        "Slices (e.g. audio.wav::[0.5:1.0]) require a server."
-                    );
-                    audio.on('error', function() {
+
+                let on_error_fn = function() {
+                    if (trials.length > 0){
+                        // Pop the first element
+                        let next = trials.shift();
+                        audio.attr("src", next);
+                        if (!next.startsWith(settings.audio_server))
+                            warning_field.style("display", "block");
+                    } else {
+                        warning_field.style("display", "block")
                         audio.remove();
                         fallback_text_box.text(value + ' ');
                         fallback_text_box.append('div').html(icons['warning']);
-                        copy_button;
-                    })
-                });
+                    }
+                };
+                audio.on('error', on_error_fn)
 
                 // Add a copy button
                 let copy_button = element.append('button').classed("copybutton", true)
@@ -1803,7 +1858,7 @@ class CanvasPlot {
             let lower = rangeSelector.selection[0];
             let upper = rangeSelector.selection[1];
             let range = lower + " - " + upper;
-            let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
+            let path = settings.audio_server + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             if ( parseFloat(lower) < parseFloat(upper) ){
                 audio_div.append("div").text(range);
                 audio_div.append("audio")
@@ -1818,7 +1873,7 @@ class CanvasPlot {
             if (rangeSelector.selection){
                 let lower = rangeSelector.selection[0];
                 let upper = rangeSelector.selection[1];
-                let path = server_path.node().value + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
+                let path = settings.audio_server + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
                 let audio = audio_div.select("audio")
                 if ( ! audio.empty() ){
                     if ( audio.attr("src") !== path ){
@@ -1827,22 +1882,23 @@ class CanvasPlot {
                     console.log(audio.attr("src") +  " vs " + path);
                 }
             }
+            if (settings.audio_server !== server_path.text())
+                server_path.text(settings.audio_server);
         };
 
         let pill = container.append("div").classed("pill", true);
         let audio_tooltip = addTooltip(pill);
 
         pill.append("div").html(icons['audio']);
-        if (name.trim()) pill.append("span").text(name);
+        if (name.trim()) pill.append("span").text(name).style("margin-left", "5px");
 
         let input = audio_tooltip.append("div").style("display", "flex");
-        let server_path = input.append("input").attr("type", "text").attr("placeholder", "e.g. http://localhost:7777").property("value", "http://localhost:7777");
+        let server_path = input.append("div").text(settings.audio_server).attr("title", "To change the audio server address, edit the settings in the top left corner.");
         let file_path = input.append("input").attr("type", "text").style("width", "30em").attr("placeholder", "e.g. /path/to/file.wav").property("value", recording_file);
 
         let audio_div = audio_tooltip.append("div").style("display", "flex");
 
         input.append("button").text("Load").on("click", () => update_audio());
-        server_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
         file_path.on("keydown", (event) => {if (event.key === "Enter") {update_audio();}});
         pill.on("click", () => {update_audio(); audio_div.select("audio").node().play()});
 
@@ -1930,8 +1986,8 @@ class CanvasPlot {
             )
             if (minimaps[minimaps.length-1] !== undefined) {
                 minimaps[minimaps.length-1].onSelect(minimap.zoomTo.bind(minimap));
+                // minimap.onSelect(minimaps[minimaps.length-1].moveBrush.bind(minimaps[minimaps.length-1]));
                 minimap.word_plot.onZoomTo(minimaps[minimaps.length-1].moveBrush.bind(minimaps[minimaps.length-1]));
-
             }
             minimaps.push(minimap);
         }
