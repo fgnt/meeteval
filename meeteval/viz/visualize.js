@@ -293,7 +293,13 @@ function alignment_visualization(
         const match = /^(?<start>[+-]?([0-9]*[.])?[0-9]+)\s*-\s*(?<end>[+-]?([0-9]*[.])?[0-9]+)$/.exec(selection);
 
         if (match) {
-            return [parseFloat(match.groups.start), parseFloat(match.groups.end)];
+            const start = parseFloat(match.groups.start);
+            const end = parseFloat(match.groups.end);
+
+            // Check for invalid ranges. Return null if invalid.
+            if (isNaN(start) || isNaN(end) || start > end) return null;
+
+            return [start, end];
         }
     }
 
@@ -323,7 +329,11 @@ function alignment_visualization(
         if (finalViewArea === null) {
             if (urlParams.has('selection')) {
                 console.log("Setting selection from URL", urlParams.get('selection'));
-                finalViewArea = parseSelection(urlParams.get('selection')) ?? domain;
+                finalViewArea = parseSelection(urlParams.get('selection'));
+                if (!finalViewArea) {
+                    console.log("Invalid selection in URL. Using full domain.");
+                    finalViewArea = domain;
+                }
             } else {
                 finalViewArea = domain;
             }
@@ -2027,30 +2037,28 @@ class CanvasPlot {
             let selection = parseSelection(value)
 
             if (selection) {
-                if (!isNaN(start) && !isNaN(end) && start < end) {
-                    const min_max = state.viewAreas[0];
-                    // Fix rounding issue of selection field. e.g. max is 360.78, while selection is 360.8
-                    let margin = 0.5
+                const min_max = state.viewAreas[0];
+                // Fix rounding issue of selection field. e.g. max is 360.78, while selection is 360.8
+                let margin = 0.5
 
-                    if (selection[0] < min_max[0]-margin && selection[1] > min_max[1]+margin) {
-                        this.input.classed("input-error", true);
-                        selection = min_max;
-                        console.log("Invalid range: outside of min and max", selection[0], selection[1], min_max, 'use', selection);
-                    } else if (selection[0] < min_max[0]-margin) {
-                        this.input.classed("input-error", true);
-                        selection = [min_max[0], Math.max(selection[1], min_max[1])];
-                        console.log("Invalid range: below min", selection[0], selection[1], min_max, 'use', selection);
-                    } else if (selection[1] > min_max[1]+margin) {
-                        this.input.classed("input-error", true);
-                        selection = [Math.min(selection[0], min_max[0]), min_max[1]];
-                        console.log("Invalid range: above max", selection[0], selection[1], min_max, selection);
-                    } else {
-                        // This is the only valid case
-                        this.input.classed("input-error", false);
-                    }
-                    this.parsedValue = selection;
-                    return;
+                if (selection[0] < min_max[0]-margin && selection[1] > min_max[1]+margin) {
+                    this.input.classed("input-error", true);
+                    selection = min_max;
+                    console.log("Invalid range: outside of min and max", selection[0], selection[1], min_max, 'use', selection);
+                } else if (selection[0] < min_max[0]-margin) {
+                    this.input.classed("input-error", true);
+                    selection = [min_max[0], Math.max(selection[1], min_max[1])];
+                    console.log("Invalid range: below min", selection[0], selection[1], min_max, 'use', selection);
+                } else if (selection[1] > min_max[1]+margin) {
+                    this.input.classed("input-error", true);
+                    selection = [Math.min(selection[0], min_max[0]), min_max[1]];
+                    console.log("Invalid range: above max", selection[0], selection[1], min_max, selection);
+                } else {
+                    // This is the only valid case
+                    this.input.classed("input-error", false);
                 }
+                this.parsedValue = selection;
+                return;
             }
 
             // Hint that something is wrong
