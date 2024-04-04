@@ -622,7 +622,8 @@ class AlignmentVisualization:
                             recording_file: {dumps_json(self.recording_file, default=os.fspath)},
                             match_width: 0.1,
                             syncID: {dumps_json(self.sync_id, default='null')},
-                        }},
+                            audio_server: 'http://localhost:7777',
+                        }}
                     );
                     else setTimeout(exec, 100);
                 }}
@@ -647,6 +648,7 @@ class AlignmentVisualization:
                     padding: 0;
                     /* Make sure that no scroll bars appear */
                     overflow: hidden;
+                    font-family: Arial, Helvetica, sans-serif;
                 }}
                 
                 .meeteval-viz {{
