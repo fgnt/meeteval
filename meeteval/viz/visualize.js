@@ -104,7 +104,7 @@ function similar_range(a, b, tolerance=0.00001){
         return true
     }
 
-    if (!a || a.some(isNaN) || a.some(isNaN))
+    if (!a || a.some(isNaN) || b.some(isNaN))
         return false
 
     const delta = Math.min(a[1] - a[0], b[1] - b[0]) * tolerance
@@ -138,9 +138,10 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
 
     const oldViewAreas = [...viewAreas];
 
+    // Set the view Area at anchor, if provided
     if (viewArea) {
+        dirty[anchor] = !similar_range(viewAreas[anchor], viewArea);
         viewAreas[anchor] = viewArea;
-        dirty[anchor] = true;
     }
 
     // Update children of anchor (j > i)
@@ -152,18 +153,16 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
             // or the child area is similar to the previous parent area (i.e.,
             // no brush in the UI)
             v = parent;
-            dirty[j] = true;
         } else if (v[0] < parent[0]) {
             const diff = parent[0] - v[0];
             v[0] += diff;
             v[1] += diff;
-            dirty[j] = true;
         } else if (v[1] > parent[1]) {
             const diff = parent[1] - v[1];
             v[0] += diff;
             v[1] += diff;
-            dirty[j] = true;
         }
+        dirty[j] = !similar_range(viewAreas[j], v);
         viewAreas[j] = [...v];
     }
 
@@ -174,18 +173,16 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
         const child = viewAreas[j + 1];
         if (child[1] - child[0] > v[1] - v[0]) {
             v = child;
-            dirty[j] = true;
         } else if (v[0] > child[0]) {
             const diff = child[0] - v[0];
-            viewAreas[j][0] += diff;
-            viewAreas[j][1] += diff;
-            dirty[j] = true;
+            v[0] += diff;
+            v[1] += diff;
         } else if (v[1] < child[1]) {
             const diff = child[1] - v[1];
-            viewAreas[j][0] += diff;
-            viewAreas[j][1] += diff;
-            dirty[j] = true;
+            v[0] += diff;
+            v[1] += diff;
         }
+        dirty[j] = !similar_range(viewAreas[j], v);
         viewAreas[j] = [...v];
     }
     return dirty;
