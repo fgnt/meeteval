@@ -639,11 +639,20 @@ class AlignmentVisualization:
         #   - Scale the visualization to the full window size
         Path(filename).write_text(
             f'''
-            <html>
+            <!DOCTYPE html>
+            <html lang="en">
+            <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, user-scalable=no" />
             <style>
                 /* Styles for full-screen view */
+                html {{
+                    height: 100%;
+                    width: 100%;
+                }}
+
                 body {{
+                    height: 100%;
+                    width: 100%;
                     margin: 1px;
                     padding: 0;
                     /* Make sure that no scroll bars appear */
