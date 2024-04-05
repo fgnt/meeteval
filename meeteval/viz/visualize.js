@@ -129,7 +129,7 @@ function brushExceedsViewArea(viewArea, brushArea, tolerance=0.00001) {
 /**
  * Ensures that every entry (index i) lies within its parent (index i - 1).
  *
- * Keeps the viewArea at `anchor` fixed.
+ * Keeps the viewArea at `anchor` fixed if it doesn't exceed viewAreas[0].
  *
  * Returns an array of booleans indicating which viewAreas were changed.
  */
@@ -138,53 +138,85 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
 
     const oldViewAreas = [...viewAreas];
 
-    // Set the view Area at anchor, if provided
-    if (viewArea) {
-        dirty[anchor] = !similar_range(viewAreas[anchor], viewArea);
-        viewAreas[anchor] = viewArea;
+    // Limit the viewArea to the global domain +/- 10 seconds
+    const maxArea = [viewAreas[0][0] - 10, viewAreas[0][1] + 10];
+
+    // Limit zoom to 0.1 seconds
+    const minAreaLength = 0.1;
+
+    /**
+     * Moves the view area `v` into `bound` if at least one boundary of `v` lies outside of `bound`.
+     * If the size of `v` is larger than `bound`, `v` is clipped to `bound`, resulting in `v = bound`.
+     */
+    function moveOrClip(v, bound) {
+        let dirty = false;
+        if (v[0] < bound[0]) {
+            v = [bound[0], v[1] + bound[0] - v[0]];
+            dirty = true;
+        } else if (v[1] > bound[1]) {
+            v = [v[0] + bound[1] - v[1], bound[1]];
+            dirty = true;
+        }
+        if (v[0] < bound[0] || v[1] > bound[1]) {
+            // This can only happen if one of the previous if statements is true, 
+            // so dirty is alread set
+            v = bound;
+        }
+        return [v, dirty];
     }
 
-    // Update children of anchor (j > i)
-    for (let j = anchor + 1; j < viewAreas.length; j++) {
-        let v = viewAreas[j];
-        const parent = viewAreas[j - 1];
-        if (parent[1] - parent[0] < v[1] - v[0] || similar_range(oldViewAreas[j - 1], v)) {
-            // Select the full parent when the previous child area was bigger
-            // or the child area is similar to the previous parent area (i.e.,
-            // no brush in the UI)
-            v = parent;
-        } else if (v[0] < parent[0]) {
-            const diff = parent[0] - v[0];
-            v[0] += diff;
-            v[1] += diff;
-        } else if (v[1] > parent[1]) {
-            const diff = parent[1] - v[1];
-            v[0] += diff;
-            v[1] += diff;
+    /**
+     * Moves or extends the view area `v` such that `bound` lies within `v`.
+     */
+    function moveOrExtend(v, bound) {
+        let dirty = false;
+        if (bound[0] < v[0]) {
+            v = [bound[0], v[1] + bound[0] - v[0]];
+            dirty = true;
+        } else if (bound[1] > v[1]) {
+            v = [v[0] + bound[1] - v[1], bound[1]];
+            dirty = true;
         }
-        dirty[j] = !similar_range(viewAreas[j], v);
-        viewAreas[j] = [...v];
+        if (bound[0] < v[0] || bound[1] > v[1]) {
+            // This can only happen if one of the previous if statements is true, 
+            // so dirty is alread set
+            v = bound;
+        }
+        return [v, dirty];
+    }
+
+    // Set the view Area at anchor. Only allow viewAreas that are larger than
+    // the minimum width
+    const center = (viewArea[0] + viewArea[1]) / 2;
+    let d;
+    [viewArea, d] = moveOrExtend(viewArea, [center - minAreaLength / 2, center + minAreaLength / 2])
+    if (d) console.log('Maximum zoom level reached');
+    dirty[anchor] = !similar_range(viewAreas[anchor], viewArea);
+    [viewAreas[anchor], d] = moveOrClip(viewArea, maxArea);
+    if (d) console.log('Maximum view area reached');
+
+    // Update children of anchor (j > i)
+    // View areas are moved or clipped so that they lie within their parent.
+    // No check for the max viewArea is necessary here, because viewAreas[anchor]
+    // already fulfills this condition.
+    for (let j = anchor + 1; j < viewAreas.length; j++) {
+        if (similar_range(oldViewAreas[j - 1], viewAreas[j])) {
+            // Keep the view area of the parent if no brush is visible (i.e., viewAreas[j] == viewAreas[j-1])
+            dirty[j] = !similar_range(viewAreas[j], viewAreas[j - 1]);
+            viewAreas[j] = viewAreas[j - 1];
+        } else {
+            [viewAreas[j], dirty[j]] = moveOrClip(viewAreas[j], viewAreas[j - 1]);
+        }
     }
 
     // Update parents of anchor (j < i). Index 0 is the global domain and
     // should not be changed.
+    // We don't have to clip to the maxArea because the anchor is already 
+    // clipped to the maxArea and no other viewArea can be larger (by invariant).
     for (let j = anchor - 1; j > 0; j--) {
-        let v = viewAreas[j];
-        const child = viewAreas[j + 1];
-        if (child[1] - child[0] > v[1] - v[0]) {
-            v = child;
-        } else if (v[0] > child[0]) {
-            const diff = child[0] - v[0];
-            v[0] += diff;
-            v[1] += diff;
-        } else if (v[1] < child[1]) {
-            const diff = child[1] - v[1];
-            v[0] += diff;
-            v[1] += diff;
-        }
-        dirty[j] = !similar_range(viewAreas[j], v);
-        viewAreas[j] = [...v];
+        [viewAreas[j], dirty[j]] = moveOrExtend(viewAreas[j], viewAreas[j + 1]);
     }
+
     return dirty;
 }
 
@@ -347,8 +379,6 @@ function alignment_visualization(
     initializeViewAreas(time_domain);
 
     function setViewArea(i, viewArea) {
-        // state.viewAreas[i] = viewArea;
-        // state.dirty[i] = true;
         const dirty = adjustViewAreas(state.viewAreas, i, viewArea);
         for (let j = 0; j < state.viewAreas.length; j++) {
             state.dirty[j] |= dirty[j];
@@ -1314,6 +1344,10 @@ class CanvasPlot {
                 if ( this.brush_group.property('__brush').selection) {
                     this.brush_group.property('__brush').selection[1][1] = height;
                 }
+                // Re-build brush svg. The SVG size and drag area can break without this.
+                this.brush_group.call(this.brush);
+
+                // Re-draw plot and re-position brush
                 this.updateViewArea();
                 this.updateBrush();
             });
@@ -1470,7 +1504,6 @@ class CanvasPlot {
                 deltaY += event.deltaY;
                 hitCount += 1;
                 event.preventDefault();
-                // console.log(event)
                 call_throttled(() => {
                     let [begin, end] = this.plot.y.domain();
                     let delta = deltaY;
@@ -1484,48 +1517,9 @@ class CanvasPlot {
                         // Zoom when ctrl is pressed. Zoom centered on mouse position
                         const mouse_y = this.plot.y.invert(event.layerY);
                         const ratio = (mouse_y - begin) / (end - begin);
-                        let beginDelta = -delta * ratio;
-                        if (begin + beginDelta < this.max_domain[0]) {
-                            if (begin < this.max_domain[0]) {
-                                if (beginDelta < 0) beginDelta = 0;
-                                // else: do nothing to prevent jumping
-                            } else {
-                                // Clip to max data domain
-                                beginDelta = this.max_domain[0] - begin;
-                            }
-                        }
-                        let endDelta = delta * (1 - ratio);
-                        if (end + endDelta > this.max_domain[1]) {
-                            if (end > this.max_domain[1]) {
-                                if (endDelta > 0) endDelta = 0;
-                                // else: do nothing to prevent jumping
-                            } else {
-                                // Clip to max data domain
-                                endDelta = this.max_domain[1] - end;
-                            }
-                        }
-                        begin += beginDelta;
-                        end += endDelta;
+                        begin -= delta * ratio;
+                        end += delta * (1 - ratio);
                     } else {
-                        // Move when ctrl is not pressed
-                        if (begin + delta < this.max_domain[0]) {
-                            if (begin < this.max_domain[0]) {
-                                if (delta < 0) delta = 0;
-                                // else: do nothing to prevent jumping
-                            } else {
-                                // Clip to max data domain
-                                delta = this.max_domain[0] - begin;
-                            }
-                        }
-                        if (end + delta > this.max_domain[1]) {
-                            if (end > this.max_domain[1]) {
-                                if (delta > 0) delta = 0;
-                                // else: do nothing to prevent jumping
-                            } else {
-                                // Clip to max data domain
-                                delta = this.max_domain[1] - end;
-                            }
-                        }
                         begin = begin + delta;
                         end = end + delta;
                     }
