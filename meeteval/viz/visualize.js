@@ -332,8 +332,14 @@ function alignment_visualization(
         }
     }
 
-    // Data preprocessing
-    const time_domain = [Math.min(0, Math.min.apply(null, (data.utterances.map(d => d.start_time))) - 1), Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1];
+    // Data preprocessing. Determine displayed domain from the data and add a margin of 1s
+    const time_domain = [
+        Math.min.apply(null, (data.utterances.map(d => d.start_time))) - 1, 
+        Math.max.apply(null, (data.utterances.map(d => d.end_time))) + 1
+    ];
+
+    // Get speakers and sort for side-by-side view. The side-by-side view is confusing 
+    // when the plots have different speaker orders
     const speakers = [...new Set(data.utterances.map(d => d.speaker))];
     speakers.sort();
 
