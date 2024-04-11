@@ -104,7 +104,7 @@ function similar_range(a, b, tolerance=0.00001){
         return true
     }
 
-    if (!a || a.some(isNaN) || b.some(isNaN))
+    if (!a || !b || a.some(isNaN) || b.some(isNaN))
         return false
 
     const delta = Math.min(a[1] - a[0], b[1] - b[0]) * tolerance
