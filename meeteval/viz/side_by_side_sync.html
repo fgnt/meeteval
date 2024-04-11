@@ -10,8 +10,8 @@
     const body = document.getElementsByTagName('body')[0];
     var sync = true;
     urlParams.forEach((value, key) => {
-    console.log(key, ',', value);
       if (!value) {
+        // Value is none when no key is given (e.g., ?systemA&systemB vs ?sync=True)
         value = key;
         const iframe = document.createElement('iframe');
         iframe.src = `./${value}.html`;
@@ -28,7 +28,6 @@
       }
     })
 
-    console.log(sync);
     if (sync) {
       window.addEventListener("message", event => {
         iframes.forEach(iframe => {
