@@ -228,6 +228,9 @@ visible area.
     opacity: 0;
     transition: opacity 0.3s;
     transition-delay: 2s;
+    max-width: 100vw;
+    overflow: auto;
+    box-sizing: border-box;
 
     /* Width: fit content size. Size is limited by children */
     inline-size: fit-content;
@@ -246,7 +249,7 @@ visible area.
 }
 
 /* Show the tooltip text when you hover over the tooltip container */
-.tooltip:hover>.tooltipcontent {
+.tooltipcontent.visible {
     visibility: visible;
     opacity: 1;
     transition: opacity 0.1s;
