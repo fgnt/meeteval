@@ -196,7 +196,7 @@ def cli():
             if name == 'alignment':
                 command_parser.add_argument(
                     '--alignment',
-                    choices=['tcp', 'cp', 'tcp,cp', 'cp,tcp'],
+                    choices=['tcp', 'cp', 'tcp,cp', 'cp,tcp', 'tcorc', 'orc'],
                     help='Specifies which alignment is used.\n'
                          '- cp: Find the permutation that minimizes the cpWER and use the "classical" alignment.\n'
                          '- tcp: Find the permutation that minimizes the tcpWER and use a time constraint alignment.'

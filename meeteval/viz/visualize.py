@@ -241,6 +241,39 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
     ref = asseglst(ref)
     hyp = [asseglst(h) for h in hyp]
 
+    data = {
+        'info': {
+            'filename': ref[0]['session_id'],
+            'alignment_type': assignment,
+            'speakers': list(ref.unique('speaker')),
+            'num_hypotheses': len(hyp),
+        }
+    }
+
+    # Solve assignment when assignment is tcorc or orc
+    if assignment == 'tcorc':
+        assert len(hyp) == 1, len(hyp)
+        from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
+        # The visualization looks wrong if we don't sort segments
+        wer = time_constrained_orc_wer(
+            ref, *hyp,
+            collar=5,
+            reference_sort='segment',
+            hypothesis_sort='segment',
+            reference_pseudo_word_level_timing='character_based',
+            hypothesis_pseudo_word_level_timing='character_based_points',
+        )
+        ref, hyp = wer.apply_assignment(ref, *hyp)
+        hyp = (hyp,)
+        assignment = 'tcp'
+    elif assignment == 'orc':
+        assert len(hyp) == 1, len(hyp)
+        from meeteval.wer.wer.orc import orc_word_error_rate
+        wer = orc_word_error_rate(ref, *hyp)
+        ref, hyp = wer.apply_assignment(ref, *hyp)
+        hyp = (hyp,)
+        assignment = 'cp'
+
     assert len(hyp) > 0, hyp
     if alignment_transform is None:
         alignment_transform = lambda x: x
@@ -265,15 +298,9 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
 
     u = ref + hyp
 
-    data = {
-        'info': {
-            'filename': ref[0]['session_id'],
-            'speakers': list(ref.unique('speaker')),
-            'alignment_type': assignment,
-            'length': max([e['end_time'] for e in u]) - min([e['start_time'] for e in u]),
-            'num_hypotheses': len(hyp),
-        }
-    }
+    data['info'].update({
+        'length': max([e['end_time'] for e in u]) - min([e['start_time'] for e in u]),
+    })
 
     # Sort by begin time. Otherwise, the alignment will be unintuitive and likely not what the user wanted
     u = u.sorted('start_time')
