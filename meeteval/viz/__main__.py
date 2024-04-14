@@ -15,6 +15,7 @@ def create_viz_folder(
         alignments='tcp',
         regex=None,
         normalizer=None,
+        js_debug=False,
 ):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -43,7 +44,9 @@ def create_viz_folder(
         for session_id in tqdm.tqdm(session_ids):
             av = AlignmentVisualization(r[session_id],
                                         h[session_id],
-                                        alignment=alignment)
+                                        alignment=alignment,
+                                        js_debug=js_debug,
+                                        sync_id=1)
             av.dump(out / f'{session_id}_{i}_{alignment}.html')
             avs.setdefault((i, alignment), {})[session_id] = av
 
@@ -153,6 +156,7 @@ def html(
         regex=None,
         normalizer=None,
         out='viz',
+        js_debug=False,
 ):
     def prepare(i: int, h: str):
         if ':' in h and not Path(h).exists():
@@ -179,6 +183,7 @@ def html(
         alignments=alignment,
         regex=regex,
         normalizer=normalizer,
+        js_debug=js_debug,
     )
 
 
@@ -204,6 +209,12 @@ def cli():
                          'Optionally prefixed with system name, e.g. mysystem:/path/to/hyp.stm',
                     nargs='+', action=self.extend_action,
                     required=True,
+                )
+            elif name == 'js_debug':
+                command_parser.add_argument(
+                    '--js-debug',
+                    action='store_true',
+                    help='Add a debug flag to the HTML output to enable debugging in the browser.'
                 )
             else:
                 return super().add_argument(command_parser, name, p)

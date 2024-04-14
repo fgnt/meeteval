@@ -1,0 +1,1 @@
+from meeteval.viz.visualize import AlignmentVisualization

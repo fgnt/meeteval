@@ -420,6 +420,7 @@ class AlignmentVisualization:
             markers=None,
             recording_file: 'str | Path | dict[str, str | Path]' = None,
             js_debug=False,  # If True, don't embed js (and css) code and use absolute paths
+            sync_id=None,
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -446,6 +447,7 @@ class AlignmentVisualization:
         else:
             recording_file = {'': ''}
         self.recording_file = recording_file
+        self.sync_id = sync_id
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -619,6 +621,7 @@ class AlignmentVisualization:
                             }},
                             recording_file: {dumps_json(self.recording_file, default=os.fspath)},
                             match_width: 0.1,
+                            syncID: {dumps_json(self.sync_id, default='null')},
                             audio_server: 'http://localhost:7777',
                         }}
                     );
@@ -631,14 +634,28 @@ class AlignmentVisualization:
         return html
 
     def dump(self, filename):
+        # For standalone HTML, we have to
+        #   - disable zooming for mobile devices (viewport setting)
+        #   - Scale the visualization to the full window size
         Path(filename).write_text(
             f'''
-            <html>
+            <!DOCTYPE html>
+            <html lang="en">
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, user-scalable=no" />
             <style>
                 /* Styles for full-screen view */
+                html {{
+                    height: 100%;
+                    width: 100%;
+                }}
+
                 body {{
+                    height: 100%;
+                    width: 100%;
                     margin: 1px;
                     padding: 0;
+                    /* Make sure that no scroll bars appear */
                     overflow: hidden;
                     font-family: Arial, Helvetica, sans-serif;
                 }}
