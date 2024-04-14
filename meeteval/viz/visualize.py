@@ -245,8 +245,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         'info': {
             'filename': ref[0]['session_id'],
             'alignment_type': assignment,
-            'speakers': list(ref.unique('speaker')),
-            'num_hypotheses': len(hyp),
+            'length': max([e['end_time'] for e in sum(hyp, start=ref)]) - min([e['start_time'] for e in sum(hyp, start=ref)]),
         }
     }
 
@@ -297,10 +296,6 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
     ])
 
     u = ref + hyp
-
-    data['info'].update({
-        'length': max([e['end_time'] for e in u]) - min([e['start_time'] for e in u]),
-    })
 
     # Sort by begin time. Otherwise, the alignment will be unintuitive and likely not what the user wanted
     u = u.sorted('start_time')
@@ -406,7 +401,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
     data['info']['wer_by_speakers'] = {
         k: {
             speaker: wer_by_speaker(k, speaker)
-            for speaker in data['info']['speakers']
+            for speaker in list(ref.unique('speaker'))
         }
         for k in hypothesis_keys
     }

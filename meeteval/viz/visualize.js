@@ -1025,7 +1025,16 @@ class CanvasPlot {
                 hr1.append("th");
                 hr1.append("th");
                 hr1.append("th");
-                hr1.append("th").text("Counts by Speaker").attr("colspan", Object.keys(wer_by_speakers).length).style("border-bottom", "1px solid white");
+
+                // Determine header from alignment type. If it contians orc, write by stream, otherwise, write by spekaer
+                let breakdownHeader;
+                if (info.alignment_type.includes("orc")) {
+                    breakdownHeader = "Counts by Stream";
+                } else {
+                    breakdownHeader = "Counts by Speaker";
+                }
+
+                hr1.append("th").text(breakdownHeader).attr("colspan", Object.keys(wer_by_speakers).length).style("border-bottom", "1px solid white");
 
                 const hr = head.append("tr")
                 hr.append("th").text("");
@@ -1068,11 +1077,20 @@ class CanvasPlot {
             }
         });
         label("Alignment:", info.alignment_type, null,
-            c => c.append('div').classed('wrap-40', true).text("The alignment algorithm used to generate this visualization. Available are:\n" +
-            "cp: concatenated minimum-permutation\n" +
-            "tcp: time-constrained minimum permutation\n\n" +
-            "(This setting cannot be changed interactively, but has to be selected when generating the visualization)\n" +
-            "Check the documentation for details")
+            c => c.append('div').classed('wrap-60', true).html("The alignment algorithm used to generate this visualization. Available are:" +
+            "<ul>" +
+            "<li><code>cp</code>: concatenated minimum-permutation</li>" +
+            "<li><code>tcp</code>: time-constrained minimum permutation</li>" +
+            "<li><code>orc</code>: (speaker-agnostic) optimal reference combination</li>" +
+            "<li><code>tcorc</code>: (speaker-agnostic) time-constrained optimal reference combination</li>" +
+            "</ul>" +
+            "<p>All visualizations are generated with <code>reference_sort='segment'</code> and <code>hypothesis_sort='segment'</code>. " +
+            "Time-constrained alignments are generated with <code>collar=5</code>, <code>ref_pseudo_word_level_timing='character_based'</code> and " +
+            "<code>hyp_pseudo_word_level_timing='character_based_points'</code>. " +
+            "Word lengths for the visualization are determined with the <code>'character_based'</code> strategy.</p>" +
+            "<p>This setting has to be selected when generating the visualization. " +
+            "Check the documentation for details.</p>"
+        )
         )
         if (info.wer.reference_self_overlap?.overlap_rate) label(
             "Reference self-overlap:",
