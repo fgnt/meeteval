@@ -246,7 +246,7 @@ def apply_orc_assignment(
     if reference != []:     # Special case where we don't want to handle [] as SegLST
         try:
             r_conv = asseglistconvertible(reference, py_convert=False)
-        except:
+        except Exception:
             pass
         else:
             reference = r_conv.to_seglst()

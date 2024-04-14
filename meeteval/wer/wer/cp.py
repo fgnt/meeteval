@@ -381,7 +381,7 @@ def apply_cp_assignment(
     try:
         r_conv = asseglistconvertible(reference, py_convert=None)
         h_conv = asseglistconvertible(hypothesis, py_convert=None)
-    except:
+    except Exception:
         # This is a Python structure
         pass
     else:

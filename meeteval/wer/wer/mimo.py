@@ -178,7 +178,7 @@ def apply_mimo_assignment(
 
     try:
         r_conv = asseglistconvertible(reference, py_convert=None)
-    except:
+    except Exception:
         pass
     else:
         reference = r_conv.to_seglst().sorted('start_time')
