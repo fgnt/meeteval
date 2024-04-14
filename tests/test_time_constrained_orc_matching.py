@@ -56,7 +56,8 @@ def test_tcorc_vs_orc(reference, hypothesis):
     orc = orc_word_error_rate(reference, hypothesis)
 
     # Without time constraint (collar is larger than the maximum length)
-    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=1000)
+    # and without sorting because the low-level ORC-WER doesn't sort
+    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=1000, reference_sort=False, hypothesis_sort=False)
     assert orc.error_rate == tcorc.error_rate
     assert orc.errors == tcorc.errors
     # TODO: make sure that the following are equal
@@ -75,7 +76,7 @@ def test_orc_bound_by_tcorc(reference, hypothesis):
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
 
     orc = orc_word_error_rate(reference, hypothesis)
-    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=0.1)
+    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=0.1, reference_sort=False, hypothesis_sort=False)
 
     # error_rate can be None when length is None
     assert orc.error_rate is None and tcorc.error_rate is None or orc.error_rate <= tcorc.error_rate
@@ -135,3 +136,23 @@ def test_examples_zero_self_overlap():
     for k, wer in wers.items():
         assert wer.reference_self_overlap.overlap_time == 0, (k, wer)
         assert wer.hypothesis_self_overlap.overlap_time == 0, (k, wer)
+
+
+def test_assignment_keeps_order():
+    from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
+
+    tcorc = time_constrained_orc_wer(
+        SegLST([
+            {'words': 'a1', 'session_id': 'a', 'speaker': 'A', 'start_time': 2, 'end_time': 3},
+            {'words': '', 'session_id': 'a', 'speaker': 'A', 'start_time': 1, 'end_time': 2},
+            {'words': 'a2', 'session_id': 'a', 'speaker': 'A', 'start_time': 0, 'end_time': 1}
+        ]),
+        SegLST([
+            {'words': 'a1', 'session_id': 'a', 'speaker': 'A1', 'start_time': 2, 'end_time': 3},
+            {'words': 'a2', 'session_id': 'a', 'speaker': 'A2', 'start_time': 0, 'end_time': 1}
+        ]),
+        reference_sort='segment',
+    )
+    assert tcorc.assignment == ('A1', 'A1', 'A2')
+
+

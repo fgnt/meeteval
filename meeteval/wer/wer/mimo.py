@@ -1,7 +1,7 @@
 import dataclasses
 from typing import Iterable, Any
 
-from meeteval.io.seglst import asseglst
+from meeteval.io.seglst import asseglst, asseglistconvertible
 from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _keys, _items, _values
@@ -162,7 +162,38 @@ def apply_mimo_assignment(
     >>> hypothesis = {'O1': 'c d', 'O2': 'a b e f'}
     >>> apply_mimo_assignment(assignment, reference, hypothesis)
     ({'O1': ['a b', 'c d'], 'O2': []}, {'O1': 'c d', 'O2': 'a b e f'})
+
+    >>> reference = STM.parse('X 1 A 0.0 1.0 a b\\nX 1 A 1.0 2.0 c d\\n')
+    >>> hypothesis = STM.parse('X 1 O1 0.0 2.0 c d\\nX 1 O0 0.0 2.0 a b e f\\n')
+    >>> reference, hypothesis = apply_mimo_assignment(assignment, reference, hypothesis)
+    >>> print(reference.dumps())
+    X 1 O1 0.0 1.0 a b
+    X 1 O1 1.0 2.0 c d
+    <BLANKLINE>
+    >>> print(hypothesis.dumps())
+    X 1 O1 0.0 2.0 c d
+    X 1 O0 0.0 2.0 a b e f
+    <BLANKLINE>
     """
+
+    try:
+        r_conv = asseglistconvertible(reference, py_convert=None)
+    except Exception:
+        pass
+    else:
+        reference = r_conv.to_seglst().sorted('start_time')
+        reference = {
+            k: list(v)
+            for k, v in reference.groupby('speaker').items()
+        }
+
+        reference_new = [
+            {**reference[r].pop(0), 'speaker': h}
+            for r, h in assignment
+        ]
+
+        return r_conv.new(reference_new), hypothesis
+
     reference_new = {k: [] for k in _keys(hypothesis)}
     # convert to list and copy
     reference = {k: list(v) for k, v in _items(reference)}
