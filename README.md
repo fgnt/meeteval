@@ -274,9 +274,8 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 
 ## Visualization
 
-> [!TIP] Try it in the browser!
->
-> fgnt.github.com/meeteval_viz
+> [!TIP]
+> Try it in the browser! https://fgnt.github.com/meeteval_viz
 
 ```python
 import meeteval
