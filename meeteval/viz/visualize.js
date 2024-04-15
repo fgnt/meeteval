@@ -375,11 +375,14 @@ function alignment_visualization(
         }
 
         for (let i = 0; i < settings.minimaps.number; i++) {
-            const viewArea = interpolate(domain, finalViewArea, i, settings.minimaps.number);
+            const viewArea = interpolate([...domain], [...finalViewArea], i, settings.minimaps.number);
             state.viewAreas.push(viewArea);
         }
-        state.viewAreas.push(finalViewArea);
+        state.viewAreas.push([...finalViewArea]);
         state.dirty = state.viewAreas.map(() => true);
+
+        // Reset filtered words after initialization
+        state.filteredWords = [];
     }
 
     initializeViewAreas(time_domain);
