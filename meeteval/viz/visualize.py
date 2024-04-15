@@ -519,7 +519,7 @@ class AlignmentVisualization:
                     height: 80vh; /* 80% of the window height roughly aligns with the visible height in a typical notebook setup */
                 }}
             </style>
-            {self.html()}
+            {self.html(encode_url=False)}
             </html>
             '''
 
@@ -567,7 +567,7 @@ class AlignmentVisualization:
         else:
             display(HTML(self._iypnb_html_()))
 
-    def html(self):
+    def html(self, encode_url=True):
         """
         Creates a visualization in HTML format.
 
@@ -645,6 +645,7 @@ class AlignmentVisualization:
                             match_width: 0.1,
                             syncID: {dumps_json(self.sync_id, default='null')},
                             audio_server: 'http://localhost:7777',
+                            encodeURL: {'true' if encode_url else 'false'},
                         }}
                     );
                     else setTimeout(exec, 100);

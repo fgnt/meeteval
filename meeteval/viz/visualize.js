@@ -268,13 +268,14 @@ function alignment_visualization(
         match_width: 10,
         audio_server: 'http://localhost:7777',
         syncID: null,
+        encodeURL: true,
     }
 ) {
     var urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('minimaps')) {
+    if (settings.encodeURL && urlParams.has('minimaps')) {
         settings.minimaps.number = urlParams.get('minimaps')
     }
-    if (urlParams.has('regex')) {
+    if (settings.encodeURL && urlParams.has('regex')) {
         settings.search_bar.initial_query = urlParams.get('regex');
     }
 
@@ -362,7 +363,7 @@ function alignment_visualization(
         state.viewAreas = [];
         var urlParams = new URLSearchParams(window.location.search);
         if (finalViewArea === null) {
-            if (urlParams.has('selection')) {
+            if (settings.encodeURL && urlParams.has('selection')) {
                 console.log("Setting selection from URL", urlParams.get('selection'));
                 finalViewArea = parseSelection(urlParams.get('selection'));
                 if (!finalViewArea) {
@@ -433,7 +434,7 @@ function alignment_visualization(
         }, drawTracker, 20);
 
          // Update URL
-        call_delayed_throttled(
+        if (settings.encodeURL) call_delayed_throttled(
             () => {
                 const selection = state.viewAreas[state.viewAreas.length - 1];
                 set_url_param('selection', `${selection[0].toFixed(1)}-${selection[1].toFixed(1)}`)
