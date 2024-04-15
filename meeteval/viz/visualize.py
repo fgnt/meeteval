@@ -245,7 +245,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         'info': {
             'filename': ref[0]['session_id'],
             'alignment_type': assignment,
-            'length': max([e['end_time'] for e in sum(hyp, start=ref)]) - min([e['start_time'] for e in sum(hyp, start=ref)]),
+            'length': max([e['end_time'] for e in hyp[0] + ref]) - min([e['start_time'] for e in hyp[0] + ref]),
         }
     }
 
