@@ -3,4 +3,4 @@ from . import wer
 from . import der
 from . import viz
 
-__version__ = '0.2.1'
+__version__ = '0.3.0'
