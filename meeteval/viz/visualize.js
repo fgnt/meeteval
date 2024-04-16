@@ -2096,8 +2096,8 @@ class CanvasPlot {
             // Note: Deleting and adding an audio with the same content doesn't
             //       trigger a load. Hence, no optimization necessary.
             audio_div.selectAll("*").remove();
-            let lower = rangeSelector.selection[0];
-            let upper = rangeSelector.selection[1];
+            let lower = state.viewAreas[state.viewAreas.length - 1][0];
+            let upper = state.viewAreas[state.viewAreas.length - 1][1];
             let range = lower + " - " + upper;
             let path = settings.audio_server + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             if ( parseFloat(lower) < parseFloat(upper) ){
@@ -2111,9 +2111,9 @@ class CanvasPlot {
             }
         };
         let maybe_remove_audio = function (){
-            if (rangeSelector.selection){
-                let lower = rangeSelector.selection[0];
-                let upper = rangeSelector.selection[1];
+            if (state.viewAreas[state.viewAreas.length - 1]){
+                let lower = state.viewAreas[state.viewAreas.length - 1][0];
+                let upper = state.viewAreas[state.viewAreas.length - 1][1];
                 let path = settings.audio_server + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
                 let audio = audio_div.select("audio")
                 if ( ! audio.empty() ){
