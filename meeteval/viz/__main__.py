@@ -135,6 +135,10 @@ def create_viz_folder(
                                 with tag('td'):
                                     with tag('a', href=f'{session_id}.html'):
                                         doc.text('View SideBySide')
+                                with tag('td'):
+                                    tags = '&'.join(f'{session_id}_{i}_{a}' for i, a in v.keys())
+                                    with tag('a', href=f'side_by_side_sync.html?{tags}'):
+                                        doc.text('View SydeBySide Synced')
             doc.asis('''
 <script>
     $(document).ready(function() {
@@ -143,6 +147,9 @@ def create_viz_folder(
     });
 </script>
             ''')
+
+    import shutil
+    shutil.copy(Path(__file__).parent / 'side_by_side_sync.html', out / 'side_by_side_sync.html')
 
     with open(out / "index.html", "w") as text_file:
         text_file.write(indent(doc.getvalue()))
@@ -196,7 +203,7 @@ def cli():
             if name == 'alignment':
                 command_parser.add_argument(
                     '--alignment',
-                    choices=['tcp', 'cp', 'tcp,cp', 'cp,tcp'],
+                    choices=['tcp', 'cp', 'tcp,cp', 'cp,tcp', 'tcorc', 'orc'],
                     help='Specifies which alignment is used.\n'
                          '- cp: Find the permutation that minimizes the cpWER and use the "classical" alignment.\n'
                          '- tcp: Find the permutation that minimizes the tcpWER and use a time constraint alignment.'

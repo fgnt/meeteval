@@ -268,13 +268,14 @@ function alignment_visualization(
         match_width: 10,
         audio_server: 'http://localhost:7777',
         syncID: null,
+        encodeURL: true,
     }
 ) {
     var urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('minimaps')) {
+    if (settings.encodeURL && urlParams.has('minimaps')) {
         settings.minimaps.number = urlParams.get('minimaps')
     }
-    if (urlParams.has('regex')) {
+    if (settings.encodeURL && urlParams.has('regex')) {
         settings.search_bar.initial_query = urlParams.get('regex');
     }
 
@@ -362,7 +363,7 @@ function alignment_visualization(
         state.viewAreas = [];
         var urlParams = new URLSearchParams(window.location.search);
         if (finalViewArea === null) {
-            if (urlParams.has('selection')) {
+            if (settings.encodeURL && urlParams.has('selection')) {
                 console.log("Setting selection from URL", urlParams.get('selection'));
                 finalViewArea = parseSelection(urlParams.get('selection'));
                 if (!finalViewArea) {
@@ -375,11 +376,14 @@ function alignment_visualization(
         }
 
         for (let i = 0; i < settings.minimaps.number; i++) {
-            const viewArea = interpolate(domain, finalViewArea, i, settings.minimaps.number);
+            const viewArea = interpolate([...domain], [...finalViewArea], i, settings.minimaps.number);
             state.viewAreas.push(viewArea);
         }
-        state.viewAreas.push(finalViewArea);
+        state.viewAreas.push([...finalViewArea]);
         state.dirty = state.viewAreas.map(() => true);
+
+        // Reset filtered words after initialization
+        state.filteredWords = [];
     }
 
     initializeViewAreas(time_domain);
@@ -430,7 +434,7 @@ function alignment_visualization(
         }, drawTracker, 20);
 
          // Update URL
-        call_delayed_throttled(
+        if (settings.encodeURL) call_delayed_throttled(
             () => {
                 const selection = state.viewAreas[state.viewAreas.length - 1];
                 set_url_param('selection', `${selection[0].toFixed(1)}-${selection[1].toFixed(1)}`)
@@ -1025,7 +1029,16 @@ class CanvasPlot {
                 hr1.append("th");
                 hr1.append("th");
                 hr1.append("th");
-                hr1.append("th").text("Counts by Speaker").attr("colspan", Object.keys(wer_by_speakers).length).style("border-bottom", "1px solid white");
+
+                // Determine header from alignment type. If it contians orc, write by stream, otherwise, write by spekaer
+                let breakdownHeader;
+                if (info.alignment_type.includes("orc")) {
+                    breakdownHeader = "Counts by Stream";
+                } else {
+                    breakdownHeader = "Counts by Speaker";
+                }
+
+                hr1.append("th").text(breakdownHeader).attr("colspan", Object.keys(wer_by_speakers).length).style("border-bottom", "1px solid white");
 
                 const hr = head.append("tr")
                 hr.append("th").text("");
@@ -1068,11 +1081,20 @@ class CanvasPlot {
             }
         });
         label("Alignment:", info.alignment_type, null,
-            c => c.append('div').classed('wrap-40', true).text("The alignment algorithm used to generate this visualization. Available are:\n" +
-            "cp: concatenated minimum-permutation\n" +
-            "tcp: time-constrained minimum permutation\n\n" +
-            "(This setting cannot be changed interactively, but has to be selected when generating the visualization)\n" +
-            "Check the documentation for details")
+            c => c.append('div').classed('wrap-60', true).html("The alignment algorithm used to generate this visualization. Available are:" +
+            "<ul>" +
+            "<li><code>cp</code>: concatenated minimum-permutation</li>" +
+            "<li><code>tcp</code>: time-constrained minimum permutation</li>" +
+            "<li><code>orc</code>: (speaker-agnostic) optimal reference combination</li>" +
+            "<li><code>tcorc</code>: (speaker-agnostic) time-constrained optimal reference combination</li>" +
+            "</ul>" +
+            "<p>All visualizations are generated with <code>reference_sort='segment'</code> and <code>hypothesis_sort='segment'</code>. " +
+            "Time-constrained alignments are generated with <code>collar=5</code>, <code>ref_pseudo_word_level_timing='character_based'</code> and " +
+            "<code>hyp_pseudo_word_level_timing='character_based_points'</code>. " +
+            "Word lengths for the visualization are determined with the <code>'character_based'</code> strategy.</p>" +
+            "<p>This setting has to be selected when generating the visualization. " +
+            "Check the documentation for details.</p>"
+        )
         )
         if (info.wer.reference_self_overlap?.overlap_rate) label(
             "Reference self-overlap:",
@@ -2074,8 +2096,8 @@ class CanvasPlot {
             // Note: Deleting and adding an audio with the same content doesn't
             //       trigger a load. Hence, no optimization necessary.
             audio_div.selectAll("*").remove();
-            let lower = rangeSelector.selection[0];
-            let upper = rangeSelector.selection[1];
+            let lower = state.viewAreas[state.viewAreas.length - 1][0];
+            let upper = state.viewAreas[state.viewAreas.length - 1][1];
             let range = lower + " - " + upper;
             let path = settings.audio_server + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
             if ( parseFloat(lower) < parseFloat(upper) ){
@@ -2089,9 +2111,9 @@ class CanvasPlot {
             }
         };
         let maybe_remove_audio = function (){
-            if (rangeSelector.selection){
-                let lower = rangeSelector.selection[0];
-                let upper = rangeSelector.selection[1];
+            if (state.viewAreas[state.viewAreas.length - 1]){
+                let lower = state.viewAreas[state.viewAreas.length - 1][0];
+                let upper = state.viewAreas[state.viewAreas.length - 1][1];
                 let path = settings.audio_server + "/" + file_path.node().value + "?start=" + lower + "&stop=" + upper;
                 let audio = audio_div.select("audio")
                 if ( ! audio.empty() ){
