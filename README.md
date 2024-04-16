@@ -1,6 +1,6 @@
 <h1 align="center">MeetEval</h1> 
 <h3 align="center">A meeting transcription evaluation toolkit</h3>
-<div align="center"><a href="#features">Features</a> | <a href="#installation">Installation</a> | <a href="#python-interface">Python Interface</a> | <a href="#command-line-interface">Command Line Interface</a> | <a href="#visualization-wip">Visualization (WIP)</a> | <a href="#cite">Cite</a></div>
+<div align="center"><a href="#features">Features</a> | <a href="#installation">Installation</a> | <a href="#python-interface">Python Interface</a> | <a href="#command-line-interface">Command Line Interface</a> | <a href="#visualization">Visualization</a> | <a href="#cite">Cite</a></div>
 <br>
 <a href="https://github.com/fgnt/meeteval/actions"><img src="https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg"/></a>
 
@@ -23,7 +23,7 @@ MeetEval supports the following metrics for meeting transcription evaluation:
 - **Diarization Error Rate (DER)** by wrapping [mdeval](https://github.com/nryant/dscore/raw/master/scorelib/md-eval-22.pl)<br>
   `meeteval-der md_eval_22 -r ref.stm -h hyp.stm --collar .25`
 
-Additionally (WIP), MeetEval contains a [visualization](#visualization-wip) tool for cpWER and tcpWER alignments that help spot errors in system outputs.
+Additionally, MeetEval contains a [visualization](#visualization) tool for cpWER and tcpWER alignments that helps to spot errors in system outputs.
 
 ## Installation
 
@@ -272,12 +272,10 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 # [('a', 'a'), ('b', 'c'), ('*', 'd')]
 ```
 
-## Visualization [WIP]
+## Visualization
 
-> [!IMPORTANT]
-> The visualization is under development! <br>
-> Preview: https://groups.uni-paderborn.de/nt/meeteval/viz.html<br>
-> Interactive notebook: https://fgnt.github.io/meeteval_jupyterlite/lab?path=Demo.ipynb
+> [!TIP]
+> Try it in the browser! https://fgnt.github.com/meeteval_viz
 
 ```python
 import meeteval
