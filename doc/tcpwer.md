@@ -26,29 +26,36 @@ We thus implement different strategies to infer "pseudo-word-level" timings from
 - `full_segment`: Copy the time annotation from the segment to every word within that segment
 - `equidistant_intervals`: Divides the segment-level interval into number-of-words many equally sized intervals
 - `euqidistant_points`: Places words as time-points (zero-length intervals) equally spaced in the segment
+- `character_based`: Estimate word length from the number of characters in a word
+- `character_based_points`: Same as `character_based`, but only use the center point of a word instead of the full time span
 
-To achieve the goals mentioned above we use `full_segment` as the default for the reference and `equidistant_intervals` as the default for the hypothesis (system output).
-Using `full_segment` for the hypothesis could be exploited by the system by joining estimated segments together and thus not providing diarization information and allowing the metric to match words as correct or substituted that are spaced out over large amounts of time.
-The extreme case, where the system only predicts one segment per speaker, is equal to cpWER and contradicts the goals of tcpWER, so we recommend `equidistant_intervals` as the default.
-The reference annotations, on the other hand, are fixed and can be trusted.
-They are often annotated by a human on an utterance-level.
-The activity in such annotations is usually over-estimated compared to what a VAD system would produce and humans tend to group words by meaning (e.g., one sentence) and not by the way of speaking (e.g., a pause)[^1].
+To achieve the goals mentioned above we use `character_based` as the default for the reference and `character_based_points` as the default for the hypothesis (system output).
+We recommend the character-based approximation of word lengths because it is straightforward and more accurate than the equidistant approximation.
 
-Using an equidistant segmentation for the pseudo-word-level annotations for both reference and hypothesis can lead to unwanted mismatches, e.g., due to differences in speaking rate, and would require a large collar.
+The system can exploit the following choices for the hypothesis:
+- `full_segment`: The system can output a single segment and achieve the same result as cpWER (effectively ignoring the time constraint)
+- `character_based` or `euqidistant_intervals`: The system can split off the first and last word of a segment and fill the gaps between segments with them. This improves the WER slightly.
+
+See [the paper](https://arxiv.org/abs/2307.11394) for a more detailed discussion.
 
 ## Collar
-We include a collar option both for the reference (`--ref-collar`) and the hypothesis (`--hyp-collar`) annotations.
-It specifies by how much the system's (and pseudo-word-level annotation strategy's) prediction can differ from the ground truth annotation before it is counted as an error.
-Due to the way we estimate pseudo-word-level annotations for the segment-level annotations, the collar has to be relatively large (compared to typical values for DER computation).
+We include a collar option `--collar` that is added to the hypothesis temporal annotations (adding it to the reference vs hypothesis is equivalent).
+It specifies how much the system's (and pseudo-word-level annotation strategy's) prediction can differ from the ground truth annotation before it is counted as an error.
+Due to how pseudo-word-level annotations are estimated for the segment-level annotations, the collar has to be relatively large (compared to typical values for DER computation).
 It should be chosen so that small diarization errors (e.g., merging two utterances of the same speaker uttered without a pause into a single segment) are not penalized but larger errors (merging utterances that are tens of seconds apart) is penalized.
-This, of course, depends on the data, but we found values in the range of 2-5s to work well on libri-CSS.
+This depends on the data, but we found values in the range of 2-5s to work well on libri-CSS.
+See [the paper](https://arxiv.org/abs/2307.11394) for a more detailed discussion.
 
 ## Using tcpWER
 
-The tcpWER currently only support STM files because they provide all necessary information on a segment level.
+The tcpWER for all file formats supported by meeteval (see [here](../README.md#file-formats)) that provide the necessary information (transcripts and start and end times).
+Most prominently, it supports SegLST (from the Chime challenges) and STM.
 You can use any resolution for the begin and end times (e.g., seconds or samples), but make sure to adjust the collar accordingly (`5` or `80000` for 16kHz).
 ```shell
+# SegLST
+meeteval-wer tcpwer -h hyp.json -r ref.json --hyp-collar 5
+# STM
 meeteval-wer tcpwer -h hyp.stm -r ref.stm --hyp-collar 5
 ```
 
-[^1]: Some annotations in LibriSpeech, for example, contain extraordinary long pauses of a few seconds within one annotated utterance
+[^1]: Some annotations in LibriSpeech, for example, contain extraordinarily long pauses of a few seconds within one annotated utterance
