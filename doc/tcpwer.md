@@ -53,9 +53,9 @@ Most prominently, it supports SegLST (from the Chime challenges) and STM.
 You can use any resolution for the begin and end times (e.g., seconds or samples), but make sure to adjust the collar accordingly (`5` or `80000` for 16kHz).
 ```shell
 # SegLST
-meeteval-wer tcpwer -h hyp.json -r ref.json --hyp-collar 5
+meeteval-wer tcpwer -h hyp.json -r ref.json --collar 5
 # STM
-meeteval-wer tcpwer -h hyp.stm -r ref.stm --hyp-collar 5
+meeteval-wer tcpwer -h hyp.stm -r ref.stm --collar 5
 ```
 
 [^1]: Some annotations in LibriSpeech, for example, contain extraordinarily long pauses of a few seconds within one annotated utterance
