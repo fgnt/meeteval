@@ -104,23 +104,32 @@ def create_viz_folder(
                 pass
             doc.asis('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">')
             with tag('style'):
-                doc.asis('''
+                n = len(alignments.split(','))
+                doc.asis(f'''
                     /* Center table */
-                    body {
+                    body {{
                         width: fit-content;
                         margin: 0 auto;
-                    }
+                    }}
                     /* Make numbers monospace and right-aligned (aligns the decimal point) */
-                    .number {
+                    .number {{
                         font-family: monospace;
                         text-align: right;
-                    }
-                    td {
+                    }}
+                    td {{
                         text-align: right;
-                    }
-                    td:nth-child(1) {
+                    }}
+                    td:nth-child(1) {{
                         text-align: left;
-                    }
+                    }}
+                    tbody tr:nth-child(odd) td {{
+                      background-color: #f2f2f2;
+                    }}
+                    tbody td:nth-child({n}n+2), 
+                    thead tr:nth-child(2) th:nth-child({n}n+2),
+                    thead tr:nth-child(1) th{{
+                        padding-left: 3em;
+                    }}
                 ''')
         with tag('body'):
             with tag('table', klass='tablesorter', id='myTable', style='width: auto;'):
@@ -144,7 +153,8 @@ def create_viz_folder(
 
                         for (k, alignment), v in avs.items():
                             with tag('th'):
-                                doc.text(f'{alignment}WER: ')
+                                doc.asis(f'{alignment}WER<br>')
+
                                 with tag('span', klass='number'):
                                     doc.text(get_wer(v))
 
