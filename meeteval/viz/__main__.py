@@ -159,26 +159,48 @@ def create_viz_folder(
                                 doc.text(f'{session_id}')
                             for (i, alignment), av in v.items():
                                 with tag('td'):
-                                    with tag('a',
-                                             href=f'{session_id}_{i}_{alignment}.html'):
+                                    with tag('span', klass='number'):
+                                        wer = av.data['info']['wer']['hypothesis']['error_rate']
+                                        doc.text(f"{wer * 100:.2f} %")
+                                    doc.text(' (')
+                                    with tag('a', href=f'{session_id}_{i}_{alignment}.html'):
                                         doc.text('View')
-                                with tag('td'):
-                                    wer = av.data['info']['wer']['hypothesis']['error_rate']
-                                    doc.text(f"{wer * 100:.2f} %")
+                                    doc.text(')')
 
                             if len(v) > 1:
                                 with tag('td'):
                                     with tag('a', href=f'{session_id}.html'):
-                                        doc.text('View SideBySide')
+                                        doc.text('SideBySide')
                                 with tag('td'):
                                     tags = '&'.join(f'{session_id}_{i}_{a}' for i, a in v.keys())
                                     with tag('a', href=f'side_by_side_sync.html?{tags}'):
-                                        doc.text('View SydeBySide Synced')
+                                        doc.text('SydeBySide Synced')
             doc.asis('''
 <script>
     $(document).ready(function() {
         // Initialize tablesorter on the table
-        $("#myTable").tablesorter();
+        $("#myTable")
+        // Read the sorting information from the URL after the tablesorter has been initialized
+        .bind("tablesorter-initialized", (e, t) => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('sort')) {
+                const idx = urlParams.get('sort');
+                const order = urlParams.get('order', 'ascending');
+                $("#myTable").trigger('sorton', [[[idx, order]]]);
+            }
+        })
+        // Store sorting information in URL
+        .bind("sortEnd", (e, t) => {
+            const cols = $(t).find('[aria-sort][aria-sort!="none"]');
+            if (cols.length > 0) {
+                const col = cols[0];
+                const url = new URL(window.location);
+                url.searchParams.set('sort', col.cellIndex);
+                url.searchParams.set('order', col.getAttribute('aria-sort'));
+                window.history.replaceState({}, '', url);
+            }
+        })
+        .tablesorter();
     });
 </script>
             ''')
