@@ -103,19 +103,54 @@ def create_viz_folder(
             with tag('script', src='https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/js/jquery.tablesorter.min.js'):
                 pass
             doc.asis('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">')
+            with tag('style'):
+                doc.asis('''
+                    /* Center table */
+                    body {
+                        width: fit-content;
+                        margin: 0 auto;
+                    }
+                    /* Make numbers monospace and right-aligned (aligns the decimal point) */
+                    .number {
+                        font-family: monospace;
+                        text-align: right;
+                    }
+                    td {
+                        text-align: right;
+                    }
+                    td:nth-child(1) {
+                        text-align: left;
+                    }
+                ''')
         with tag('body'):
             with tag('table', klass='tablesorter', id='myTable', style='width: auto;'):
-                with tag('thead'), tag('tr'):
-                    for s in [
-                        'Session ID',
-                        *[
-                            col
-                            for (k, alignment), v in avs.items()
-                            for col in [k, f'{alignment}WER: {get_wer(v)}']
-                        ]
-                    ]:
+                with tag('thead'):
+                    with tag('tr'):
+                        with tag('th', ('data-sorter', 'false')):
+                            pass
+
+                        for system, item in itertools.groupby(avs.items(), key=lambda x: x[0][0]):
+                            with tag('th', ('data-sorter', "false"), colspan=len(list(item))):
+                                doc.text(system)
+
+                        if ',' in alignments or len(hypothesiss) > 1:
+                            with tag('th', ('data-sorter', "false"), colspan=2):
+                                with tag('span', klass='synced-view'):
+                                    pass
+
+                    with tag('tr'):
                         with tag('th'):
-                            doc.text(s)
+                            doc.text('Session ID')
+
+                        for (k, alignment), v in avs.items():
+                            with tag('th'):
+                                doc.text(f'{alignment}WER: ')
+                                with tag('span', klass='number'):
+                                    doc.text(get_wer(v))
+
+                        if ',' in alignments or len(hypothesiss) > 1:
+                            with tag('th', ('data-sorter', "false"), colspan=2):
+                                doc.text("Side-by-side views")
 
                 with tag('tbody'):
                     for session_id, v in avs_T.items():
