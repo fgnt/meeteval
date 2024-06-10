@@ -80,7 +80,7 @@ Each segment should have a minimum set of keys `"session_id"` and `"words"`.
 Depending on the metric, additional keys may be required (`"speaker"`, `"start_time"`, `"end_time"`).
 
 An example is shown below:
-```py
+```python
 [
     {
         "session_id": "recordingA", # Required
@@ -98,7 +98,7 @@ Another example can be found [here](example_files/hyp.seglst.json).
 #### [Segmental Time Mark (STM)](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75)
 Each line in an `STM` file represents one "utterance" and is defined as
 
-```STM
+```
 STM :== <filename> <channel> <speaker_id> <begin_time> <end_time> <transcript>
 ```
 where
@@ -110,13 +110,12 @@ where
 - `transcript`: space-separated list of words
 
 for example:
-```
+```STM
 recording1 1 Alice 0 0 Hello Bob.
 recording1 1 Bob 1 0 Hello Alice.
 recording1 1 Alice 2 0 How are you?
-...
 recording2 1 Alice 0 0 Hello Carol.
-...
+;; ...
 ```
 
 An example `STM` file can be found in [here](example_files/ref.stm).
@@ -124,7 +123,7 @@ An example `STM` file can be found in [here](example_files/ref.stm).
 #### [Time Marked Conversation (CTM)](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L286)
 The CTM format is defined as
 
-```CTM
+```
 CTM :== <filename> <channel> <begin_time> <duration> <word> [<confidence>]
 ```
 
