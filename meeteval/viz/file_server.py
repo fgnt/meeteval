@@ -90,7 +90,19 @@ class Backend:
 
     async def handle(self, request: web.Request):
         try:
-            name = request.match_info.get('name', "Anonymous")
+            try:
+                name = request.match_info['name']
+            except KeyError:
+                body = await request.read()
+                print('\n'.join([
+                    f"No name in request:",
+                    f" | Method: {request.method}",
+                    f" | URL: {request.url}",
+                    f" | Headers: {request.headers}",
+                    f" | Match info: {request.match_info}",
+                    f" | Body: {body}",
+                ]))
+                return web.Response(status=web.HTTPUnauthorized().status_code)
             name = '/' + name
             print(f'Requested: {name}')
 
