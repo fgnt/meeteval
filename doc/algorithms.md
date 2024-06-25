@@ -10,7 +10,7 @@ Keep in mind that these simplified implementations may not cover all edge-cases 
 
 ## Levenshtein Distance
 
-> [!INFO]
+> [!NOTE]
 > 
 > [View C++ Implementation](../meeteval/wer/matching/levenshtein.h#L8)
 
@@ -118,7 +118,7 @@ def update_lev_row_np(row: list | np.ndarray, a: str, b: str):
 
 ## Time-constrained Levenshtein Distance
 
-> [!INFO]
+> [!NOTE]
 > 
 > [View C++ Implementation](../meeteval/wer/matching/levenshtein.h#398) <br>
 > [View C++ Implementation with alignment tracking](../meeteval/wer/matching/levenshtein.h#254)
