@@ -15,6 +15,7 @@ KEEP_CONTEXT = ['doc/algorithms.md']
 
 @pytest.fixture(scope='session')
 def global_state():
+    """Used to track global state across code blocks in the files listed in `KEEP_CONTEXT`."""
     return {}
 
 
@@ -41,22 +42,22 @@ def split_code_block_comment_output(code):
     The print statement in the code block is replaced with `__output = ` so
     that the result can be inspected after `exec`.
     """
-    def get_line_offset(offset):
-        return code[:offset].count('\n')
-
+    c = ast.parse(code)
+    lines = code.splitlines()
     last_match = 0
     blocks = []
-    for m in list(re.finditer(r'print\((.*)\)\n((?:#.*\n)*#.*)', code)):
-        expected_output = '\n'.join(s[2:] for s in m.group(2).split('\n'))
-
-        blocks.append((
-            code[last_match:m.span()[0]] + '__output = ' + m.group(1),
-            expected_output,
-            get_line_offset(last_match)
-        ))
-        last_match = m.span()[1]
-    if last_match < len(code) - 1:
-        blocks.append((code[last_match:], None, get_line_offset(last_match)))
+    for s in c.body:
+        # If we parsed a print statement at the root level
+        if isinstance(s, ast.Expr) and isinstance(s.value, ast.Call) and isinstance(s.value.func, ast.Name) and s.value.func.id == 'print':
+            # Collect any lines that follow directly and start with a #
+            output = []
+            l = s.end_lineno
+            while l < len(lines) and lines[l].startswith('#'):
+                output.append(lines[l][1:])
+                l += 1
+            blocks.append(('\n'.join(lines[last_match:s.end_lineno]), '\n'.join(output), last_match))
+            last_match = l
+    blocks.append(('\n'.join(lines[last_match:]), '', last_match))
     return blocks
 
 
@@ -68,20 +69,25 @@ def exec_with_source(code, filename, lineno, globals_=None, locals_=None):
     compiled = ast.parse(code, str(filename), 'exec')
     ast.increment_lineno(compiled, lineno)
     compiled = compile(compiled, str(filename), 'exec', optimize=0)
-    exec(compiled, globals_, locals_)
+    from io import StringIO
+    from contextlib import redirect_stdout
+
+    f = StringIO()
+    with redirect_stdout(f):
+        exec(compiled, globals_, locals_)
+    return f.getvalue()
 
 
 @pytest.mark.parametrize(
         ('filename', 'codeblock'), 
         [
-            # pytest.param(filename, codeblock, id=f'{str(filename.relative_to(MEETEVAL_ROOT))}-codeblock{codeblock_index}')
             (str(filename.relative_to(MEETEVAL_ROOT)), codeblock)
             for filename in MEETEVAL_ROOT.glob('**/*.md')
-            for codeblock_index, codeblock in enumerate(get_fenced_code_blocks(filename.read_text()))
+            for codeblock in get_fenced_code_blocks(filename.read_text())
         ]
 )
 def test_readme(filename, codeblock, global_state):
-    """Run fenced code blocks in readme isolated"""
+    """Run fenced code blocks in markdown files in the MeetEval repository."""
     import os
     os.chdir(MEETEVAL_ROOT)
     lang, code, lineno = codeblock
@@ -95,8 +101,7 @@ def test_readme(filename, codeblock, global_state):
             else:
                 globals_ = {}
             for code, expected_output, line_offset in split_code_block_comment_output(code):
-                exec_with_source(code, str(filename), lineno + line_offset, globals_)
-                output = str(globals_.pop('__output', None))
+                output = exec_with_source(code, str(filename), lineno + line_offset, globals_)
                 if expected_output is not None:
                     # Check that the output is equal to the expected output, but we want to ignore whitespace
                     # for formatting / clarity reasons.
