@@ -50,7 +50,7 @@ extras_require['test'] = [
     'hypothesis',
     'coverage',
     'pytest-cov',
-    'ipython',  # IPython.lib.pretty.pprint
+    'paderbox', # paderbox.utils.pretty.pprint
     *extras_require['cli'],
 ]
 extras_require['all'] = [
@@ -118,6 +118,7 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
         'kaldialign',
+        'numpy',
         'scipy',  # scipy.optimize.linear_sum_assignment
         "typing_extensions; python_version<'3.8'",  # Missing Literal in py37
         "cached_property; python_version<'3.8'",  # Missing functools.cached_property in py37
