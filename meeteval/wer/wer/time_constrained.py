@@ -499,18 +499,28 @@ def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name, wa
         pseudo_word_level_timing:
         name:
 
+    >>> from paderbox.utils.pretty import pprint
     >>> segments = SegLST([{'words': 'c d', 'start_time': 1, 'end_time': 3}, {'words': 'a b', 'start_time': 0, 'end_time': 3}])
     >>> sort_and_validate(segments, True, 'character_based', 'test')
     Traceback (most recent call last):
     ...
     ValueError: The order of word-level timings contradicts the segment-level order in test: 2 of 4 times.
     Consider setting sort to False or "segment" or "word".
-    >>> sort_and_validate(segments, False, 'character_based', 'test')
-    SegLST(segments=[{'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}, {'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}])
-    >>> sort_and_validate(segments, 'segment', 'character_based', 'test')
-    SegLST(segments=[{'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}, {'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
-    >>> sort_and_validate(segments, 'word', 'character_based', 'test')
-    SegLST(segments=[{'words': 'a', 'start_time': 0.0, 'end_time': 1.5}, {'words': 'c', 'start_time': 1.0, 'end_time': 2.0}, {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}, {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
+    >>> pprint(sort_and_validate(segments, False, 'character_based', 'test'))
+    SegLST([{'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
+            {'words': 'd', 'start_time': 2.0, 'end_time': 3.0},
+            {'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
+            {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}])
+    >>> pprint(sort_and_validate(segments, 'segment', 'character_based', 'test'))
+    SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
+            {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
+            {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
+            {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
+    >>> pprint(sort_and_validate(segments, 'word', 'character_based', 'test'))
+    SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
+            {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
+            {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
+            {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
     """
     if sort not in (True, False, 'segment', 'word'):
         raise ValueError(
