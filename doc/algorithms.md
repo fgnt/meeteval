@@ -4,9 +4,11 @@ This file contains simplified implementations of the core algorithms used in the
 These implementations are meant for documentation.
 The actual implementations in the toolkit are more complex and track the alignment along with the distance computation, which is omitted here for clarity.
 
-All algorithms in this file operate on a _character level_ instead of the word level.
-This doesn't change the algorithms by themselves, but simplifies the implementations (because `str.split()` can be omitted).
-Keep in mind that these simplified implementations may not cover all edge-cases correctly.
+To simplify the implementations, in this file:
+ - words are represented as characters (The string `"abc"` represents three words)
+ - some implementations will complain about empty inputs
+For these cases the implementation is trivial and left out here for brevity.
+The implementations in MeetEval treat these cases correctly.
 
 ## Levenshtein Distance
 
@@ -14,9 +16,9 @@ Keep in mind that these simplified implementations may not cover all edge-cases 
 > 
 > [View C++ Implementation](../meeteval/wer/matching/levenshtein.h#L8)
 
-The Levenshtein distance (https://en.wikipedia.org/wiki/Levenshtein_distance, [the english translation of the original paper](https://nymity.ch/sybilhunting/pdf/Levenshtein1966a.pdf)) is the core of the word error rate.
+The Levenshtein distance (https://en.wikipedia.org/wiki/Levenshtein_distance, https://nymity.ch/sybilhunting/pdf/Levenshtein1966a.pdf) is the core of the word error rate.
 We use a version of the Wagner-Fisher algorithm that only uses linear memory (see, for example, https://www.baeldung.com/cs/levenshtein-distance-computation).
-There are other algorithms that are more efficient (.e.g., a bit-parallel algorithm in https://dl.acm.org/doi/10.1145/316542.316550), but we decide to stick to the simpler algorithms that are easier to understand and extend.
+There are other algorithms that are more efficient (.e.g. a bit-parallel algorithm in https://dl.acm.org/doi/10.1145/316542.316550), but extensions to computationally more extensive algorithms presented below are unknown.
 
 We'll split the Levenshtein distance into two functions so that the core algorithm can be re-used later.
 
@@ -30,7 +32,7 @@ def update_lev_row(row: list, a: str, b: str):
         row: A single row from the Levenshtein matrix. It's length must be
             `len(a) + 1`.
         a: The hypothesis string
-        b: The reference string. One update will be computed for every word
+        b: The reference string. One update will be computed for every word (here: character)
             in `b`.
     """
     # Iterate over words in b
@@ -97,6 +99,7 @@ def update_lev_row_np(row: list | np.ndarray, a: str, b: str):
         # Iterate over words in a
         for j, a_word in enumerate(a, start=1):
             if b_word == a_word:
+                # The diagonal is always best if we have a correct match
                 row2[j] = row[j-1]
             else:
                 np.minimum(
@@ -106,7 +109,7 @@ def update_lev_row_np(row: list | np.ndarray, a: str, b: str):
                 )
                 np.minimum(
                     row2[j:j+1],
-                    row[j - 1:j],   # 
+                    row[j - 1:j],   # Substitution
                     out = row2[j:j+1]
                 )
                 row2[j] += 1
@@ -130,6 +133,7 @@ The search space can be pruned often dramatically by only computing a narrow ban
 This pruning is not implemented here to keep this example simple, but the idea is simple: In the loop (a), iterate only over those words in `a` that overlap with `b_word`.
 
 The final implementation is not that simple, though.
+The overhead of the naive implementation is too large to see a good speedup.
 The begin _and_ end times used for this pruning must be monotonically increasing which can be achieved by introducing accumulated minimum and maximum times for the pruning.
 Additionally, the edges of the pruned area have to be treated correctly.
 You can check the [actual implementation](../meeteval/wer/matching/levenshtein.h#L398) for details.
@@ -156,7 +160,7 @@ def time_constrained_levenshtein_distance(a, b, collar: float):
         # (a) Iterate over words in a.
         #
         # This can be sped up by only iterating over the words that overlap 
-        # with b[i-1]. Wj - 1hen doing this, one has to take care of a few edge-cases,
+        # with b[i-1]. When doing this, one has to take care of a few edge-cases,
         # especially handling words that don't overlap with any other words
         for j, (a_word, a_begin, a_end) in enumerate(a, start=1):
             tmp = min(
@@ -187,7 +191,7 @@ The core algorithm of the Concatenated minimum-Permutation Word Error Rate (cpWE
 It computes a distance between two sets of word sequences by finding a bijective mapping (permutation) between the two sets that minimizes the sum of the pairwise distances. 
 
 But, we can find the optimum faster than computing the total distance for every permutation, which would mean computing $K!$ distances for $K$ streams.
-The Hungarian algorithm solves solving the linear sum assignment or weighted bipartite graph matching problem in polynomial time. 
+The Hungarian algorithm solves the linear sum assignment or weighted bipartite graph matching problem in polynomial time. 
 First, the pairwise distances are computed between every pair of strings.
 Then, the optimal assignment is found by the Hungarian algorithm.
 
@@ -341,6 +345,8 @@ def orc_lev_dynamic_programming(reference: list[str], hypothesis: list[str]):
         # This is the utterance consistency constraint that makes sure that
         # there is no stream switch within an utterance
         for active in range(len(hypothesis)):
+            # update_lev_row_np performs a batch update where the trailing dimensions
+            # are the free batch dimensions
             L[active] = np.moveaxis(
                 update_lev_row_np(
                     np.moveaxis(L[active], active, 0),
@@ -436,7 +442,7 @@ def levenshtein_matrix(a, b):
     m = np.zeros((len(b) + 1, len(a) + 1), dtype=int)
     m[0, :] = np.arange(m.shape[1])
     for i, b_ in enumerate(b, start=1):
-        m[i, :] = update_lev_row(m[i-1, :].copy(), a, b_)
+        m[i, :] = update_lev_row_np(m[i-1, :].copy(), a, b_)
     return m
 
 a = 'abcf'
@@ -582,58 +588,36 @@ The brute-force implementation adds a step that permutes the utterances on the o
 Only permutations are allowed where the order of utterances from the same speaker is the same as in the reference.
 
 ```python
-import itertools
-import numpy as np
+import copy
+
+def mimo_assignments(reference: list[list[str]], num_streams: int):
+    """
+    Yields all valid assignments according to the constraints that the 
+    order of utterances from the same speaker should not change.
+    
+    Builds the assignments recursively by starting with an empty list of references
+    and adding utterances one by one.
+    """
+    reference = [r for r in reference if r]  # remove empty
+    if not reference:  # all empty, yield empty streams
+        yield [[] for _ in range(num_streams)]
+    else:
+        for r in reference:
+            utt = r.pop(0)
+            for assignment in mimo_assignments(reference, num_streams):
+                for stream in range(num_streams):
+                    assignment[stream].insert(0, utt)
+                    yield copy.deepcopy(assignment)
+                    assignment[stream].pop(0)
+            r.insert(0, utt)
+
+
 def mimo_lev_bruteforce(reference: list[list[str]], hypothesis: list[str]):
     """Brute-force variant of the MIMO Levenshtein distance"""
-    num_reference_utterances = sum(len(r) for r in reference)
-    num_system_output_streams = len(hypothesis)
-    num_speakers = len(reference)
-    
-    # Flatten the reference so that we can use the same code as ORC for the assignment 
-    # to hypothesis streams
-    reference = [
-        (utterance, speaker)
-        for speaker, utterances in enumerate(reference)
-        for utterance in utterances
-    ]
-    
     distances = []
     
-    # Go over all assignments of reference utterances to hypothesis streams (same as ORC!)
-    for combination in itertools.product(range(num_system_output_streams), repeat=len(reference)):
-        
-        # Group the references by assigned hypothesis stream.
-        # This is the same as ORC except that we can't already concatenate the utterances
-        grouped_reference = [[] for _ in range(len(hypothesis))]
-        for c, r in zip(combination, reference, strict=True):
-            grouped_reference[c].append(r)
-            
-        # Extending ORC:
-        # Find all allowed permutations of reference utterances on each output stream
-        # We ensure the constraint on the order of utterances by computing all allowed
-        # "sampling orders" as the permutations of the speaker labels and eliminating 
-        # duplicates
-        speaker_labels = [[s for u, s in g] for g in grouped_reference]
-        sampling_orders = [set(itertools.permutations(l)) for l in speaker_labels]
-        
-        # Every combination of sampling orders across streams is valid, so iterate over all of them
-        for p in itertools.product(*sampling_orders):
-            
-            # Now build the reference streams (similar to ORC, but now with sampling order)
-            reference_streams = []
-            for p_, gr in zip(p, grouped_reference, strict=True):
-                reference_stream = ''
-                
-                speaker_grouped = {
-                    speaker: [utterance for utterance, s in gr if s == speaker]
-                    for speaker in range(num_speakers)
-                }
-                for p__ in p_:
-                    reference_stream = reference_stream + speaker_grouped[p__].pop(0)
-                reference_streams.append(reference_stream)
-                
-            distances.append(sum(levenshtein_distance(h, r) for h, r in zip(hypothesis, reference_streams)))
+    for streams in mimo_assignments(reference, [[] for _ in range(len(hypothesis))]):
+        distances.append(sum(levenshtein_distance(h, r) for h, r in zip(hypothesis, streams)))
             
     # Report minimum distance
     return min(distances)
@@ -675,7 +659,7 @@ def mimo_lev_dynamic_programming(reference: list[list[str]], hypothesis: list[st
         for r in range(len(reference)):
             if reference_cell[r] == 0:
                 # If this is a border cell, ignore in minimum
-                L[r, :, *reference_cell, ...] = 100000000 
+                L[r, :, *reference_cell, ...] = 2147483647 
                 continue
                 
             # Get the current reference utterance that corresponds to the speaker `r` in 
@@ -691,7 +675,7 @@ def mimo_lev_dynamic_programming(reference: list[list[str]], hypothesis: list[st
             # there is no stream switch within an utterance
             for active in range(len(hypothesis)):
                 L[r, active, *reference_cell] = np.moveaxis(
-                    update_lev_row(
+                    update_lev_row_np(
                         np.ascontiguousarray(np.moveaxis(L[r, active, *parent_cell], active, 0)),
                         hypothesis[active],
                         reference_utterance
