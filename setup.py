@@ -50,7 +50,7 @@ extras_require['test'] = [
     'hypothesis',
     'coverage',
     'pytest-cov',
-    'ipython',  # IPython.lib.pretty.pprint
+    'paderbox', # paderbox.utils.pretty.pprint
     *extras_require['cli'],
 ]
 extras_require['all'] = [

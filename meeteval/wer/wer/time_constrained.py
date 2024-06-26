@@ -367,7 +367,7 @@ def get_pseudo_word_level_timings(t: SegLST, strategy: str) -> SegLST:
         - `'none`' or `None`: Do not estimate word-level timings but assume
                 that the provided timings are already given on a word level.
 
-    >>> from IPython.lib.pretty import pprint
+    >>> from paderbox.utils.pretty import pprint
     >>> from meeteval.io.seglst import SegLST
     >>> s = SegLST([{'words': 'abc b', 'start_time': 0, 'end_time': 4}, {'words': 'c d e f', 'start_time': 4, 'end_time': 8}])
     >>> pprint(get_pseudo_word_level_timings(s, 'full_segment'))
