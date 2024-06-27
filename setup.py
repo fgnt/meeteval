@@ -50,7 +50,7 @@ extras_require['test'] = [
     'hypothesis',
     'coverage',
     'pytest-cov',
-    'ipython',  # IPython.lib.pretty.pprint
+    'paderbox', # paderbox.utils.pretty.pprint
     *extras_require['cli'],
 ]
 extras_require['all'] = [
@@ -100,11 +100,11 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
     ],
 
     python_requires=">=3.5",
@@ -118,6 +118,7 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
         'kaldialign',
+        'numpy',
         'scipy',  # scipy.optimize.linear_sum_assignment
         "typing_extensions; python_version<'3.8'",  # Missing Literal in py37
         "cached_property; python_version<'3.8'",  # Missing functools.cached_property in py37
