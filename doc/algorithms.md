@@ -616,7 +616,7 @@ def mimo_lev_bruteforce(reference: list[list[str]], hypothesis: list[str]):
     """Brute-force variant of the MIMO Levenshtein distance"""
     distances = []
     
-    for streams in mimo_assignments(reference, [[] for _ in range(len(hypothesis))]):
+    for streams in mimo_assignments(reference, len(hypothesis)):
         distances.append(sum(levenshtein_distance(h, r) for h, r in zip(hypothesis, streams)))
             
     # Report minimum distance
@@ -638,7 +638,7 @@ The ORC dynamic programming algorithm can also be extended to MIMO by adding an 
 ```python
 def mimo_lev_dynamic_programming(reference: list[list[str]], hypothesis: list[str]):
     """Iterative dynamic-programming implementation of the MIMO Levenshtein distance"""
-    from itertools import product
+    import itertools
     import numpy as np
 
     # Reserve memory for the multi-dimensional Levenshtein matrix (this is eq. (3) in ICASSSP 2023 paper without the change token)
