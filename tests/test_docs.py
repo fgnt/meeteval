@@ -10,6 +10,7 @@ FENCED_CODE_BLOCK_REGEX = re.compile(r'```([^`\n]*)?\n((?:.|\n)*?)\n```')
 # List of language blocks that are not tested
 LANG_BLACKLIST = ['shell', 'bibtex', '']
 
+# Markdown files for which the context is kept between code blocks
 KEEP_CONTEXT = ['doc/algorithms.md']
 
 
@@ -37,10 +38,6 @@ def split_code_block_comment_output(code):
     """Splits a code block where a line starts with `print` and the following
     line is a comment.
     The comment is expected to be the output of the print statement.
-
-    Returns a list of tuples with the code block and the expected output.
-    The print statement in the code block is replaced with `__output = ` so
-    that the result can be inspected after `exec`.
     """
     c = ast.parse(code)
     lines = code.splitlines()
@@ -65,6 +62,7 @@ def exec_with_source(code, filename, lineno, globals_=None, locals_=None):
     """
     Like `compile` followed by `exec`, but sets the correct line number for the code block.
     This is required for correct traceback display.
+    Captures stdout and returns it as a string.
     """
     compiled = ast.parse(code, str(filename), 'exec')
     ast.increment_lineno(compiled, lineno)
