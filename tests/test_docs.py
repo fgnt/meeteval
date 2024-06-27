@@ -38,23 +38,47 @@ def split_code_block_comment_output(code):
     """Splits a code block where a line starts with `print` and the following
     line is a comment.
     The comment is expected to be the output of the print statement.
+
+    >>> split_code_block_comment_output(r'''
+    ... # this is a comment
+    ... print('hello')
+    ... print('world')
+    ... # hello
+    ... # world
+    ...
+    ... # Here starts the second block
+    ... a = 2
+    ...
+    ... print(
+    ...     a
+    ... )
+    ... # 2
+    ... ''')
+    [("\\n# this is a comment\\nprint('hello')\\nprint('world')", ' hello\\n world', 0), ('\\n# Here starts the second block\\na = 2\\n\\nprint(\\n    a\\n)', ' 2', 6)]
     """
     c = ast.parse(code)
     lines = code.splitlines()
     last_match = 0
     blocks = []
+    l = 0
     for s in c.body:
+        if l > s.end_lineno:
+            continue
+
         # If we parsed a print statement at the root level
         if isinstance(s, ast.Expr) and isinstance(s.value, ast.Call) and isinstance(s.value.func, ast.Name) and s.value.func.id == 'print':
             # Collect any lines that follow directly and start with a #
             output = []
             l = s.end_lineno
+            if not lines[l].startswith('#'):
+                continue
             while l < len(lines) and lines[l].startswith('#'):
                 output.append(lines[l][1:])
                 l += 1
             blocks.append(('\n'.join(lines[last_match:s.end_lineno]), '\n'.join(output), last_match))
             last_match = l
-    blocks.append(('\n'.join(lines[last_match:]), '', last_match))
+    if last_match < len(lines):
+        blocks.append(('\n'.join(lines[last_match:]), '', last_match))
     return blocks
 
 
@@ -84,10 +108,12 @@ def exec_with_source(code, filename, lineno, globals_=None, locals_=None):
             for codeblock in get_fenced_code_blocks(filename.read_text())
         ]
 )
-def test_readme(filename, codeblock, global_state):
+def test_readme(filename, codeblock, global_state, monkeypatch):
     """Run fenced code blocks in markdown files in the MeetEval repository."""
-    import os
-    os.chdir(MEETEVAL_ROOT)
+    # Some code blocks in the readme file must run in the meeteval root directory
+    # because they access the example files in `MEETEVAL_ROOT/example_files`
+    monkeypatch.chdir(MEETEVAL_ROOT)
+
     lang, code, lineno = codeblock
     if lang in LANG_BLACKLIST:
         return
