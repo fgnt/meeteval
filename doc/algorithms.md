@@ -10,6 +10,8 @@ To simplify the implementations, in this file:
 For these cases the implementation is trivial and left out here for brevity.
 The implementations in MeetEval treat these cases correctly.
 
+Note that the code in this file requires at least Python version 3.11.
+
 ## Levenshtein Distance
 
 > [!NOTE]
