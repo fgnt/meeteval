@@ -659,7 +659,7 @@ def mimo_lev_dynamic_programming(reference: list[list[str]], hypothesis: list[st
         for r in range(len(reference)):
             if reference_cell[r] == 0:
                 # If this is a border cell, ignore in minimum
-                L[r, :, *reference_cell, ...] = 2147483647 
+                L[r, :, *reference_cell, ...] = 2147483647 # 2^31 - 1
                 continue
                 
             # Get the current reference utterance that corresponds to the speaker `r` in 
@@ -686,7 +686,7 @@ def mimo_lev_dynamic_programming(reference: list[list[str]], hypothesis: list[st
             
         # End of utterance (position of a "change token" in [1])
         # Take the minimum over all possible assignments for this cell, across all speakers
-        L[...] = np.min(L, axis=(0, 1))
+        L[:, :, *reference_cell, ...] = np.min(L[:, :, *reference_cell, ...], axis=(0, 1))
     return L.flatten()[-1]
 ```
 
