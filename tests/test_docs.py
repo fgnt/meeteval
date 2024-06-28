@@ -1,4 +1,9 @@
 import pytest
+import sys
+
+if sys.version_info < (3, 11):
+    pytest.skip(reason='algorithms.md requires Python 3.11+', allow_module_level=True)
+
 import re
 from pathlib import Path
 import ast
