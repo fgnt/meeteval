@@ -103,19 +103,64 @@ def create_viz_folder(
             with tag('script', src='https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/js/jquery.tablesorter.min.js'):
                 pass
             doc.asis('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">')
+            with tag('style'):
+                n = len(alignments.split(','))
+                doc.asis(f'''
+                    /* Center table */
+                    body {{
+                        width: fit-content;
+                        margin: 0 auto;
+                    }}
+                    /* Make numbers monospace and right-aligned (aligns the decimal point) */
+                    .number {{
+                        font-family: monospace;
+                        text-align: right;
+                    }}
+                    td {{
+                        text-align: right;
+                    }}
+                    td:nth-child(1) {{
+                        text-align: left;
+                    }}
+                    tbody tr:nth-child(odd) td {{
+                      background-color: #f2f2f2;
+                    }}
+                    tbody td:nth-child({n}n+2), 
+                    thead tr:nth-child(2) th:nth-child({n}n+2),
+                    thead tr:nth-child(1) th{{
+                        padding-left: 3em;
+                    }}
+                ''')
         with tag('body'):
             with tag('table', klass='tablesorter', id='myTable', style='width: auto;'):
-                with tag('thead'), tag('tr'):
-                    for s in [
-                        'Session ID',
-                        *[
-                            col
-                            for (k, alignment), v in avs.items()
-                            for col in [k, f'{alignment}WER: {get_wer(v)}']
-                        ]
-                    ]:
+                with tag('thead'):
+                    with tag('tr'):
+                        with tag('th', ('data-sorter', 'false')):
+                            pass
+
+                        for system, item in itertools.groupby(avs.items(), key=lambda x: x[0][0]):
+                            with tag('th', ('data-sorter', "false"), colspan=len(list(item))):
+                                doc.text(system)
+
+                        if ',' in alignments or len(hypothesiss) > 1:
+                            with tag('th', ('data-sorter', "false"), colspan=2):
+                                with tag('span', klass='synced-view'):
+                                    pass
+
+                    with tag('tr'):
                         with tag('th'):
-                            doc.text(s)
+                            doc.text('Session ID')
+
+                        for (k, alignment), v in avs.items():
+                            with tag('th'):
+                                doc.asis(f'{alignment}WER<br>')
+
+                                with tag('span', klass='number'):
+                                    doc.text(get_wer(v))
+
+                        if ',' in alignments or len(hypothesiss) > 1:
+                            with tag('th', ('data-sorter', "false"), colspan=2):
+                                doc.text("Side-by-side views")
 
                 with tag('tbody'):
                     for session_id, v in avs_T.items():
@@ -124,26 +169,48 @@ def create_viz_folder(
                                 doc.text(f'{session_id}')
                             for (i, alignment), av in v.items():
                                 with tag('td'):
-                                    with tag('a',
-                                             href=f'{session_id}_{i}_{alignment}.html'):
+                                    with tag('span', klass='number'):
+                                        wer = av.data['info']['wer']['hypothesis']['error_rate']
+                                        doc.text(f"{wer * 100:.2f} %")
+                                    doc.text(' (')
+                                    with tag('a', href=f'{session_id}_{i}_{alignment}.html'):
                                         doc.text('View')
-                                with tag('td'):
-                                    wer = av.data['info']['wer']['hypothesis']['error_rate']
-                                    doc.text(f"{wer * 100:.2f} %")
+                                    doc.text(')')
 
                             if len(v) > 1:
                                 with tag('td'):
                                     with tag('a', href=f'{session_id}.html'):
-                                        doc.text('View SideBySide')
+                                        doc.text('SideBySide')
                                 with tag('td'):
                                     tags = '&'.join(f'{session_id}_{i}_{a}' for i, a in v.keys())
                                     with tag('a', href=f'side_by_side_sync.html?{tags}'):
-                                        doc.text('View SydeBySide Synced')
+                                        doc.text('SydeBySide Synced')
             doc.asis('''
 <script>
     $(document).ready(function() {
         // Initialize tablesorter on the table
-        $("#myTable").tablesorter();
+        $("#myTable")
+        // Read the sorting information from the URL after the tablesorter has been initialized
+        .bind("tablesorter-initialized", (e, t) => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('sort')) {
+                const idx = urlParams.get('sort');
+                const order = urlParams.get('order', 'ascending');
+                $("#myTable").trigger('sorton', [[[idx, order]]]);
+            }
+        })
+        // Store sorting information in URL
+        .bind("sortEnd", (e, t) => {
+            const cols = $(t).find('[aria-sort][aria-sort!="none"]');
+            if (cols.length > 0) {
+                const col = cols[0];
+                const url = new URL(window.location);
+                url.searchParams.set('sort', col.cellIndex);
+                url.searchParams.set('order', col.getAttribute('aria-sort'));
+                window.history.replaceState({}, '', url);
+            }
+        })
+        .tablesorter();
     });
 </script>
             ''')
