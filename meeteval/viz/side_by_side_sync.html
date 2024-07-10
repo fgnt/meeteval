@@ -13,8 +13,16 @@
       if (!value) {
         // Value is none when no key is given (e.g., ?systemA&systemB vs ?sync=True)
         value = key;
+
+        // Preprocess file path
+        if (!value.endsWith('.html') && !value.endsWith('.htm')) {
+            value += '.html';
+        }
+        if (!value.startsWith('/')) {
+            value = './' + value;
+        }
         const iframe = document.createElement('iframe');
-        iframe.src = `./${value}.html`;
+        iframe.src = value;
         iframe.width = "100%";
         iframe.height = "100%";
         iframe.style.border = "none";
