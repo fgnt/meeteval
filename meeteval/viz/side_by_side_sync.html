@@ -18,9 +18,6 @@
         if (!value.endsWith('.html') && !value.endsWith('.htm')) {
             value += '.html';
         }
-        if (!value.startsWith('/')) {
-            value = './' + value;
-        }
         const iframe = document.createElement('iframe');
         iframe.src = value;
         iframe.width = "100%";
