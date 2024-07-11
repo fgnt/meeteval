@@ -7,9 +7,12 @@ from dataclasses import dataclass, replace
 
 from meeteval.io.stm import STM
 from meeteval.io.seglst import SegLST, seglst_map, asseglst, SegLstSegment
+from meeteval.wer.preprocess import split_words, words_to_int
 from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
 import logging
+
+from meeteval.wer.wer.utils import check_single_filename
 
 logger = logging.getLogger('time_constrained')
 
@@ -750,67 +753,11 @@ def time_constrained_minimum_permutation_word_error_rate(
     - 'word': sort by word start time
     """
     from meeteval.wer.wer.cp import _cp_error_rate
-
-    reference = asseglst(
-        reference,
-        required_keys=('start_time', 'end_time', 'words', 'speaker'),
-        py_convert=None
+    reference, hypothesis, reference_self_overlap, hypothesis_self_overlap = preprocess_time_constrained(
+        reference, hypothesis, collar, reference_pseudo_word_level_timing, hypothesis_pseudo_word_level_timing,
+        reference_sort, hypothesis_sort,
+        remove_empty_segments=False,
     )
-    hypothesis = asseglst(
-        hypothesis,
-        required_keys=('start_time', 'end_time', 'words', 'speaker'),
-        py_convert=None
-    )
-
-    reference = reference.groupby('speaker')
-    hypothesis = hypothesis.groupby('speaker')
-
-    # Compute self-overlap for ref and hyp before converting to words and
-    # applying the collar. This is required later
-    # Add zero to work with empty reference and/or hypothesis
-    reference_self_overlap = sum(
-        [get_self_overlap(v) for v in reference.values()]
-    ) + SelfOverlap.zero()
-    hypothesis_self_overlap = sum(
-        [get_self_overlap(v) for v in hypothesis.values()]
-    ) + SelfOverlap.zero()
-
-    # Convert segments into lists of words and word-level timings
-    reference = {
-        k: sort_and_validate(
-            v,
-            reference_sort,
-            reference_pseudo_word_level_timing,
-            f'reference speaker "{k}"'
-        )
-        for k, v in reference.items()
-    }
-    hypothesis = {
-        k: sort_and_validate(
-            v,
-            hypothesis_sort,
-            hypothesis_pseudo_word_level_timing,
-            f'hypothesis speaker "{k}"'
-        )
-        for k, v in hypothesis.items()
-    }
-
-    reference = SegLST.merge(*reference.values())
-    hypothesis = SegLST.merge(*hypothesis.values())
-
-    hypothesis = apply_collar(hypothesis, collar)
-
-    # Convert into integer representation to save some computation later.
-    # `'words'` contains a single word only.
-    sym2int = {v: i for i, v in enumerate([
-        segment['words']
-        for segment in itertools.chain(reference, hypothesis)
-        if segment['words']
-    ], start=1)}
-    sym2int[''] = 0
-
-    reference = reference.map(lambda s: {**s, 'words': sym2int[s['words']]})
-    hypothesis = hypothesis.map(lambda s: {**s, 'words': sym2int[s['words']]})
 
     er = _cp_error_rate(
         reference, hypothesis,
@@ -823,6 +770,113 @@ def time_constrained_minimum_permutation_word_error_rate(
         hypothesis_self_overlap=hypothesis_self_overlap,
     )
     return er
+
+
+def preprocess_time_constrained(
+        reference,
+        hypothesis,
+        collar,
+        reference_pseudo_word_level_timing,
+        hypothesis_pseudo_word_level_timing,
+        reference_sort,
+        hypothesis_sort,
+        add_segment_index='segment',    # segment | word | False
+        convert_to_int=True,
+        remove_empty_segments=True,
+        time_constrained=True,
+):
+    # Convert before calling this function if special parameters are required
+    reference = asseglst(reference)
+    hypothesis = asseglst(hypothesis)
+
+    check_single_filename(reference, hypothesis)
+
+    # Add a segment index to the reference so that we can later find words that
+    # come from the same segment
+    if add_segment_index == 'segment':
+        if 'segment_index' not in reference.T.keys():
+            for i, s in enumerate(reference):
+                s['segment_index'] = i
+        if 'segment_index' not in hypothesis.T.keys():
+            for i, s in enumerate(hypothesis):
+                s['segment_index'] = i
+
+    if time_constrained:
+        # Preprocess per speaker
+        reference = reference.groupby('speaker')
+        hypothesis = hypothesis.groupby('speaker')
+
+        # Compute self-overlap for ref and hyp before converting to words and
+        # applying the collar. This is required later
+        # Add zero to work with empty reference and/or hypothesis
+        reference_self_overlap = sum(
+            [get_self_overlap(v) for v in reference.values()]
+        ) + SelfOverlap.zero()
+        hypothesis_self_overlap = sum(
+            [get_self_overlap(v) for v in hypothesis.values()]
+        ) + SelfOverlap.zero()
+
+        # Convert segments into lists of words and word-level timings
+        reference = {
+            k: sort_and_validate(
+                v,
+                reference_sort,
+                reference_pseudo_word_level_timing,
+                f'reference speaker "{k}"'
+            )
+            for k, v in reference.items()
+        }
+        hypothesis = {
+            k: sort_and_validate(
+                v,
+                hypothesis_sort,
+                hypothesis_pseudo_word_level_timing,
+                f'hypothesis speaker "{k}"'
+            )
+            for k, v in hypothesis.items()
+        }
+
+        reference = SegLST.merge(*reference.values())
+        hypothesis = SegLST.merge(*hypothesis.values())
+
+        hypothesis = apply_collar(hypothesis, collar)
+    else:
+        reference_self_overlap = None
+        hypothesis_self_overlap = None
+
+        reference = split_words(reference)
+        hypothesis = split_words(hypothesis)
+
+    # Remove empty segments as they have no effect on the WER
+    if remove_empty_segments:
+        reference = reference.filter(lambda s: s['words'])
+        hypothesis = hypothesis.filter(lambda s: s['words'])
+
+    if add_segment_index == 'word':
+        if 'segment_index' not in reference.T.keys():
+            for i, s in enumerate(reference):
+                s['segment_index'] = i
+        if 'segment_index' not in hypothesis.T.keys():
+            for i, s in enumerate(hypothesis):
+                s['segment_index'] = i
+
+    if convert_to_int:
+        reference, hypothesis = words_to_int(reference, hypothesis)
+
+    return reference, hypothesis, reference_self_overlap, hypothesis_self_overlap
+
+
+def _tcp_wer(reference, hypothesis):
+    """
+    tcpWER core code without any preprocessing
+    """
+    from meeteval.wer.wer.cp import _cp_error_rate
+    return _cp_error_rate(
+        reference, hypothesis,
+        distance_fn=time_constrained_siso_levenshtein_distance,
+        siso_error_rate=_time_constrained_siso_error_rate,
+    )
+
 
 
 tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
