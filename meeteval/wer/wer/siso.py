@@ -2,6 +2,7 @@ import typing
 from typing import Hashable
 
 from meeteval.io.py import NestedStructure
+from meeteval.wer.preprocess import split_words
 from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.utils import kaldialign_edit_distance
 from meeteval.io.seglst import asseglst
@@ -115,13 +116,6 @@ def siso_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate
         raise ValueError(f'Reference must contain exactly one line, but found {len(reference)} lines.')
     if len(hypothesis) != 1:
         raise ValueError(f'Hypothesis must contain exactly one line, but found {len(hypothesis)} lines.')
-
-    def split_words(d):
-        return [
-            {**s, 'words': w}
-            for s in d
-            for w in (s['words'].split() if s['words'].strip() else [''])
-        ]
 
     return siso_error_rate(split_words(reference), split_words(hypothesis))
 

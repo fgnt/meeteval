@@ -1,7 +1,8 @@
 import dataclasses
 
 import meeteval
-from meeteval.io.seglst import  SegLST, asseglistconvertible
+from meeteval.io.py import NestedStructure
+from meeteval.io.seglst import asseglistconvertible
 from meeteval.wer.wer.error_rate import ErrorRate, combine_error_rates
 from meeteval.wer.wer.siso import _seglst_siso_error_rate
 from meeteval.wer.utils import _keys
@@ -13,6 +14,8 @@ __all__ = [
     'orc_word_error_rate_multifile',
     'apply_orc_assignment'
 ]
+
+from meeteval.wer.preprocess import preprocess
 
 
 @dataclasses.dataclass(frozen=True, repr=False)
@@ -44,6 +47,7 @@ class OrcErrorRate(ErrorRate):
         """
         return apply_orc_assignment(self.assignment, reference, hypothesis)
 
+
 def orc_word_error_rate_multifile(
         reference,
         hypothesis,
@@ -59,6 +63,75 @@ def orc_word_error_rate_multifile(
     return apply_multi_file(
         orc_word_error_rate, reference, hypothesis,
         partial=partial
+    )
+
+
+def _orc_error_rate(
+        reference, hypothesis,
+        preprocess_fn,
+        matching_fn,
+):
+    reference = meeteval.io.asseglst(
+        reference, py_convert=lambda x: NestedStructure(x, ('segment_index',))
+    )
+    total_num_segments = len(set(reference.T['segment_index'])) if 'segment_index' in reference.T.keys() else len(
+        reference)
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess_fn(reference, hypothesis)
+
+    # Group by stream. For ORC-WER, only hypothesis must be grouped
+    hypothesis = hypothesis.groupby('speaker')
+
+    # Safety check: The complexity explodes for large numbers of speakers
+    if len(hypothesis) > 10:
+        raise RuntimeError(
+            f'Are you sure?\n'
+            f'Found a total of {len(hypothesis)} speakers in the input.\n'
+            f'This indicates a mistake in the input, or does your use-case '
+            f'really require scoring with that many speakers?\n'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
+        )
+
+    # Compute the ORC distance
+    distance, assignment = matching_fn(reference, hypothesis)
+
+    # Translate the assignment from hypothesis index to stream id
+    # Fill with a dummy stream if hypothesis is empty
+    hypothesis_keys = list(hypothesis.keys()) or ['dummy']
+    assignment = [hypothesis_keys[a] for a in assignment]
+
+    # Apply assignment
+    reference_new, _ = apply_orc_assignment(assignment, reference, None)
+
+    # Consistency check: Compute WER with the siso algorithm after applying the
+    # assignment and compare the result with the distance from the ORC algorithm
+    reference_new = reference_new.groupby('speaker')
+    er = combine_error_rates(*[
+        _seglst_siso_error_rate(
+            reference_new.get(k, meeteval.io.SegLST([])),
+            hypothesis.get(k, meeteval.io.SegLST([])),
+        )
+        for k in set(hypothesis.keys()) | set(reference_new.keys())
+    ])
+    length = len(reference)
+    assert er.length == length, (length, er)
+    assert er.errors == distance, (distance, er, assignment)
+
+    # Insert labels for empty segments that got removed
+    if len(assignment) != total_num_segments:
+        assignment = sorted([(r['segment_index'], a) for a, r in zip(assignment, reference)])
+        for i in range(total_num_segments):
+            if i >= len(assignment) or assignment[i][0] != i:
+                assignment.insert(i, (i, hypothesis_keys[0]))
+        assignment = [a[1] for a in assignment]
+
+    return OrcErrorRate(
+        er.errors, er.length,
+        insertions=er.insertions,
+        deletions=er.deletions,
+        substitutions=er.substitutions,
+        assignment=tuple(assignment),
+        reference_self_overlap=ref_self_overlap if ref_self_overlap.total_time > 0 else None,
+        hypothesis_self_overlap=hyp_self_overlap if hyp_self_overlap.total_time > 0 else None,
     )
 
 
@@ -93,106 +166,18 @@ def orc_word_error_rate(reference, hypothesis):
     >>> orc_word_error_rate([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': '', 'speaker': 'A'}], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
     OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, assignment=('A',))
     """
-    # Convert to seglst
-    reference = meeteval.io.asseglst(reference)
-    hypothesis = meeteval.io.asseglst(hypothesis)
-    from meeteval.wer.wer.utils import check_single_filename
-    check_single_filename(reference, hypothesis)
-
-    # Add a segment index to the reference so that we can later find words that
-    # come from the same segment. Do this before removing empty segments so that
-    # we can still find the original segments in the reference after the
-    # assignment.
-    for i, s in enumerate(reference):
-        s['segment_index'] = i
-
-    # Group by stream. For ORC-WER, only hypothesis must be grouped
-    hypothesis = hypothesis.groupby('speaker')
-
-    # Safety check: The complexity explodes for large numbers of speakers
-    if len(hypothesis) > 10:
-        raise RuntimeError(
-            f'Are you sure?\n'
-            f'Found a total of {len(hypothesis)} speakers in the input.\n'
-            f'This indicates a mistake in the input, or does your use-case '
-            f'really require scoring with that many speakers?\n'
-            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md for details.'
-        )
-
-    # Remove empty segments. We need to merge the empty
-    # reference segments back in the end to obtain the correct
-    # assignment
-    reference_missing_segments = reference.filter(lambda s: s['words'] == '')
-    reference = reference.filter(lambda s: s['words'] != '')
-    hypothesis = {
-        k: h.filter(lambda s: s['words'] != '')
-        for k, h in hypothesis.items()
-    }
-
-    # Split into words
-    def split_words(d: 'SegLST'):
-        return d.flatmap(
-            lambda s: [
-                {**s, 'words': w}
-                for w in (s['words'].split() if s['words'].strip() else [''])
-            ])
-    reference = split_words(reference)
-    hypothesis = {k: split_words(v) for k, v in hypothesis.items()}
-
-    # Compute the ORC distance
     from meeteval.wer.matching.mimo_matching import mimo_matching
-    distance, assignment = mimo_matching(
-        [[segment.T['words'] for segment in reference.groupby('segment_index').values()]],
-        [stream.T['words'] for stream in hypothesis.values()],
-    )
 
-    # Translate the assignment from hypothesis index to stream id
-    # Fill with a dummy stream if hypothesis is empty
-    hypothesis_keys = list(hypothesis.keys()) or ['dummy']
-    assignment = [hypothesis_keys[h] for _, h in assignment]
-
-    # Apply assignment
-    reference_new, _ = apply_orc_assignment(assignment, reference, None)
-
-    # Put the original segments back by inserting empty segments that were
-    # removed in the beginning
-    # TODO: Estimate the stream for the missing segments
-    reference_missing_segments = reference_missing_segments.map(
-        lambda s: {**s, 'speaker': hypothesis_keys[0]}
-    )
-    reference_new = meeteval.io.SegLST.merge(
-        reference_new, reference_missing_segments
-    ).sorted('segment_index')
-    assignment = tuple([
-        v[0]['speaker']
-        for v in reference_new.groupby('segment_index').values()
-    ])
-
-    # Group by speaker
-    reference_new = reference_new.groupby('speaker')
-
-    # Consistency check: Compute WER with the siso algorithm after applying the
-    # assignment and compare the result with the distance from the ORC algorithm
-    er = combine_error_rates(*[
-        _seglst_siso_error_rate(
-            reference_new.get(k, meeteval.io.SegLST([])),
-            hypothesis.get(k, meeteval.io.SegLST([])),
+    def matching(reference, hypothesis):
+        """Use the mimo matching algorithm. Convert inputs and outputs between the formats"""
+        distance, assignment = mimo_matching(
+            [[segment.T['words'] for segment in reference.groupby('segment_index').values()]],
+            [stream.T['words'] for stream in hypothesis.values()],
         )
-        for k in set(hypothesis.keys()) | set(reference_new.keys())
-    ])
-    length = len(reference)
-    assert er.length == length, (length, er)
-    assert er.errors == distance, (distance, er, assignment)
+        assignment = [a for a, _ in assignment]
+        return distance, assignment
 
-    return OrcErrorRate(
-        er.errors, er.length,
-        insertions=er.insertions,
-        deletions=er.deletions,
-        substitutions=er.substitutions,
-        assignment=assignment,
-        reference_self_overlap=None,
-        hypothesis_self_overlap=None,
-    )
+    return _orc_error_rate(reference, hypothesis, preprocess, matching)
 
 
 def apply_orc_assignment(
@@ -243,7 +228,7 @@ def apply_orc_assignment(
     X 1 0 0.0 2.0 a b e f
     <BLANKLINE>
     """
-    if reference != []:     # Special case where we don't want to handle [] as SegLST
+    if reference != []:  # Special case where we don't want to handle [] as SegLST
         try:
             r_conv = asseglistconvertible(reference, py_convert=False)
         except Exception:

@@ -6,6 +6,7 @@ from typing import Optional, Any, Iterable
 import meeteval
 from meeteval._typing import Literal
 from meeteval.io.seglst import SegLST, asseglst, asseglistconvertible
+from meeteval.wer.preprocess import preprocess
 
 from meeteval.wer.wer.error_rate import ErrorRate
 
@@ -160,18 +161,20 @@ def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate
 
     >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
     CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
+
     """
     reference = asseglst(reference, required_keys=('speaker', 'words'))
     hypothesis = asseglst(hypothesis, required_keys=('speaker', 'words'))
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
+        reference, hypothesis,
+        remove_empty_segments=False,
+    )
 
-    def split_words(d: 'SegLST'):
-        return d.flatmap(
-            lambda s: [
-                {**s, 'words': w}
-                for w in (s['words'].split() if s['words'].strip() else [''])
-            ])
-
-    return cp_error_rate(split_words(reference), split_words(hypothesis))
+    return dataclasses.replace(
+        cp_error_rate(reference, hypothesis),
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
+    )
 
 
 def cp_word_error_rate_multifile(
@@ -186,33 +189,18 @@ def cp_word_error_rate_multifile(
     return apply_multi_file(cp_word_error_rate, reference, hypothesis, partial=partial)
 
 
-def _cp_error_rate(
+def _get_cp_assignment(
         reference: SegLST,
         hypothesis: SegLST,
         distance_fn: callable,
-        siso_error_rate: callable,
 ):
-    # Used in
-    #   cp_word_error_rate
-    # and
-    #   time_constrained_minimum_permutation_word_error_rate
-    # .
     import scipy.optimize
     import numpy as np
 
-    reference = reference.groupby('speaker')
-    hypothesis = hypothesis.groupby('speaker')
-
-    if max(len(hypothesis), len(reference)) > 20:
-        num_speakers = max(len(hypothesis), len(reference))
-        raise RuntimeError(
-            f'Are you sure?\n'
-            f'Found a total of {num_speakers} speakers in the input.\n'
-            f'This indicates a mistake in the input, or does your use-case '
-            f'really require scoring with that many speakers?\n'
-            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md '
-            f'for details.'
-        )
+    if isinstance(reference, SegLST):
+        reference = reference.groupby('speaker')
+    if isinstance(hypothesis, SegLST):
+        hypothesis = hypothesis.groupby('speaker')
 
     cost_matrix = np.array([
         [
@@ -246,6 +234,37 @@ def _cp_error_rate(
         (reference_keys.get(r), hypothesis_keys.get(c))
         for r, c in itertools.zip_longest(row_ind, col_ind)
     ])
+    return assignment, distance
+
+
+def _cp_error_rate(
+        reference: SegLST,
+        hypothesis: SegLST,
+        distance_fn: callable,
+        siso_error_rate: callable,
+):
+    # Used in
+    #   cp_word_error_rate
+    # and
+    #   time_constrained_minimum_permutation_word_error_rate
+    # .
+
+    reference = reference.groupby('speaker')
+    hypothesis = hypothesis.groupby('speaker')
+
+    if max(len(hypothesis), len(reference)) > 20:
+        num_speakers = max(len(hypothesis), len(reference))
+        raise RuntimeError(
+            f'Are you sure?\n'
+            f'Found a total of {num_speakers} speakers in the input '
+            f'(Reference: {len(reference)}, Hypothesis: {len(hypothesis)}).\n'
+            f'This indicates a mistake in the input, or does your use-case '
+            f'really require scoring with that many speakers?\n'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md '
+            f'for details.'
+        )
+
+    assignment, distance = _get_cp_assignment(reference, hypothesis, distance_fn)
 
     missed_speaker = max(0, len(reference) - len(hypothesis))
     falarm_speaker = max(0, len(hypothesis) - len(reference))
