@@ -1,7 +1,8 @@
 import dataclasses
 from typing import Iterable, Any
 
-from meeteval.io.seglst import asseglst, asseglistconvertible
+from meeteval.io.seglst import asseglistconvertible
+from meeteval.wer.preprocess import preprocess
 from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _keys, _items, _values
@@ -99,21 +100,30 @@ def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
     >>> mimo_word_error_rate(STM.parse('X 1 A 0.0 1.0 a b\\nX 1 A 1.0 2.0 c d\\nX 1 B 0.0 2.0 e f\\n'), STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n'))
     MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', '0'), ('B', '0'), ('A', '1')])
     """
-    reference = asseglst(reference)
-    hypothesis = asseglst(hypothesis)
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
+        reference, hypothesis,
+        remove_empty_segments=False,
+    )
 
-    # Convert to dict of lists of words
+    # Convert to dict of lists of words and remove empty words here.
     reference = {
-        k: [s['words'].split() for s in v if s['words'] != '']
+        k: [
+            [word for word in segment.T['words'] if word != '']
+            for segment in v.groupby('segment_index').values()
+        ]
         for k, v in reference.groupby('speaker').items()
     }
     hypothesis = {
-        k: [w for s in v if s['words'] != '' for w in s['words'].split()]
+        k: [word for word in v.T['words'] if word != '']
         for k, v in hypothesis.groupby('speaker').items()
     }
 
     # Call core function
-    return mimo_error_rate(reference, hypothesis)
+    return dataclasses.replace(
+        mimo_error_rate(reference, hypothesis),
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
+    )
 
 
 def mimo_word_error_rate_multifile(

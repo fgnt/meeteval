@@ -83,7 +83,7 @@ def add_segment_index(d: SegLST):
 def preprocess(
         reference, hypothesis,
         segment_index='segment',
-        convert_to_int=True,
+        convert_to_int=False,
         remove_empty_segments=True,
 ):
     """
@@ -101,12 +101,16 @@ def preprocess(
     if 'begin_time' in reference.T.keys() and 'end_time' in reference.T.keys():
         from meeteval.wer.wer.time_constrained import get_self_overlap
         reference_self_overlap = get_self_overlap(reference)
+        if reference_self_overlap.total_time == 0:
+            reference_self_overlap = None
     else:
         reference_self_overlap = None
 
     if 'begin_time' in hypothesis.T.keys() and 'end_time' in hypothesis.T.keys():
         from meeteval.wer.wer.time_constrained import get_self_overlap
         hypothesis_self_overlap = get_self_overlap(hypothesis)
+        if hypothesis_self_overlap.total_time == 0:
+            hypothesis_self_overlap = None
     else:
         hypothesis_self_overlap = None
 

@@ -1,6 +1,7 @@
 import functools
 import typing
 
+from meeteval.wer.wer.time_constrained import _time_constrained_siso_error_rate
 
 if typing.TYPE_CHECKING:
     from meeteval.io import STM
@@ -20,7 +21,7 @@ def time_constrained_orc_wer(
         hypothesis_pseudo_word_level_timing='character_based_points',
         hypothesis_sort='segment',
         reference_sort='segment',
-) -> OrcErrorRate:
+) -> 'OrcErrorRate':
     """
     The time-constrained version of the ORC-WER (tcORC-WER).
 
@@ -61,12 +62,14 @@ def time_constrained_orc_wer(
         reference, hypothesis,
         functools.partial(
             preprocess_time_constrained,
-            reference, hypothesis, collar,
-            reference_pseudo_word_level_timing, hypothesis_pseudo_word_level_timing,
-            reference_sort, hypothesis_sort,
+            collar=collar,
+            reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+            hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
             convert_to_int=False
         ),
-        matching
+        matching, _time_constrained_siso_error_rate
     )
 
 

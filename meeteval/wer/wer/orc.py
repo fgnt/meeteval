@@ -70,6 +70,7 @@ def _orc_error_rate(
         reference, hypothesis,
         preprocess_fn,
         matching_fn,
+        siso_error_rate,
 ):
     reference = meeteval.io.asseglst(
         reference, py_convert=lambda x: NestedStructure(x, ('segment_index',))
@@ -106,7 +107,7 @@ def _orc_error_rate(
     # assignment and compare the result with the distance from the ORC algorithm
     reference_new = reference_new.groupby('speaker')
     er = combine_error_rates(*[
-        _seglst_siso_error_rate(
+        siso_error_rate(
             reference_new.get(k, meeteval.io.SegLST([])),
             hypothesis.get(k, meeteval.io.SegLST([])),
         )
@@ -130,8 +131,8 @@ def _orc_error_rate(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=tuple(assignment),
-        reference_self_overlap=ref_self_overlap if ref_self_overlap.total_time > 0 else None,
-        hypothesis_self_overlap=hyp_self_overlap if hyp_self_overlap.total_time > 0 else None,
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
     )
 
 
@@ -174,10 +175,10 @@ def orc_word_error_rate(reference, hypothesis):
             [[segment.T['words'] for segment in reference.groupby('segment_index').values()]],
             [stream.T['words'] for stream in hypothesis.values()],
         )
-        assignment = [a for a, _ in assignment]
+        assignment = [a for _, a in assignment]
         return distance, assignment
 
-    return _orc_error_rate(reference, hypothesis, preprocess, matching)
+    return _orc_error_rate(reference, hypothesis, preprocess, matching, _seglst_siso_error_rate)
 
 
 def apply_orc_assignment(
