@@ -1,4 +1,5 @@
 import dataclasses
+import typing
 
 import meeteval
 from meeteval.io.py import NestedStructure
@@ -16,6 +17,9 @@ __all__ = [
 ]
 
 from meeteval.wer.preprocess import preprocess
+
+if typing.TYPE_CHECKING:
+    from meeteval.io.seglst import SegLST
 
 
 @dataclasses.dataclass(frozen=True, repr=False)
