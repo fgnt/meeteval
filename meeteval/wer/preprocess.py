@@ -2,6 +2,7 @@ import itertools
 
 import meeteval
 from meeteval.io import SegLST
+from meeteval.io.pbjson import zip_strict
 from meeteval.io.seglst import seglst_map
 from meeteval.wer.wer.utils import check_single_filename
 
@@ -38,8 +39,8 @@ def split_words(
 
     return d.flatmap(
         lambda s: [
-            {**s, **dict(zip(keys, split, strict=True))}
-            for split in zip(*(split_entry(s[key]) for key in keys))
+            {**s, **dict(zip_strict(keys, split))}
+            for split in zip_strict(*(split_entry(s[key]) for key in keys))
         ])
 
 
