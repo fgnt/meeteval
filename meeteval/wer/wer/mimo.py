@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 from typing import Iterable, Any
 
 from meeteval.io.seglst import asseglistconvertible
@@ -137,6 +138,8 @@ def mimo_word_error_rate_multifile(
         reference,
         hypothesis,
         partial=False,
+        reference_sort='maybe_segment',
+        hypothesis_sort='maybe_segment',
 ) -> 'dict[str, MimoErrorRate]':
     """
     Computes the MIMO WER for each example in the reference and hypothesis
@@ -146,7 +149,14 @@ def mimo_word_error_rate_multifile(
     `sum(mimo_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(mimo_word_error_rate, reference, hypothesis, partial=partial)
+    return apply_multi_file(
+        functools.partial(
+            mimo_word_error_rate,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
+        ),
+        reference, hypothesis, partial=partial
+    )
 
 
 def apply_mimo_assignment(

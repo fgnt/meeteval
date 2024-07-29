@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import itertools
 import string
 from typing import Optional, Any, Iterable
@@ -188,7 +189,9 @@ def cp_word_error_rate(
 
 
 def cp_word_error_rate_multifile(
-        reference, hypothesis, partial=False
+        reference, hypothesis, partial=False,
+        reference_sort='maybe_segment',
+        hypothesis_sort='maybe_segment',
 ) -> 'dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
@@ -196,7 +199,15 @@ def cp_word_error_rate_multifile(
     To compute the overall WER, use `sum(cp_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(cp_word_error_rate, reference, hypothesis, partial=partial)
+    return apply_multi_file(
+        functools.partial(
+            cp_word_error_rate,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
+        ),
+        reference, hypothesis,
+        partial=partial
+    )
 
 
 def _minimum_permutation_assignment(

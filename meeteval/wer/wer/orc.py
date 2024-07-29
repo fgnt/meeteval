@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import typing
 
 import meeteval
@@ -56,6 +57,8 @@ def orc_word_error_rate_multifile(
         reference,
         hypothesis,
         partial=False,
+        reference_sort='maybe_segment',
+        hypothesis_sort='maybe_segment',
 ) -> 'dict[str, OrcErrorRate]':
     """
     Computes the ORC WER for each example in the reference and hypothesis files.
@@ -65,7 +68,11 @@ def orc_word_error_rate_multifile(
     """
     from meeteval.io.seglst import apply_multi_file
     return apply_multi_file(
-        orc_word_error_rate, reference, hypothesis,
+        functools.partial(
+            orc_word_error_rate,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
+        ), reference, hypothesis,
         partial=partial
     )
 

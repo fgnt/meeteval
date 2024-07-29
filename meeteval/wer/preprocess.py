@@ -468,6 +468,7 @@ def preprocess(
         reference_pseudo_word_level_timing=None,
         hypothesis_pseudo_word_level_timing=None,
         segment_representation='segment',  # 'segment', 'word', 'speaker'
+        ensure_single_session=True,
 ):
     """
     Preprocessing.
@@ -476,7 +477,8 @@ def preprocess(
     reference = meeteval.io.asseglst(reference)
     hypothesis = meeteval.io.asseglst(hypothesis)
 
-    check_single_filename(reference, hypothesis)
+    if ensure_single_session:
+        check_single_filename(reference, hypothesis)
 
     reference, reference_self_overlap = _preprocess_single(
         reference,

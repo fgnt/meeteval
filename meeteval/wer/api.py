@@ -40,8 +40,6 @@ def _load_texts(
         reference_paths: 'list[str]',
         hypothesis_paths: 'list[str]',
         regex,
-        reference_sort: 'bool | str' = False,
-        hypothesis_sort: 'bool | str' = False,
         file_format=None,
         normalizer=None,
         uem=None,
@@ -87,46 +85,6 @@ def _load_texts(
         reference = reference.filter_by_uem(uem)
         hypothesis = hypothesis.filter_by_uem(uem)
 
-    # Sort
-    if reference_sort == 'segment':
-        if 'start_time' in reference.T.keys():
-            reference = reference.sorted('start_time')
-        else:
-            logging.warning(
-                'Ignoring --reference-sort="segment" because no start_time is '
-                'found in the reference'
-            )
-    elif not reference_sort:
-        pass
-    elif reference_sort in ('word', True):
-        raise ValueError(
-            f'reference_sort={reference_sort} is only supported for'
-            f'time-constrained WERs.'
-        )
-    else:
-        raise ValueError(
-            f'Unknown choice for reference_sort: {reference_sort}'
-        )
-    if hypothesis_sort == 'segment':
-        if 'start_time' in hypothesis.T.keys():
-            hypothesis = hypothesis.sorted('start_time')
-        else:
-            logging.warning(
-                'Ignoring --hypothesis-sort="segment" because no start_time is '
-                'found in the hypothesis'
-            )
-    elif not hypothesis_sort:
-        pass
-    elif hypothesis_sort in ('word', True):
-        raise ValueError(
-            f'hypothesis_sort={hypothesis_sort} is only supported for'
-            f'time-constrained WERs.'
-        )
-    else:
-        raise ValueError(
-            f'Unknown choice for hypothesis_sort: {hypothesis_sort}'
-        )
-
     if normalizer is not None:
         if normalizer == 'lower,rm(.?!,)':
             def normalizer(seg):
@@ -153,10 +111,13 @@ def orcwer(
     from meeteval.wer.wer.orc import orc_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
         uem=uem, normalizer=normalizer,
     )
-    results = orc_word_error_rate_multifile(reference, hypothesis, partial=partial)
+    results = orc_word_error_rate_multifile(
+        reference, hypothesis, partial=partial,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+    )
     return results
 
 
@@ -173,10 +134,13 @@ def cpwer(
     from meeteval.wer.wer.cp import cp_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
         uem=uem, normalizer=normalizer,
     )
-    results = cp_word_error_rate_multifile(reference, hypothesis, partial=partial)
+    results = cp_word_error_rate_multifile(
+        reference, hypothesis, partial=partial,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+    )
     return results
 
 
@@ -193,10 +157,14 @@ def mimower(
     from meeteval.wer.wer.mimo import mimo_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
-        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
         uem=uem, normalizer=normalizer
     )
-    results = mimo_word_error_rate_multifile(reference, hypothesis, partial=partial)
+    results = mimo_word_error_rate_multifile(
+        reference, hypothesis,
+        partial=partial,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort
+    )
     return results
 
 
