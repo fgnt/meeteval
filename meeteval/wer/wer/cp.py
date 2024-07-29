@@ -2,7 +2,7 @@ import dataclasses
 import functools
 import itertools
 import string
-from typing import Optional, Any, Iterable
+import typing
 
 import meeteval
 from meeteval._typing import Literal
@@ -10,6 +10,11 @@ from meeteval.io.seglst import SegLST, asseglst, asseglistconvertible
 from meeteval.wer.preprocess import preprocess
 
 from meeteval.wer.wer.error_rate import ErrorRate
+
+if typing.TYPE_CHECKING:
+    T = typing.TypeVar('T')
+    from typing import Optional, Any
+
 
 __all__ = [
     'CPErrorRate',
@@ -211,10 +216,10 @@ def cp_word_error_rate_multifile(
 
 
 def _minimum_permutation_assignment(
-        reference: dict[str, SegLST],
-        hypothesis: dict[str, SegLST],
-        distance_fn: callable,
-        missing=SegLST([])
+        reference: 'dict[str, T]',
+        hypothesis: 'dict[str, T]',
+        distance_fn: 'callable[[T, T], int]',
+        missing: 'T' = SegLST([])
 ) -> (tuple[int], int):
     """
     Compute the best (lowest distance) assignment of reference and hypothesis
