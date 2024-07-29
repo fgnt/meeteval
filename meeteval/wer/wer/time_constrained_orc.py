@@ -67,7 +67,7 @@ def time_constrained_orc_wer(
 
     reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
         reference, hypothesis,
-        keep_keys=('words', 'segment_index', 'speaker'),
+        keep_keys=('words', 'segment_index', 'speaker', 'start_time', 'end_time'),
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
         reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
