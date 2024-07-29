@@ -5,7 +5,7 @@ import meeteval
 from meeteval.io.py import NestedStructure
 from meeteval.io.seglst import asseglistconvertible
 from meeteval.wer.wer.error_rate import ErrorRate, combine_error_rates
-from meeteval.wer.wer.siso import _seglst_siso_error_rate
+from meeteval.wer.wer.siso import _seglst_siso_error_rate, _siso_error_rate
 from meeteval.wer.utils import _keys
 from meeteval.io.stm import STM
 
@@ -72,16 +72,15 @@ def orc_word_error_rate_multifile(
 
 def _orc_error_rate(
         reference, hypothesis,
-        preprocess_fn,
         matching_fn,
         siso_error_rate,
 ):
-    reference = meeteval.io.asseglst(
-        reference, py_convert=lambda x: NestedStructure(x, ('segment_index',))
-    )
-    total_num_segments = len(set(reference.T['segment_index'])) if 'segment_index' in reference.T.keys() else len(
-        reference)
-    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess_fn(reference, hypothesis)
+    # Remove empty segments from the reference because they can increase
+    # the computational complexity of the ORC algorithm, but they do not 
+    # contribute to the distance
+    total_num_segments = len(set(reference.T['segment_index']))
+    reference = reference.filter(lambda x: x['words'] != '')
+    hypothesis = hypothesis.filter(lambda x: x['words'] != '')
 
     # Group by stream. For ORC-WER, only hypothesis must be grouped
     hypothesis = hypothesis.groupby('speaker')
@@ -123,10 +122,12 @@ def _orc_error_rate(
 
     # Insert labels for empty segments that got removed
     if len(assignment) != total_num_segments:
+        # Make sure this assignment is reproducible by sorting the keys
+        dummy_key = sorted(hypothesis_keys)[0]
         assignment = sorted([(r['segment_index'], a) for a, r in zip(assignment, reference)])
         for i in range(total_num_segments):
             if i >= len(assignment) or assignment[i][0] != i:
-                assignment.insert(i, (i, hypothesis_keys[0]))
+                assignment.insert(i, (i, dummy_key))
         assignment = [a[1] for a in assignment]
 
     return OrcErrorRate(
@@ -135,12 +136,17 @@ def _orc_error_rate(
         deletions=er.deletions,
         substitutions=er.substitutions,
         assignment=tuple(assignment),
-        reference_self_overlap=ref_self_overlap,
-        hypothesis_self_overlap=hyp_self_overlap,
+        reference_self_overlap=None,
+        hypothesis_self_overlap=None
     )
 
 
-def orc_word_error_rate(reference, hypothesis):
+def orc_word_error_rate(
+        reference,
+        hypothesis,
+        reference_sort='maybe_segment',
+        hypothesis_sort='maybe_segment',
+):
     """
     The Optimal Reference Combination (ORC) WER, implemented efficiently.
 
@@ -160,7 +166,7 @@ def orc_word_error_rate(reference, hypothesis):
     ([['a', 'c d'], ['e']], ['a c', 'd e'])
 
     >>> orc_word_error_rate(STM.parse('X 1 A 0.0 1.0 a b\\nX 1 B 0.0 2.0 e f\\nX 1 A 1.0 2.0 c d\\n'), STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n'))
-    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=('0', '0', '1'))
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), hypothesis_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), assignment=('0', '0', '1'))
 
     >>> er = orc_word_error_rate(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
     >>> er
@@ -169,7 +175,7 @@ def orc_word_error_rate(reference, hypothesis):
     ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
 
     >>> orc_word_error_rate([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': '', 'speaker': 'A'}], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
-    OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, assignment=('A',))
+    OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=('A',))
     """
     from meeteval.wer.matching.mimo_matching import mimo_matching
 
@@ -182,7 +188,26 @@ def orc_word_error_rate(reference, hypothesis):
         assignment = [a for _, a in assignment]
         return distance, assignment
 
-    return _orc_error_rate(reference, hypothesis, preprocess, matching, _seglst_siso_error_rate)
+    # Drop segment index in reference. It will get a new one after merging by speakers
+    reference = meeteval.io.asseglst(reference)
+    reference = reference.map(lambda x: {k: v for k, v in x.items() if k != 'segment_index'})
+
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
+        reference, hypothesis,
+        keep_keys=('words', 'segment_index', 'speaker'),
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        segment_representation='word',
+        segment_index='segment',
+        remove_empty_segments=False,
+    )
+    er = _orc_error_rate(reference, hypothesis, matching, _seglst_siso_error_rate)
+    er = dataclasses.replace(
+        er,
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
+    )
+    return er
 
 
 def apply_orc_assignment(

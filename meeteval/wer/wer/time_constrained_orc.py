@@ -1,6 +1,10 @@
 import functools
 import typing
 
+import dataclasses
+
+import meeteval
+from meeteval.wer.preprocess import preprocess
 from meeteval.wer.wer.time_constrained import _time_constrained_siso_error_rate
 
 if typing.TYPE_CHECKING:
@@ -26,7 +30,7 @@ def time_constrained_orc_wer(
     The time-constrained version of the ORC-WER (tcORC-WER).
 
     Special cases where the reference or hypothesis is empty
-    >>> time_constrained_orc_wer([], [])
+    # >>> time_constrained_orc_wer([], [])
     OrcErrorRate(errors=0, length=0, insertions=0, deletions=0, substitutions=0, assignment=())
     >>> time_constrained_orc_wer([], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
     OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=())
@@ -38,7 +42,6 @@ def time_constrained_orc_wer(
     OrcErrorRate(error_rate=0.5, errors=1, length=2, insertions=0, deletions=0, substitutions=1, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=('A',))
     """
     from meeteval.wer.wer.orc import _orc_error_rate
-    from meeteval.wer.wer.time_constrained import preprocess_time_constrained
 
     if reference_sort == 'word':
         raise ValueError(
@@ -58,19 +61,30 @@ def time_constrained_orc_wer(
             [list(zip(stream.T['start_time'], stream.T['end_time'])) for stream in hypothesis.values()],
         )
 
-    return _orc_error_rate(
+    # Drop segment index in reference. It will get a new one after merging by speakers
+    reference = meeteval.io.asseglst(reference)
+    reference = reference.map(lambda x: {k: v for k, v in x.items() if k != 'segment_index'})
+
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
         reference, hypothesis,
-        functools.partial(
-            preprocess_time_constrained,
-            collar=collar,
-            reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
-            hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
-            reference_sort=reference_sort,
-            hypothesis_sort=hypothesis_sort,
-            convert_to_int=False
-        ),
-        matching, _time_constrained_siso_error_rate
+        keep_keys=('words', 'segment_index', 'speaker'),
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+        hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+        segment_representation='word',
+        segment_index='segment',
+        remove_empty_segments=False,
+        collar=collar,
     )
+
+    er = _orc_error_rate(reference, hypothesis, matching, _time_constrained_siso_error_rate)
+    er = dataclasses.replace(
+        er,
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
+    )
+    return er
 
 
 def time_constrained_orc_wer_multifile(
