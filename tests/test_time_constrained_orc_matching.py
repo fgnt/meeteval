@@ -53,7 +53,7 @@ def test_tcorc_vs_orc(reference, hypothesis):
     from meeteval.wer.wer.orc import orc_word_error_rate
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
 
-    orc = orc_word_error_rate(reference, hypothesis)
+    orc = orc_word_error_rate(reference, hypothesis, reference_sort=False, hypothesis_sort=False)
 
     # Without time constraint (collar is larger than the maximum length)
     # and without sorting because the low-level ORC-WER doesn't sort
@@ -139,6 +139,10 @@ def test_examples_zero_self_overlap():
 
 
 def test_assignment_keeps_order():
+    """
+    Tests that elements in the assignment corrspond to the order in the input
+    to the orc_wer function, not the sorted segments.
+    """
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
 
     tcorc = time_constrained_orc_wer(
