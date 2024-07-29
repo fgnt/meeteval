@@ -33,9 +33,9 @@ class SegLstSegment(TypedDict, total=False):
         We do not define an enum with all these keys for speed reasons
     """
     session_id: str
-    start_time: 'float | decimal.Decimal'
-    end_time: 'float | decimal.Decimal'
-    words: str
+    start_time: 'float | decimal.Decimal | list[float | decimal.Decimal]'
+    end_time: 'float | decimal.Decimal | list[float | decimal.Decimal]'
+    words: 'str | list[str]'
     speaker: str
     segment_index: int
 
@@ -182,11 +182,14 @@ class SegLST(BaseABC):
                 *[set(s.keys()) for s in self._outer.segments]
             )
 
-        def __getitem__(self, key: _SegLstSegment_keys):
+        def __getitem__(self, key: '_SegLstSegment_keys | tuple[_SegLstSegment_keys, ...]'):
             """
             Returns the values for `key` of all segments as a list.
             """
-            return [s[key] for s in self._outer.segments]
+            if isinstance(key, (list, tuple)):
+                return [tuple([s[k] for k in key]) for s in self._outer.segments]
+            else:
+                return [s[key] for s in self._outer.segments]
 
         def get(self, key, default=None):
             """
@@ -195,7 +198,7 @@ class SegLST(BaseABC):
             """
             return [s.get(key, default) for s in self._outer.segments]
 
-        def __class_getitem__(cls, item: _SegLstSegment_keys) -> 'list':
+        def __class_getitem__(cls, item: '_SegLstSegment_keys | tuple[_SegLstSegment_keys, ...]') -> 'list':
             """
             This is a dummy for type annotation.
 
