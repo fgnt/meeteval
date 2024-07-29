@@ -54,7 +54,7 @@ def split_words(
 
     def split_entry(x):
         if isinstance(x, str):
-            return x.split() # or ['']
+            return x.split()  # or ['']
         elif isinstance(x, (list, tuple)):
             return x
         else:
@@ -113,10 +113,10 @@ def split_words(
 
 def merge_segments(
         d: SegLST,
-        merge_by: str | tuple[str],
-        merge_keys: tuple[str],
-        ignore_keys: tuple[str] = (),
-        strict: bool = False,
+        merge_by: 'str | tuple[str]',
+        merge_keys: 'tuple[str]',
+        ignore_keys: 'tuple[str]' = (),
+        strict: 'bool' = False,
 ):
     """
     Group segments by `merge_by` and merge segments.
@@ -192,7 +192,7 @@ def merge_segments(
     return d
 
 
-def words_to_int(*d: SegLST):
+def words_to_int(*d: 'SegLST'):
     """
     Converts all words to ints. The mapping is created by iterating over all
     words in d and assigning an integer to each word.
@@ -215,7 +215,7 @@ def words_to_int(*d: SegLST):
     return d
 
 
-def add_segment_index(d: SegLST):
+def add_segment_index(d: 'SegLST'):
     """
     Adds a segment index to the segments, if not already present.
     """
@@ -225,7 +225,7 @@ def add_segment_index(d: SegLST):
     return d
 
 
-def check_timestamps_valid(seglst: SegLST, name=None):
+def check_timestamps_valid(seglst: 'SegLST', name=None):
     for s in seglst:
         if s['end_time'] < s['start_time']:
             raise ValueError(
@@ -234,7 +234,7 @@ def check_timestamps_valid(seglst: SegLST, name=None):
             )
 
 
-def _select_keys(d: SegLST, keys=(), strict=True):
+def _select_keys(d: 'SegLST', keys=(), strict=True):
     if strict:
         return d.map(lambda x: {k: x[k] for k in keys})
     else:
@@ -242,7 +242,7 @@ def _select_keys(d: SegLST, keys=(), strict=True):
 
 
 def _preprocess_single(
-        segments: SegLST,
+        segments: 'SegLST',
         keep_keys=None,
         sort='segment',
         remove_empty_segments=True,
@@ -458,7 +458,7 @@ def _preprocess_single(
 
 def preprocess(
         reference, hypothesis,
-        keep_keys=None, # None or tuple[str]
+        keep_keys=None,  # None or tuple[str]
         segment_index='segment',
         convert_to_int=False,
         remove_empty_segments=True,
@@ -482,6 +482,7 @@ def preprocess(
 
     reference, reference_self_overlap = _preprocess_single(
         reference,
+        keep_keys=keep_keys,
         segment_index=segment_index,
         remove_empty_segments=remove_empty_segments,
         sort=reference_sort,
@@ -491,6 +492,7 @@ def preprocess(
     )
     hypothesis, hypothesis_self_overlap = _preprocess_single(
         hypothesis,
+        keep_keys=keep_keys,
         segment_index=segment_index,
         remove_empty_segments=remove_empty_segments,
         sort=hypothesis_sort,
