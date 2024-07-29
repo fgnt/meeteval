@@ -220,7 +220,7 @@ def _minimum_permutation_assignment(
         hypothesis: 'dict[str, T]',
         distance_fn: 'callable[[T, T], int]',
         missing: 'T' = SegLST([])
-) -> (tuple[int], int):
+) -> '(tuple[int], int)':
     """
     Compute the best (lowest distance) assignment of reference and hypothesis
     speakers based on `distance_fn`.
@@ -277,11 +277,11 @@ def _minimum_permutation_assignment(
 
 
 def _minimum_permutation_word_error_rate(
-        reference: dict,
-        hypothesis: dict,
-        distance_fn: callable,
-        siso_error_rate: callable,
-        missing=SegLST([]),
+        reference: 'dict[str, T]',
+        hypothesis: 'dict[str, T]',
+        distance_fn: 'callable[[T, T], int]',
+        siso_error_rate: 'callable[[T, T], ErrorRate]',
+        missing: 'T' = SegLST([]),
 ) -> CPErrorRate:
     """
     Computes the WER for the best (minimum error rate) assignment of reference
