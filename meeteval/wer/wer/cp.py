@@ -273,7 +273,7 @@ def _minimum_permutation_assignment(
         (reference_keys.get(r), hypothesis_keys.get(c))
         for r, c in itertools.zip_longest(row_ind, col_ind)
     ])
-    return assignment, distance
+    return assignment, int(distance)
 
 
 def _minimum_permutation_word_error_rate(
