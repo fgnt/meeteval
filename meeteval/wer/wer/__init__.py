@@ -1,6 +1,6 @@
 from .cp import cp_word_error_rate, CPErrorRate, cp_word_error_rate_multifile
 from .mimo import mimo_word_error_rate, MimoErrorRate, mimo_word_error_rate_multifile
-from .orc import orc_word_error_rate, orc_word_error_rate_multifile, OrcErrorRate
+from .orc import orc_word_error_rate, orc_word_error_rate_multifile, OrcErrorRate, greedy_orc_word_error_rate, greedy_orc_word_error_rate_multifile
 from .siso import siso_word_error_rate, siso_character_error_rate, siso_word_error_rate_multifile
 from .error_rate import ErrorRate, combine_error_rates
 from .time_constrained import time_constrained_minimum_permutation_word_error_rate, time_constrained_siso_word_error_rate, tcp_word_error_rate_multifile
