@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from hypothesis import assume, settings, given, strategies as st
+from hypothesis import assume, settings, given, strategies as st, reproduce_failure
 
 from meeteval.io import SegLST
 
@@ -75,7 +75,7 @@ def test_orc_bound_by_tcorc(reference, hypothesis):
     from meeteval.wer.wer.orc import orc_word_error_rate
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
 
-    orc = orc_word_error_rate(reference, hypothesis)
+    orc = orc_word_error_rate(reference, hypothesis, reference_sort=False, hypothesis_sort=False)
     tcorc = time_constrained_orc_wer(reference, hypothesis, collar=0.1, reference_sort=False, hypothesis_sort=False)
 
     # error_rate can be None when length is None
