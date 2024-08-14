@@ -4,41 +4,47 @@
     "session_id": "recordingA",
     "speaker": "Alice",
     "start_time": "0",
-    "words": "Effort made was a lot i know your busy we need two make the new version clean"
+    "words": "Effort made was a lot i know your busy we need two make the new version clean",
+    "custom_key": "custom_value"
   },
   {
     "end_time": "2.5",
     "session_id": "recordingA",
     "speaker": "Bob",
     "start_time": "1",
-    "words": "Strategic staircase we need a paradigm shift"
+    "words": "Strategic staircase we need a paradigm shift",
+    "custom_key": "custom_value"
   },
   {
     "end_time": "3",
     "session_id": "recordingA",
     "speaker": "Alice",
     "start_time": "2.1",
-    "words": "Pipeline Bob called an all-hands this afternoon"
+    "words": "Pipeline Bob called an all-hands this afternoon",
+    "custom_key": "custom_value"
   },
   {
     "end_time": "4.6",
     "session_id": "recordingB",
     "speaker": "Bob",
     "start_time": "3.2",
-    "words": "Hop on the bandwagon let's schedule a standup during the sprint to review our kpis"
+    "words": "Hop on the bandwagon let's schedule a standup during the sprint to review our kpis",
+    "custom_key": "custom_value"
   },
   {
     "end_time": "5",
     "session_id": "recordingB",
     "speaker": "Alice",
     "start_time": "4",
-    "words": "Hop on the bandwagon let's review our kpis"
+    "words": "Hop on the bandwagon let's review our kpis",
+    "custom_key": "custom_value"
   },
   {
     "end_time": "6",
     "session_id": "recordingA",
     "speaker": "Alice",
     "start_time": "5",
-    "words": "Organic growth what do you feel you would bring to the table if you were hired for this position it just needs more cowbell, yet groom the backlog, land the plane"
+    "words": "Organic growth what do you feel you would bring to the table if you were hired for this position it just needs more cowbell, yet groom the backlog, land the plane",
+    "custom_key": "custom_value"
   }
 ]

@@ -113,7 +113,7 @@ def exec_with_source(code, filename, lineno, globals_=None, locals_=None):
             for codeblock in get_fenced_code_blocks(filename.read_text())
         ]
 )
-def test_readme(filename, codeblock, global_state, monkeypatch):
+def test_docs(filename, codeblock, global_state, monkeypatch):
     """Run fenced code blocks in markdown files in the MeetEval repository."""
     # Some code blocks in the readme file must run in the meeteval root directory
     # because they access the example files in `MEETEVAL_ROOT/example_files`

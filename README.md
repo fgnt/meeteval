@@ -190,7 +190,7 @@ wer = meeteval.wer.wer.cp.cp_word_error_rate(
     hypothesis = meeteval.io.STM.parse('recordingA 1 spk-1 0 1 The kwick brown fox jump over lazy ')
 )
 print(wer)
-# CPErrorRate(error_rate=0.4444444444444444, errors=4, length=9, insertions=0, deletions=2, substitutions=2, missed_speaker=0, falarm_speaker=0, scored_speaker=1, assignment=(('Alice', 'spk-1'),))
+# CPErrorRate(error_rate=0.4444444444444444, errors=4, length=9, insertions=0, deletions=2, substitutions=2, reference_self_overlap=SelfOverlap(overlap_rate=Decimal('0'), overlap_time=0, total_time=Decimal('1')), hypothesis_self_overlap=SelfOverlap(overlap_rate=Decimal('0'), overlap_time=0, total_time=Decimal('1')), missed_speaker=0, falarm_speaker=0, scored_speaker=1, assignment=(('Alice', 'spk-1'), ))
 ```
 
 All low-level interfaces come with a single-example function (as show above) and a batch function that computes the WER for multiple examples at once.

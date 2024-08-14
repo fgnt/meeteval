@@ -1,7 +1,9 @@
 import dataclasses
+import functools
 from typing import Iterable, Any
 
-from meeteval.io.seglst import asseglst, asseglistconvertible
+from meeteval.io.seglst import asseglistconvertible
+from meeteval.wer.preprocess import preprocess
 from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _keys, _items, _values
@@ -77,7 +79,12 @@ def mimo_error_rate(
     )
 
 
-def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
+def mimo_word_error_rate(
+        reference,
+        hypothesis,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+) -> MimoErrorRate:
     """
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
 
@@ -97,36 +104,42 @@ def mimo_word_error_rate(reference, hypothesis) -> MimoErrorRate:
     MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', 'O2'), ('B', 'O2'), ('A', 'O1')])
 
     >>> mimo_word_error_rate(STM.parse('X 1 A 0.0 1.0 a b\\nX 1 A 1.0 2.0 c d\\nX 1 B 0.0 2.0 e f\\n'), STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n'))
-    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=[('A', '0'), ('B', '0'), ('A', '1')])
+    MimoErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), hypothesis_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), assignment=[('A', '0'), ('B', '0'), ('A', '1')])
     """
-    reference = asseglst(reference)
-    hypothesis = asseglst(hypothesis)
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
+        reference, hypothesis,
+        remove_empty_segments=False,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+    )
 
-    # Sort by start time if the start time is available
-    # TODO: implement something like reference_sort from time_constrained.py?
-    if 'start_time' in reference.T.keys():
-        reference = reference.sorted('start_time')
-    if 'start_time' in hypothesis.T.keys():
-        hypothesis = hypothesis.sorted('start_time')
-
-    # Convert to dict of lists of words
+    # Convert to dict of lists of words and remove empty words here.
     reference = {
-        k: [s['words'].split() for s in v if s['words'] != '']
+        k: [
+            [word for words in segment.T['words'] for word in words if word != '']
+            for segment in v.groupby('segment_index').values()
+        ]
         for k, v in reference.groupby('speaker').items()
     }
     hypothesis = {
-        k: [w for s in v if s['words'] != '' for w in s['words'].split()]
+        k: [word for words in v.T['words'] for word in words if word != '']
         for k, v in hypothesis.groupby('speaker').items()
     }
 
     # Call core function
-    return mimo_error_rate(reference, hypothesis)
+    return dataclasses.replace(
+        mimo_error_rate(reference, hypothesis),
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
+    )
 
 
 def mimo_word_error_rate_multifile(
         reference,
         hypothesis,
         partial=False,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ) -> 'dict[str, MimoErrorRate]':
     """
     Computes the MIMO WER for each example in the reference and hypothesis
@@ -136,7 +149,14 @@ def mimo_word_error_rate_multifile(
     `sum(mimo_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(mimo_word_error_rate, reference, hypothesis, partial=partial)
+    return apply_multi_file(
+        functools.partial(
+            mimo_word_error_rate,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
+        ),
+        reference, hypothesis, partial=partial
+    )
 
 
 def apply_mimo_assignment(

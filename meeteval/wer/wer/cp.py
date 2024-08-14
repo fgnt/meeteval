@@ -1,13 +1,20 @@
 import dataclasses
+import functools
 import itertools
 import string
-from typing import Optional, Any, Iterable
+import typing
 
 import meeteval
 from meeteval._typing import Literal
 from meeteval.io.seglst import SegLST, asseglst, asseglistconvertible
+from meeteval.wer.preprocess import preprocess
 
 from meeteval.wer.wer.error_rate import ErrorRate
+
+if typing.TYPE_CHECKING:
+    T = typing.TypeVar('T')
+    from typing import Optional, Any
+
 
 __all__ = [
     'CPErrorRate',
@@ -106,17 +113,12 @@ class CPErrorRate(ErrorRate):
         )
 
 
-def cp_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate:
-    from meeteval.wer.wer.siso import _seglst_siso_error_rate, siso_levenshtein_distance
-    return _cp_error_rate(
-        reference,
-        hypothesis,
-        distance_fn=siso_levenshtein_distance,
-        siso_error_rate=_seglst_siso_error_rate,
-    )
-
-
-def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate:
+def cp_word_error_rate(
+        reference: 'SegLST',
+        hypothesis: 'SegLST',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+) -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
 
@@ -149,6 +151,7 @@ def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate
     >>> cp_word_error_rate({'r0': 'a b'}, {'h0': 'z', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
     CPErrorRate(error_rate=1.5, errors=3, length=2, insertions=2, deletions=0, substitutions=1, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=(('r0', 'h1'), (None, 'h0')))
 
+    Whitespace is ignored
     >>> cp_word_error_rate({'r0': 'a b', 'r1': 'k'}, {'h0': ' ', 'h1': 'a e f'})  # Special case for overestimation, that was buggy in the past.
     CPErrorRate(error_rate=1.0, errors=3, length=3, insertions=1, deletions=1, substitutions=1, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=(('r0', 'h1'), ('r1', 'h0')))
 
@@ -156,26 +159,44 @@ def cp_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> CPErrorRate
     >>> r = STM([STMLine.parse('file1 0 r0 0 1 Hello World')])
     >>> h = STM([STMLine.parse('file1 0 h0 0 1 Hello World')])
     >>> cp_word_error_rate(r, h)
-    CPErrorRate(error_rate=0.0, errors=0, length=2, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=1, assignment=(('r0', 'h0'),))
+    CPErrorRate(error_rate=0.0, errors=0, length=2, insertions=0, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=Decimal('0'), overlap_time=0, total_time=Decimal('1')), hypothesis_self_overlap=SelfOverlap(overlap_rate=Decimal('0'), overlap_time=0, total_time=Decimal('1')), missed_speaker=0, falarm_speaker=0, scored_speaker=1, assignment=(('r0', 'h0'),))
 
     >>> cp_word_error_rate(['a b c'.split(), 'd e f'.split()], ['a b c'.split(), 'd e f'.split()])
     CPErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=0, scored_speaker=2, assignment=((0, 0), (1, 1)))
+
     """
     reference = asseglst(reference, required_keys=('speaker', 'words'))
     hypothesis = asseglst(hypothesis, required_keys=('speaker', 'words'))
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
+        reference, hypothesis,
+        keep_keys=('speaker', 'words'),
+        remove_empty_segments=False,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        segment_representation='segment',
+    )
 
-    def split_words(d: 'SegLST'):
-        return d.flatmap(
-            lambda s: [
-                {**s, 'words': w}
-                for w in (s['words'].split() if s['words'].strip() else [''])
-            ])
+    from meeteval.wer.wer.siso import _siso_error_rate
+    from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
-    return cp_error_rate(split_words(reference), split_words(hypothesis))
+    error_rate = _minimum_permutation_word_error_rate(
+        {k: [w for words in v.T['words'] for w in words] for k, v in reference.groupby('speaker').items()},
+        {k: [w for words in v.T['words'] for w in words] for k, v in hypothesis.groupby('speaker').items()},
+        distance_fn=levenshtein_distance,
+        siso_error_rate=_siso_error_rate,
+    )
+
+    return dataclasses.replace(
+        error_rate,
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
+    )
 
 
 def cp_word_error_rate_multifile(
-        reference, hypothesis, partial=False
+        reference, hypothesis, partial=False,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ) -> 'dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
@@ -183,36 +204,39 @@ def cp_word_error_rate_multifile(
     To compute the overall WER, use `sum(cp_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
-    return apply_multi_file(cp_word_error_rate, reference, hypothesis, partial=partial)
+    return apply_multi_file(
+        functools.partial(
+            cp_word_error_rate,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
+        ),
+        reference, hypothesis,
+        partial=partial
+    )
 
 
-def _cp_error_rate(
-        reference: SegLST,
-        hypothesis: SegLST,
-        distance_fn: callable,
-        siso_error_rate: callable,
-):
-    # Used in
-    #   cp_word_error_rate
-    # and
-    #   time_constrained_minimum_permutation_word_error_rate
-    # .
+def _minimum_permutation_assignment(
+        reference: 'dict[str, T]',
+        hypothesis: 'dict[str, T]',
+        distance_fn: 'callable[[T, T], int]',
+        missing: 'T' = SegLST([])
+) -> '(tuple[int], int)':
+    """
+    Compute the best (lowest distance) assignment of reference and hypothesis
+    speakers based on `distance_fn`.
+
+    Returns:
+        The assignment and the distance
+
+    >>> _minimum_permutation_assignment({}, {}, lambda x, y: 0)
+    ((), 0)
+    >>> _minimum_permutation_assignment({}, {'spkA': meeteval.io.SegLST([])}, lambda x, y: 1)
+    (((None, 'spkA'),), 1)
+    >>> _minimum_permutation_assignment({'spkA': meeteval.io.SegLST([])}, {}, lambda x, y: 1)
+    ((('spkA', None),), 1)
+    """
     import scipy.optimize
     import numpy as np
-
-    reference = reference.groupby('speaker')
-    hypothesis = hypothesis.groupby('speaker')
-
-    if max(len(hypothesis), len(reference)) > 20:
-        num_speakers = max(len(hypothesis), len(reference))
-        raise RuntimeError(
-            f'Are you sure?\n'
-            f'Found a total of {num_speakers} speakers in the input.\n'
-            f'This indicates a mistake in the input, or does your use-case '
-            f'really require scoring with that many speakers?\n'
-            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md '
-            f'for details.'
-        )
 
     cost_matrix = np.array([
         [
@@ -220,15 +244,18 @@ def _cp_error_rate(
             for et, _ in itertools.zip_longest(
             hypothesis.values(),
             reference.values(),  # ignored, "padding" for underestimation
-            fillvalue=SegLST([]),
+            fillvalue=missing,
         )
         ]
         for tt, _ in itertools.zip_longest(
             reference.values(),
             hypothesis.values(),  # ignored, "padding" for overestimation
-            fillvalue=SegLST([]),
+            fillvalue=missing,
         )
     ])
+
+    if cost_matrix.size == 0:
+        return (), 0
 
     # Find the best permutation with hungarian algorithm
     row_ind, col_ind = scipy.optimize.linear_sum_assignment(cost_matrix)
@@ -246,21 +273,61 @@ def _cp_error_rate(
         (reference_keys.get(r), hypothesis_keys.get(c))
         for r, c in itertools.zip_longest(row_ind, col_ind)
     ])
+    return assignment, int(distance)
+
+
+def _minimum_permutation_word_error_rate(
+        reference: 'dict[str, T]',
+        hypothesis: 'dict[str, T]',
+        distance_fn: 'callable[[T, T], int]',
+        siso_error_rate: 'callable[[T, T], ErrorRate]',
+        missing: 'T' = SegLST([]),
+) -> CPErrorRate:
+    """
+    Computes the WER for the best (minimum error rate) assignment of reference
+    to hypothesis speakers.
+
+    Statistics (insertions, deletions, ...) are copied from the output of
+    `siso_error_rate` after resolving the assignment.
+
+    Performs no preprocessing. This means:
+    - reference and hypothesis must be dicts of SegLSTs matching the input
+        format of `distance_fn` and `siso_error_rate`
+    - no self-overlap is computed
+    """
+    if max(len(hypothesis), len(reference)) > 20:
+        num_speakers = max(len(hypothesis), len(reference))
+        raise RuntimeError(
+            f'Are you sure?\n'
+            f'Found a total of {num_speakers} speakers in the input '
+            f'(Reference: {len(reference)}, Hypothesis: {len(hypothesis)}).\n'
+            f'This indicates a mistake in the input, or does your use-case '
+            f'really require scoring with that many speakers?\n'
+            f'See https://github.com/fgnt/meeteval/blob/main/doc/num_speaker_limits.md '
+            f'for details.'
+        )
+
+    assignment, distance = _minimum_permutation_assignment(
+        reference, hypothesis, distance_fn, missing
+    )
 
     missed_speaker = max(0, len(reference) - len(hypothesis))
     falarm_speaker = max(0, len(hypothesis) - len(reference))
 
-    reference_new, hypothesis_new = apply_cp_assignment(
-        assignment,
-        reference=reference,
-        hypothesis=hypothesis,
-        missing=SegLST([]),
-    )
+    if assignment:
+        reference_new, hypothesis_new = apply_cp_assignment(
+            assignment,
+            reference=reference,
+            hypothesis=hypothesis,
+            missing=missing,
+        )
+    else:
+        reference_new, hypothesis_new = reference, hypothesis
 
     er = sum([
         siso_error_rate(r, hypothesis_new[speaker])
         for speaker, r in reference_new.items()
-    ])
+    ], start=ErrorRate.zero())
 
     assert distance == er.errors, (distance, er)
 

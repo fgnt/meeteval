@@ -28,10 +28,11 @@ def create_viz_folder(
 
         r, h = _load_texts(
             reference, hypothesis, regex=regex,
-            reference_sort='segment',
-            hypothesis_sort='segment',
             normalizer=normalizer,
         )
+
+        r = r.sorted('start_time')
+        h = h.sorted('start_time')
 
         r = r.groupby('session_id')
         h = h.groupby('session_id')

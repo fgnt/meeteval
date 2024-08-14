@@ -5,11 +5,15 @@ import itertools
 import typing
 from dataclasses import dataclass, replace
 
+from meeteval.io.pbjson import zip_strict
 from meeteval.io.stm import STM
 from meeteval.io.seglst import SegLST, seglst_map, asseglst, SegLstSegment
+from meeteval.wer.preprocess import split_words, words_to_int, add_segment_index, preprocess
 from meeteval.wer.wer.error_rate import ErrorRate, SelfOverlap
 from meeteval.wer.wer.cp import CPErrorRate
 import logging
+
+from meeteval.wer.wer.utils import check_single_filename
 
 logger = logging.getLogger('time_constrained')
 
@@ -160,9 +164,9 @@ def _time_constrained_siso_error_rate(
     reference = reference.filter(lambda s: s['words'])
     hypothesis = hypothesis.filter(lambda s: s['words'])
     reference_words = reference.T['words']
-    reference_timing = list(zip(reference.T['start_time'], reference.T['end_time']))
+    reference_timing = reference.T['start_time', 'end_time']
     hypothesis_words = hypothesis.T['words']
-    hypothesis_timing = list(zip(hypothesis.T['start_time'], hypothesis.T['end_time']))
+    hypothesis_timing = hypothesis.T['start_time', 'end_time']
 
     result = time_constrained_levenshtein_distance_with_alignment(
         reference_words, hypothesis_words, reference_timing, hypothesis_timing,
@@ -343,7 +347,13 @@ def apply_collar(s: SegLST, collar: float):
     X 1 A -1 2 a b
     <BLANKLINE>
     """
-    return s.map(lambda s: {**s, 'start_time': s['start_time'] - collar, 'end_time': s['end_time'] + collar})
+    return s.map(
+        lambda s: {
+            **s,
+            'start_time': [t - collar for t in s['start_time']] if isinstance(s['start_time'], list) else s['start_time'] - collar,
+            'end_time': [t + collar for t in s['end_time']] if isinstance(s['end_time'], list) else s['end_time'] + collar,
+        }
+    )
 
 
 @seglst_map()
@@ -486,89 +496,6 @@ def remove_overlaps(
     return t.sorted('start_time').map(correct)
 
 
-def sort_and_validate(segments: SegLST, sort, pseudo_word_level_timing, name, warn=True):
-    """
-    Args:
-        segments:
-        sort: How to sort words/segments. Options:
-            - `True`: sort by segment start time and assert that the word-level
-                        timings are sorted by start time
-            - `False`: do not sort and do not check word order
-            - `'segment'`: sort segments by start time and do not check word order
-            - `'word'`: sort words by start time
-        pseudo_word_level_timing:
-        name:
-
-    >>> from paderbox.utils.pretty import pprint
-    >>> segments = SegLST([{'words': 'c d', 'start_time': 1, 'end_time': 3}, {'words': 'a b', 'start_time': 0, 'end_time': 3}])
-    >>> sort_and_validate(segments, True, 'character_based', 'test')
-    Traceback (most recent call last):
-    ...
-    ValueError: The order of word-level timings contradicts the segment-level order in test: 2 of 4 times.
-    Consider setting sort to False or "segment" or "word".
-    >>> pprint(sort_and_validate(segments, False, 'character_based', 'test'))
-    SegLST([{'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
-            {'words': 'd', 'start_time': 2.0, 'end_time': 3.0},
-            {'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
-            {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}])
-    >>> pprint(sort_and_validate(segments, 'segment', 'character_based', 'test'))
-    SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
-            {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
-            {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
-            {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
-    >>> pprint(sort_and_validate(segments, 'word', 'character_based', 'test'))
-    SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
-            {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
-            {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
-            {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}])
-    """
-    if sort not in (True, False, 'segment', 'word'):
-        raise ValueError(
-            f'Invalid value for sort: {sort}. Choose one of True, False, '
-            f'"segment", "word"'
-        )
-
-    for s in segments:
-        if s['end_time'] < s['start_time']:
-            raise ValueError(
-                f'The end time of an interval must be larger than the start '
-                f'time. Found {s} in {name}'
-            )
-
-    if sort in (True, 'segment', 'word'):
-        segments = segments.sorted('start_time')
-
-    words = get_pseudo_word_level_timings(segments, pseudo_word_level_timing)
-
-    # Check whether words are sorted by start time
-    words_sorted = words.sorted('start_time')
-    if warn and words_sorted != words:
-        # This check should be fast because `sorted` doesn't change the identity
-        # of the contained objects (so `words_sorted[0] is words[0] == True`
-        # when they are sorted).
-        contradictions = [a != b for a, b in zip(words_sorted, words)]
-        try:
-            session_ids = f' (session ids: {sorted(set(segments.T["session_id"]))})'
-        except KeyError:
-            session_ids = ''
-        msg = (
-            f'The order of word-level timings contradicts the segment-level '
-            f'order in {name}: {sum(contradictions)} of {len(contradictions)} '
-            f'times.{session_ids}'
-        )
-        if sort is not True:
-            logger.warning(msg)
-        else:
-            raise ValueError(
-                f'{msg}\nConsider setting sort to False or "segment" or "word".'
-            )
-
-    if sort == 'word':
-        words = words_sorted
-
-    return words
-
-
 def get_self_overlap(d: SegLST):
     """
     Returns the self-overlap of the transcript.
@@ -629,8 +556,8 @@ def time_constrained_siso_levenshtein_distance(
     return time_constrained_levenshtein_distance(
         reference=reference.T['words'],
         hypothesis=hypothesis.T['words'],
-        reference_timing=list(zip(reference.T['start_time'], reference.T['end_time'])),
-        hypothesis_timing=list(zip(hypothesis.T['start_time'], hypothesis.T['end_time'])),
+        reference_timing=reference.T['start_time', 'end_time'],
+        hypothesis_timing=hypothesis.T['start_time', 'end_time'],
     )
 
 
@@ -684,33 +611,35 @@ def time_constrained_siso_word_error_rate(
         py_convert=None
     )
 
-    # Only single-speaker transcripts are supported, but we can here have
-    # multiple segments, e.g., for word-level transcripts
-    assert 'speaker' not in reference.T.keys() or len(reference.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
-    assert 'speaker' not in hypothesis.T.keys() or len(hypothesis.unique('speaker')) <= 1, 'Only single-speaker transcripts are supported'
+    if 'speaker' in reference.T.keys() and len(reference.unique('speaker')) > 1:
+        raise ValueError(
+            f'Only single-speaker transcripts are supported, but found '
+            f'{len(reference)} speakers ({reference.T["speaker"]}) in '
+            f'the reference.'
+        )
+    if 'speaker' in hypothesis.T.keys() and len(hypothesis.unique('speaker')) > 1:
+        raise ValueError(
+            f'Only single-speaker transcripts are supported, but found '
+            f'{len(hypothesis)} speakers ({hypothesis.T["speaker"]}) in '
+            f'the hypothesis.'
+        )
 
-    _reference = sort_and_validate(
-        reference,
-        reference_sort,
-        reference_pseudo_word_level_timing,
-        'reference'
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
+        reference, hypothesis,
+        keep_keys=('start_time', 'end_time', 'words'),
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+        hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+        collar=collar,
+        segment_representation='word',
     )
-    _hypothesis = sort_and_validate(
-        hypothesis,
-        hypothesis_sort,
-        hypothesis_pseudo_word_level_timing,
-        'hypothesis'
-    )
-    _hypothesis = apply_collar(_hypothesis, collar)
 
-    er = _time_constrained_siso_error_rate(_reference, _hypothesis)
+    er = _time_constrained_siso_error_rate(reference, hypothesis)
 
-    # pseudo_word_level_timing and collar change the time stamps,
-    # hence calculate the overlap with the original time stamps
     er = replace(
         er,
-        reference_self_overlap=get_self_overlap(reference),
-        hypothesis_self_overlap=get_self_overlap(hypothesis),
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
     )
     return er
 
@@ -749,71 +678,23 @@ def time_constrained_minimum_permutation_word_error_rate(
     - 'segment': sort by segment start time and don't check word order
     - 'word': sort by word start time
     """
-    from meeteval.wer.wer.cp import _cp_error_rate
-
-    reference = asseglst(
-        reference,
-        required_keys=('start_time', 'end_time', 'words', 'speaker'),
-        py_convert=None
+    from meeteval.wer.wer.cp import _minimum_permutation_word_error_rate
+    reference, hypothesis, reference_self_overlap, hypothesis_self_overlap = preprocess(
+        asseglst(reference, required_keys=('start_time', 'end_time', 'words', 'speaker')),
+        asseglst(hypothesis, required_keys=('start_time', 'end_time', 'words', 'speaker')),
+        keep_keys=('start_time', 'end_time', 'words', 'speaker'),
+        remove_empty_segments=False,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        collar=collar,
+        reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+        hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+        segment_representation='word',
     )
-    hypothesis = asseglst(
-        hypothesis,
-        required_keys=('start_time', 'end_time', 'words', 'speaker'),
-        py_convert=None
-    )
 
-    reference = reference.groupby('speaker')
-    hypothesis = hypothesis.groupby('speaker')
-
-    # Compute self-overlap for ref and hyp before converting to words and
-    # applying the collar. This is required later
-    # Add zero to work with empty reference and/or hypothesis
-    reference_self_overlap = sum(
-        [get_self_overlap(v) for v in reference.values()]
-    ) + SelfOverlap.zero()
-    hypothesis_self_overlap = sum(
-        [get_self_overlap(v) for v in hypothesis.values()]
-    ) + SelfOverlap.zero()
-
-    # Convert segments into lists of words and word-level timings
-    reference = {
-        k: sort_and_validate(
-            v,
-            reference_sort,
-            reference_pseudo_word_level_timing,
-            f'reference speaker "{k}"'
-        )
-        for k, v in reference.items()
-    }
-    hypothesis = {
-        k: sort_and_validate(
-            v,
-            hypothesis_sort,
-            hypothesis_pseudo_word_level_timing,
-            f'hypothesis speaker "{k}"'
-        )
-        for k, v in hypothesis.items()
-    }
-
-    reference = SegLST.merge(*reference.values())
-    hypothesis = SegLST.merge(*hypothesis.values())
-
-    hypothesis = apply_collar(hypothesis, collar)
-
-    # Convert into integer representation to save some computation later.
-    # `'words'` contains a single word only.
-    sym2int = {v: i for i, v in enumerate([
-        segment['words']
-        for segment in itertools.chain(reference, hypothesis)
-        if segment['words']
-    ], start=1)}
-    sym2int[''] = 0
-
-    reference = reference.map(lambda s: {**s, 'words': sym2int[s['words']]})
-    hypothesis = hypothesis.map(lambda s: {**s, 'words': sym2int[s['words']]})
-
-    er = _cp_error_rate(
-        reference, hypothesis,
+    er = _minimum_permutation_word_error_rate(
+        reference.groupby('speaker'),
+        hypothesis.groupby('speaker'),
         distance_fn=time_constrained_siso_levenshtein_distance,
         siso_error_rate=_time_constrained_siso_error_rate,
     )
@@ -981,42 +862,55 @@ def align(
         required_keys=('start_time', 'end_time', 'words'),
         py_convert=None
     )
-    reference = sort_and_validate(
-        reference,
-        reference_sort,
-        reference_pseudo_word_level_timing,
-        'reference'
+
+    # Preprocess, but do not add the collar yet, because we need the original
+    # timestamps later
+    reference, hypothesis, _, _ = preprocess(
+        reference, hypothesis,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+        hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+        segment_representation='word',
+        segment_index='word' if style == 'index' else False,
+        remove_empty_segments=True,
     )
-    hypothesis = sort_and_validate(
-        hypothesis,
-        hypothesis_sort,
-        hypothesis_pseudo_word_level_timing,
-        'hypothesis'
-    )
+    # reference = sort_and_validate(
+    #     reference,
+    #     reference_sort,
+    #     reference_pseudo_word_level_timing,
+    #     'reference'
+    # )
+    # hypothesis = sort_and_validate(
+    #     hypothesis,
+    #     hypothesis_sort,
+    #     hypothesis_pseudo_word_level_timing,
+    #     'hypothesis'
+    # )
 
     # Add index for tracking across filtering operations. This is only required
     # for the index style since all other styles can be constructed from seglst
     # without the index. Especially for `style = 'seglst'` we want to keep
     # identity
-    if style == 'index':
-        reference = SegLST(
-            [{**s, '__align_index': i} for i, s in enumerate(reference)]
-        )
-        hypothesis = SegLST(
-            [{**s, '__align_index': i} for i, s in enumerate(hypothesis)]
-        )
+    # if style == 'index':
+    #     reference = SegLST(
+    #         [{**s, '__align_index': i} for i, s in enumerate(reference)]
+    #     )
+    #     hypothesis = SegLST(
+    #         [{**s, '__align_index': i} for i, s in enumerate(hypothesis)]
+    #     )
 
     # Ignore empty segments
-    reference = reference.filter(lambda s: s['words'])
-    hypothesis = hypothesis.filter(lambda s: s['words'])
+    # reference = reference.filter(lambda s: s['words'])
+    # hypothesis = hypothesis.filter(lambda s: s['words'])
 
     hypothesis_ = apply_collar(hypothesis, collar=collar)
 
     # Compute the alignment with Cython code
     reference_words = reference.T['words']
-    reference_timing = list(zip(reference.T['start_time'], reference.T['end_time']))
+    reference_timing = reference.T['start_time', 'end_time']
     hypothesis_words = hypothesis_.T['words']
-    hypothesis_timing = list(zip(hypothesis_.T['start_time'], hypothesis_.T['end_time']))
+    hypothesis_timing = hypothesis_.T['start_time', 'end_time']
 
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance_with_alignment
     alignment = time_constrained_levenshtein_distance_with_alignment(
@@ -1033,8 +927,8 @@ def align(
         # Use the "global" (before filtering) index so that it corresponds to
         # the input when the input already consists of words
         alignment = [
-            (None if a is None else a['__align_index'],
-             None if b is None else b['__align_index'])
+            (None if a is None else a['segment_index'],
+             None if b is None else b['segment_index'])
             for a, b in alignment
         ]
     elif style in ('kaldi', 'words'):
