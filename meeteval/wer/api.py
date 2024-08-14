@@ -101,8 +101,8 @@ def _load_texts(
 def orcwer(
         reference, hypothesis,
         regex=None,
-        reference_sort='segment',
-        hypothesis_sort='segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
         uem=None,
         partial=False,
         normalizer=None,
@@ -124,8 +124,8 @@ def orcwer(
 def cpwer(
         reference, hypothesis,
         regex=None,
-        reference_sort='segment',
-        hypothesis_sort='segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
         uem=None,
         normalizer=None,
         partial=False
@@ -147,8 +147,8 @@ def cpwer(
 def mimower(
         reference, hypothesis,
         regex=None,
-        reference_sort='segment',
-        hypothesis_sort='segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
         uem=None,
         normalizer=None,
         partial=False,

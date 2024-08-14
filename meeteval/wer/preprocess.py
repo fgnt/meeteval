@@ -292,13 +292,13 @@ def _preprocess_single(
             or 'start_time' in segments.T.keys()
             and 'end_time' in segments.T.keys()
     )
-    if sort not in (True, False, 'segment', 'word', 'maybe_segment'):
+    if sort not in (True, False, 'segment', 'word', 'segment_if_available'):
         raise ValueError(
             f'Invalid value for sort: {sort}. Choose one of True, False, '
             f'"segment", "word"'
         )
     else:
-        if sort == 'maybe_segment':
+        if sort == 'segment_if_available':
             if contains_timestamps:
                 sort = 'segment'
             else:

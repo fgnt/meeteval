@@ -82,8 +82,8 @@ def mimo_error_rate(
 def mimo_word_error_rate(
         reference,
         hypothesis,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ) -> MimoErrorRate:
     """
     The Multiple Input speaker, Multiple Output channel (MIMO) WER.
@@ -138,8 +138,8 @@ def mimo_word_error_rate_multifile(
         reference,
         hypothesis,
         partial=False,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ) -> 'dict[str, MimoErrorRate]':
     """
     Computes the MIMO WER for each example in the reference and hypothesis

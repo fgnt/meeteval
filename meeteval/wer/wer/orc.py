@@ -57,8 +57,8 @@ def orc_word_error_rate_multifile(
         reference,
         hypothesis,
         partial=False,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ) -> 'dict[str, OrcErrorRate]':
     """
     Computes the ORC WER for each example in the reference and hypothesis files.
@@ -151,8 +151,8 @@ def _orc_error_rate(
 def orc_word_error_rate(
         reference,
         hypothesis,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ):
     """
     The Optimal Reference Combination (ORC) WER, implemented efficiently.

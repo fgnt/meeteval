@@ -165,8 +165,8 @@ def orcwer(
         average_out='{parent}/{stem}_orcwer.json',
         per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
         regex=None,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
         uem=None,
         partial=False,
         normalizer=None,
@@ -187,8 +187,8 @@ def cpwer(
         average_out='{parent}/{stem}_cpwer.json',
         per_reco_out='{parent}/{stem}_cpwer_per_reco.json',
         regex=None,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
         uem=None,
         normalizer=None,
         partial=False,
@@ -207,8 +207,8 @@ def mimower(
         average_out='{parent}/{stem}_mimower.json',
         per_reco_out='{parent}/{stem}_mimower_per_reco.json',
         regex=None,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
         uem=None,
         normalizer=None,
         partial=False,
@@ -490,7 +490,8 @@ class CLI:
                      '- True: Sort by segment start time and assert that the word-level timings are sorted by start '
                      'time. Only supported for time-constrained WERs\n'
                      '- word: sort words by start time. Only supported for time-constrained WERs\n'
-                     '- maybe_segment: Same as segment, but only applies when timestamps are present in the inputs'
+                     '- segment_if_available: Same as segment, but only applies when timestamps are present in the '
+                     'inputs. If no timestamps are present, falls back to False.'
             )
         elif name == 'hypothesis_sort':
             command_parser.add_argument(
@@ -505,7 +506,8 @@ class CLI:
                      '- True: Sort by segment start time and assert that the word-level timings are sorted by start '
                      'time. Only supported for time-constrained WERs\n'
                      '- word: sort words by start time. Only supported for time-constrained WERs\n'
-                     '- maybe_segment: Same as segment, but only applies when timestamps are present in the inputs'
+                     '- segment_if_available: Same as segment, but only applies when timestamps are present in the '
+                     'inputs. If no timestamps are present, falls back to False.'
             )
         elif name == 'uem':
             command_parser.add_argument(

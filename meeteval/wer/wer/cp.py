@@ -116,8 +116,8 @@ class CPErrorRate(ErrorRate):
 def cp_word_error_rate(
         reference: 'SegLST',
         hypothesis: 'SegLST',
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ) -> CPErrorRate:
     """
     The Concatenated minimum Permutation WER (cpWER).
@@ -195,8 +195,8 @@ def cp_word_error_rate(
 
 def cp_word_error_rate_multifile(
         reference, hypothesis, partial=False,
-        reference_sort='maybe_segment',
-        hypothesis_sort='maybe_segment',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
 ) -> 'dict[str, CPErrorRate]':
     """
     Computes the cpWER for each example in the reference and hypothesis STM files.
