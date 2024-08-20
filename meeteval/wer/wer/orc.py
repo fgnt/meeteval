@@ -127,7 +127,9 @@ def _orc_error_rate(
     ])
     length = sum([len(s['words']) if isinstance(s['words'], list) else 1 for s in reference])
     assert er.length == length, (length, er)
-    assert er.errors == distance, (distance, er, assignment)
+    if distance is not None:
+        # The matching function can in some cases not compute the distance
+        assert er.errors == distance, (distance, er, assignment)
 
     # Insert labels for empty segments that got removed
     if len(assignment) != total_num_segments:
@@ -310,8 +312,8 @@ def apply_orc_assignment(
 
 
 def greedy_orc_word_error_rate(
-        reference: 'List[str | Iterable[str]] | STM',
-        hypothesis: 'List[List[Tuple[str | Iterable[str], int]]] | STM',
+        reference: 'SegLST',
+        hypothesis: 'SegLST',
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
         *,
@@ -354,8 +356,13 @@ def greedy_orc_word_error_rate(
         distance, assignment = greedy_combination_matching(
             reference.T['words'],
             [[w for words in stream.T['words'] for w in words] for stream in hypothesis.values()],
-            initial_assignment=initialize_assignment(reference, hypothesis, initialization=assignment_initialization)
+            initial_assignment=initialize_assignment(reference, hypothesis, initialization=assignment_initialization),
+            distancetype=distancetype,
         )
+        if not str(distance).endswith('1'):
+            # Let the wrapper compute the distance. The distance returned by the matching
+            # uses a different weight and thus has a different value
+            distance = None
         return distance, assignment
 
     def siso(reference, hypothesis):
