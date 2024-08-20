@@ -121,6 +121,33 @@ def orcwer(
     return results
 
 
+def greedy_orcwer(
+        reference, hypothesis,
+        regex=None,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+        distancetype='21',
+        assignment_initialization='cp',
+        uem=None,
+        partial=False,
+        normalizer=None,
+):
+    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
+    from meeteval.wer.wer.orc import greedy_orc_word_error_rate_multifile
+    reference, hypothesis = _load_texts(
+        reference, hypothesis, regex=regex,
+        uem=uem, normalizer=normalizer,
+    )
+    results = greedy_orc_word_error_rate_multifile(
+        reference, hypothesis, partial=partial,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        distancetype=distancetype,
+        assignment_initialization=assignment_initialization,
+    )
+    return results
+
+
 def cpwer(
         reference, hypothesis,
         regex=None,

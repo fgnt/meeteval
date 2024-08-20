@@ -182,6 +182,34 @@ def orcwer(
     _save_results(results, hypothesis, per_reco_out, average_out)
 
 
+def greedy_orcwer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_orcwer.json',
+        per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
+        regex=None,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+        distancetype='21',
+        assignment_initialization='cp',
+        uem=None,
+        partial=False,
+        normalizer=None,
+):
+    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)
+    using a greedy algorithm. This algorithm is a lot faster than the optimal
+    algorithm, but IS NOT GUARANTEED TO PRODUCE THE SAME RESULT!"""
+    results = meeteval.wer.api.greedy_orcwer(
+        reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
+        partial=partial,
+        normalizer=normalizer,
+        distancetype=distancetype,
+        assignment_initialization=assignment_initialization,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out)
+
+
 def cpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_cpwer.json',
@@ -525,6 +553,28 @@ class CLI:
                      '- lower,rm(.?!,): Lowercase the transcript and remove punctuations (.,?!).',
                 choices=[None, 'lower,rm(.?!,)'],
             )
+        elif name == 'distancetype':
+            command_parser.add_argument(
+                '--distancetype',
+                choices=['1', '2', '21'],
+                help='Specifies the costs used for substitutions in the greedy distance calculation.\n'
+                     'Choices:\n'
+                     '- 1: A substitution cost of 1 (standard Levenshtein distance)\n'
+                     '- 2: A substitution cost of 2 (subst = ins + del)\n'
+                     '- 21: Optimize with 2 until convergence, then optimize with 1 until convergence. This is the '
+                     'default and recommended for best results.'
+            )
+        elif name == 'assignment_initialization':
+            command_parser.add_argument(
+                '--assignment-initialization',
+                choices=['cp', 'random', 'constant'],
+                help='Specifies how the greedy search should be initialized.\n'
+                     'Choices:\n'
+                     '- cp: Use the assignment from the cpWER. Ensures fast convergence when the speaker labels '
+                     'are already somewhat correct. Requires speaker/stream labels in both, reference and hypothesis.\n'
+                     '- random: Initializes the assignment randomly. This is not deterministic.\n'
+                     '- constant: Initializes the label for all segments to 0.'
+            )
         elif name == 'partial':
             command_parser.add_argument(
                 '--partial',
@@ -542,6 +592,7 @@ class CLI:
             command_name = fn.__name__
         command_parser = self.commands.add_parser(
             command_name,
+            description=fn.__doc__,
             add_help=False,
             formatter_class=SmartFormatter,
             help=fn.__doc__,
@@ -599,6 +650,7 @@ def cli():
     cli.add_command(wer)
     cli.add_command(cpwer)
     cli.add_command(orcwer)
+    cli.add_command(greedy_orcwer)
     cli.add_command(mimower)
     cli.add_command(tcpwer)
     cli.add_command(tcorcwer)
