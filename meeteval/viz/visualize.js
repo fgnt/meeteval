@@ -939,7 +939,7 @@ class CanvasPlot {
 
         this.width = this.width_html * this.dpr;
         this.height = this.height_html * this.dpr;
-//        console.log("Canvas size changed", this.dpr, [this.width_html, this.height_html], [this.width, this.height]);
+
         this.canvas.attr("width", this.width);
         this.canvas.attr("height", this.height);
         // The canvas size must match the pixel size exactly
@@ -1676,7 +1676,6 @@ class CanvasPlot {
                     const maxY = Math.max(...touchY) - top;
                     const lastMinY = Math.min(...startTouch.Y) - top;
                     const lastMaxY = Math.max(...startTouch.Y) - top;
-//                    let [begin, end] = this.plot.y.domain();
                     let [begin, end] = [startTouch.begin, startTouch.end];
 
                     if (lastMaxY - lastMinY > 0 && maxY - minY > 0) {
