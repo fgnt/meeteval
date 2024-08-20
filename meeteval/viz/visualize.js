@@ -1638,24 +1638,18 @@ class CanvasPlot {
             });
 
             var startTouch = {};
-            var lastTouchY = [];
-            this.plot.element.on("touchstart", event => {
+
+            const touchstart = (event) => {
                 // TouchList doesn't implement iterator
-                lastTouchY = [];
                 startTouch.Y = [];
                 for (let i = 0; i < event.targetTouches.length; i++) {
-                    lastTouchY.push(event.targetTouches[i].clientY * this.plot.dpr);
                     startTouch.Y.push(event.targetTouches[i].clientY * this.plot.dpr);
                 }
                 [startTouch.begin, startTouch.end] = this.plot.y.domain();
-            });
-            this.plot.element.on("touchend", event => {
-                // TouchList doesn't implement iterator
-                lastTouchY = [];
-                for (let i = 0; i < event.targetTouches.length; i++) {
-                    lastTouchY.push(event.targetTouches[i].clientY * this.plot.dpr);
-                }
-            });
+            }
+
+            this.plot.element.on("touchstart", touchstart);
+            this.plot.element.on("touchend", touchstart);
 
             this.plot.element.on("touchmove", event => {
                 // This can happen when a touch move is started outside of the
@@ -1695,7 +1689,6 @@ class CanvasPlot {
                     updateViewArea(this.state.viewAreas.length - 1, [begin, end]);
                     event.preventDefault()
                 }
-                lastTouchY = touchY;
             })
 
             this.plot.onSizeChanged(this.draw.bind(this));
