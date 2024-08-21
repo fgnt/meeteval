@@ -265,12 +265,17 @@ function alignment_visualization(
             initial_query: null
         },
         recording_file: "",
-        match_width: 10,
+        match_width: 10,  // width between ref and hyp boxes, i.e., the space for the alignment lines
         audio_server: 'http://localhost:7777',
         syncID: null,
         encodeURL: true,
     }
 ) {
+    if (settings.font_size === undefined) {
+        // The default from the function signature doesn't work.
+        settings.font_size = 12;
+    }
+
     var urlParams = new URLSearchParams(window.location.search);
     if (settings.encodeURL && urlParams.has('minimaps')) {
         settings.minimaps.number = urlParams.get('minimaps')
@@ -544,18 +549,30 @@ function alignment_visualization(
 
 
 class Axis {
+    // all y axes
     constructor(padding, numTicks=null, tickPadding=3, tickSize=6) {
-        this.padding = padding;
+        this._padding = padding;
+        this._tickPadding = tickPadding;
+        this._tickSize = tickSize;
         this.horizontal = true;
-        this.tickPadding = tickPadding;
-        this.tickSize = tickSize;
         this.numTicks = numTicks;
+        this._update_dpr();
     }
+
+    _update_dpr() {
+        this.dpr = window.devicePixelRatio || 1;
+        this.padding = this._padding * this.dpr;
+        this.tickPadding = this._tickPadding * this.dpr;
+        this.tickSize = this._tickSize * this.dpr;
+    }
+
     draw(
         context,
         scale,
         position,
     ) {
+        this._update_dpr();
+
         const [start, end] = scale.range(),
             tickFormat = scale.tickFormat ? scale.tickFormat() : d => d,
             ticks = (scale.ticks ? scale.ticks(this.numTicks) : scale.domain()).map(d => {
@@ -577,7 +594,7 @@ class Axis {
 
         // Set up context
         context.lineWidth = 1;
-        context.font = "12px Arial";
+        context.font = `${12 * this.dpr}px Arial`;
         context.strokeStyle = "black";  // Line color
         context.fillStyle = "black";    // Font color
 
@@ -613,9 +630,16 @@ class Axis {
 }
 
 class CompactAxis {
+    // x axis of minimap
     constructor(padding, label=null) {
-        this.padding = padding;
+        this._padding = padding;
         this.label = label;
+        this._update_dpr();
+    }
+
+    _update_dpr() {
+        this.dpr = window.devicePixelRatio || 1;
+        this.padding = this._padding * this.dpr;
     }
 
     draw(
@@ -623,21 +647,22 @@ class CompactAxis {
         scale,
         position,
     ) {
+        this._update_dpr();
 
         // Tick labels
         context.textAlign = "center";
         context.textBaseline = "top";
 
-        const [start, end] = scale.range(),
-            tickFormat = scale.tickFormat ? scale.tickFormat() : d => d,
-            ticks = (scale.ticks ? scale.ticks() : scale.domain()).map(d => {
-                const label = tickFormat(d);
-                return {
-                    pos: scale(d) + (scale.bandwidth ? scale.bandwidth() / 2 : 0),
-                    label: label,
-                    textMetrics: context.measureText(label)
-                }
-            });
+        const [start, end] = scale.range();
+        const tickFormat = scale.tickFormat ? scale.tickFormat() : d => d;
+        const ticks = (scale.ticks ? scale.ticks() : scale.domain()).map(d => {
+            const label = tickFormat(d);
+            return {
+                pos: scale(d) + (scale.bandwidth ? scale.bandwidth() / 2 : 0),
+                label: label,
+                textMetrics: context.measureText(label)
+            }
+        });
 
         // Flip coords if vertical
         let coord, c;
@@ -646,7 +671,7 @@ class CompactAxis {
 
         // Set up context
         context.lineWidth = 1;
-        context.font = "12px Arial";
+        context.font = `{12 * this.dpr}px Arial`;
         context.strokeStyle = "black";  // Line color
         context.fillStyle = "black";    // Font color
 
@@ -680,13 +705,24 @@ class CompactAxis {
 }
 
 class DetailsAxis{
+    // x axis of details plot (the plot at the bottom)
     constructor(padding, tickPadding=3, tickSize=6) {
-        this.padding = padding;
-        this.tickPadding = tickPadding;
-        this.tickSize = tickSize;
+        this._padding = padding;
+        this._tickPadding = tickPadding;
+        this._tickSize = tickSize;
+        this._update_dpr();
+    }
+
+    _update_dpr() {
+        this.dpr = window.devicePixelRatio || 1;
+        this.padding = this._padding * this.dpr;
+        this.tickPadding = this._tickPadding * this.dpr;
+        this.tickSize = this._tickSize * this.dpr;
     }
 
     draw(context, scale, position) {
+        this._update_dpr();
+
         const [start, end] = scale.range()
         const ticks = scale.domain().map(d => {
             return {
@@ -702,7 +738,7 @@ class DetailsAxis{
 
         // Set up context
         context.lineWidth = 1;
-        context.font = "12px Arial";
+        context.font = `{12 * self.dpr}px Arial`;
         context.strokeStyle = "black";  // Line color
         context.fillStyle = "black";    // Font color
 
@@ -731,7 +767,7 @@ class DetailsAxis{
             context.lineTo(d.pos - scale.bandwidth() / 2, position + this.tickSize);
             context.stroke();
             context.fillStyle = "black";
-            context.fillText(d.label, d.pos, position + this.tickSize + this.tickPadding)
+            context.fillText(d.label, d.pos, position + this.tickSize + 2 * this.tickPadding)
             context.fillText("REF", d.pos - offset, position + this.tickPadding);
             context.fillText("HYP", d.pos + offset, position + this.tickPadding);
         });
@@ -833,15 +869,24 @@ class CanvasPlot {
     context;
     width;
     height;
-    x_axis_padding;
-    y_axis_padding;
+    width_html;
+    height_html;
+    x_axis_padding;  // Padding for the x-axis in the canvas
+    y_axis_padding;  // Padding for the y-axis in the canvas
+    y_axis_padding_html;  // Padding for the y-axis in the HTML
     x;
     y;
+    dpr;
 
     /**
      * Creates a canvas and axis elements to be drawn on a canvas plot.
      *
      * Width and height of the plot are determined by the `element` and can be set by CSS.
+     *
+     * Note: The unit "px" is only a true pixel size, if the zoom is set to
+     *       100% and the the screen is not a retina display (e.g. smartphones).
+     *       The canvas has the size of the number of pixels of the display to
+     *       ensure sharp rendering. In html we have to use different numbers.
      */
     constructor(element, x_scale, y_scale, xAxis, yAxis, invert_y=false) {
         this.element = element.style('position', 'relative');
@@ -850,8 +895,6 @@ class CanvasPlot {
         this.context = this.canvas.node().getContext("2d")
         this.xAxis = xAxis;
         this.yAxis = yAxis;
-        this.x_axis_padding = xAxis?.padding || 0;
-        this.y_axis_padding = yAxis?.padding || 0;
         this.invert_y = invert_y
 
         if (this.xAxis) this.xAxis.horizontal = true;
@@ -863,6 +906,7 @@ class CanvasPlot {
         this.sizeChangedListeners = [];
         this.canvasSizeChanged();
 
+
         // Track size changes of our canvas.
         new ResizeObserver(this.canvasSizeChanged.bind(this)).observe(this.element.node());
     }
@@ -871,17 +915,36 @@ class CanvasPlot {
         this.sizeChangedListeners.push(callback);
     }
 
+    _update_dpr() {
+        this.dpr = window.devicePixelRatio || 1;
+        this.x_axis_padding = this.xAxis?.padding || 0;
+        this.y_axis_padding = this.yAxis?.padding || 0;
+        this.y_axis_padding_html = this.y_axis_padding / this.dpr;
+    }
+
     canvasSizeChanged() {
         // Monitor the size change of the parent div, not the canvas.
         // The canvas will not shrink below canvas.height.
         // We set the canvas display to absolute so that the div can shrink
-        this.width = this.element.node().clientWidth;
-        this.height = this.element.node().clientHeight;
+
+        if ((window.devicePixelRatio || 1) !== this.dpr) {
+            console.log("CanvasPlot devicePixelRatio changed.", this.dpr, window.devicePixelRatio);
+            this.xAxis?._update_dpr();
+            this.yAxis?._update_dpr();
+        }
+        this._update_dpr();
+
+        this.width_html = this.element.node().clientWidth;
+        this.height_html = this.element.node().clientHeight;
+
+        this.width = this.width_html * this.dpr;
+        this.height = this.height_html * this.dpr;
+
         this.canvas.attr("width", this.width);
         this.canvas.attr("height", this.height);
         // The canvas size must match the pixel size exactly
-        this.canvas.style("width", this.width + "px");
-        this.canvas.style("height", this.height + "px");
+        this.canvas.style("width", this.width_html + "px");
+        this.canvas.style("height", this.height_html + "px");
         this.x.range([this.y_axis_padding, this.width])
         if (this.invert_y) {
             this.y.range([0, this.height - this.x_axis_padding])
@@ -1325,7 +1388,7 @@ class CanvasPlot {
                         null,
                         new Axis(50, 3),
                 ), 200, settings.barplot.style, settings.barplot.scaleExcludeCorrect);
-                this.error_bars.plot.element.append("div").classed("plot-label", true).style("margin-left", this.error_bars.plot.y_axis_padding + "px").text("Error distribution");
+                this.error_bars.plot.element.append("div").classed("plot-label", true).style("margin-left", this.error_bars.plot.y_axis_padding_html + "px").text("Error distribution");
             }
             this.word_plot = new WordPlot(
                 new CanvasPlot(
@@ -1334,7 +1397,7 @@ class CanvasPlot {
                     state.speakerScale,
                     new CompactAxis(10, "time"), new Axis(50), true),
             );
-            this.word_plot.plot.element.append("div").classed("plot-label", true).style("margin-left", this.word_plot.plot.y_axis_padding + "px").text("Segments");
+            this.word_plot.plot.element.append("div").classed("plot-label", true).style("margin-left", this.word_plot.plot.y_axis_padding_html + "px").text("Segments");
 
             // Setup brush
             this.svg = e.append("svg")
@@ -1343,10 +1406,10 @@ class CanvasPlot {
             this.brush = d3.brushX()
                 .extent([
                     [
-                        Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding),
+                        Math.max(this.error_bars?.plot.y_axis_padding_html || 0, this.word_plot.plot.y_axis_padding_html),
                         0
                     ],
-                    [this.word_plot.plot.width, this.word_plot.plot.height + (this.error_bars?.plot.height || 0)]])
+                    [this.word_plot.plot.width_html, this.word_plot.plot.height_html + (this.error_bars?.plot.height_html || 0)]])
                 .on("brush", this._onselect.bind(this))
                 .on("end", this._onselect.bind(this))
                 .touchable(() => true); // Required for touch support for chrome on Laptops
@@ -1358,13 +1421,13 @@ class CanvasPlot {
             // Redraw brush when size changes. This is required because the brush range / extent will otherwise keep the old value (in screen size)
             this.word_plot.plot.onSizeChanged(() => {
                  // This seems hacky, but I didn't find another way to modify the height of the brush
-                const height = this.word_plot.plot.height + (this.error_bars?.plot.height || 0);
+                const height = this.word_plot.plot.height_html + (this.error_bars?.plot.height_html || 0);
                 this.brush.extent([
                     [
-                        Math.max(this.error_bars?.plot.y_axis_padding || 0, this.word_plot.plot.y_axis_padding),
+                        Math.max(this.error_bars?.plot.y_axis_padding_html || 0, this.word_plot.plot.y_axis_padding_html),
                         0
                     ],
-                    [this.word_plot.plot.width, height]]
+                    [this.word_plot.plot.width_html, height]]
                 );
                 // this.brush.extent modifies the overlay rect, but not the selection rect. We have to set the
                 // selection rect manually
@@ -1432,8 +1495,8 @@ class CanvasPlot {
                 this.brush_group.call(this.brush.move, null);
             } else {
                 this.brush_group.call(this.brush.move, [
-                    this.word_plot.plot.x(brushArea[0]),
-                    this.word_plot.plot.x(brushArea[1])
+                    this.word_plot.plot.x(brushArea[0]) / this.word_plot.plot.dpr,
+                    this.word_plot.plot.x(brushArea[1]) / this.word_plot.plot.dpr,
                 ])
             }
             this.updating = false;
@@ -1443,7 +1506,9 @@ class CanvasPlot {
             if (this.updating) return;
             let selectionDomain;
             if (event.selection) {
-                selectionDomain = event.selection.map(this.word_plot.plot.x.invert);
+                selectionDomain = event.selection.map((brush_pos) => {
+                    return this.word_plot.plot.x.invert(brush_pos * this.word_plot.plot.dpr)
+                });
             } else {
                 selectionDomain = this.state.viewAreas[this.index];
             }
@@ -1486,13 +1551,13 @@ class CanvasPlot {
             this.utteranceSelectListeners = [];
 
             // Plot label
-            this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding + "px").text("Detailed matching");
+            this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding_html + "px").text("Detailed matching");
 
             const self = this;
             this.last_utterance_candidates_index = -1
             this.plot.element.on("click", (event) => {
-                const screenX = event.layerX;
-                const screenY = event.layerY;
+                const screenX = event.layerX * self.plot.dpr;  // convert from html px to canvas px
+                const screenY = event.layerY * self.plot.dpr;  // convert from html px to canvas px
                 const y = self.plot.y.invert(screenY);
 
                 // invert x band scale
@@ -1500,6 +1565,7 @@ class CanvasPlot {
                 const eachBand = self.plot.x.step();
                 const index = Math.floor((screenX - self.plot.y_axis_padding) / eachBand);
                 const speaker = self.plot.x.domain()[index];
+
                 const within_speaker_coord = screenX - self.plot.x(speaker);
                 const source = (
                     within_speaker_coord < self.plot.x.bandwidth() / 2 - match_width
@@ -1555,29 +1621,35 @@ class CanvasPlot {
                 }, this.wheel_tracker, 25)
             }, false)
 
+
+            // Use a state to support concurrent mousemove events
+            let drag_state = {};
             drag(this.plot.element, (e, delta_y) => {
                 if (delta_y){
-                    const delta = this.plot.y.invert(delta_y) - this.plot.y.invert(0);
-                    let [begin, end] = this.plot.y.domain();
-                    updateViewArea(this.state.viewAreas.length - 1, [begin - delta, end - delta]);
+                    drag_state.delta_y += delta_y;
+                    const delta = this.plot.y.invert(drag_state.delta_y * this.plot.dpr) - this.plot.y.invert(0);
+                    updateViewArea(this.state.viewAreas.length - 1, [drag_state.begin - delta, drag_state.end - delta]);
                 }
+            }, () => {
+                let [begin, end] = this.plot.y.domain();
+                drag_state.begin = begin;
+                drag_state.end = end;
+                drag_state.delta_y = 0;
             });
 
-            var lastTouchY = [];
-            this.plot.element.on("touchstart", event => {
+            var startTouch = {};
+
+            const touchstart = (event) => {
                 // TouchList doesn't implement iterator
-                lastTouchY = [];
+                startTouch.Y = [];
                 for (let i = 0; i < event.targetTouches.length; i++) {
-                    lastTouchY.push(event.targetTouches[i].clientY);
+                    startTouch.Y.push(event.targetTouches[i].clientY * this.plot.dpr);
                 }
-            });
-            this.plot.element.on("touchend", event => {
-                // TouchList doesn't implement iterator
-                lastTouchY = [];
-                for (let i = 0; i < event.targetTouches.length; i++) {
-                    lastTouchY.push(event.targetTouches[i].clientY);
-                }
-            });
+                [startTouch.begin, startTouch.end] = this.plot.y.domain();
+            }
+
+            this.plot.element.on("touchstart", touchstart);
+            this.plot.element.on("touchend", touchstart);
 
             this.plot.element.on("touchmove", event => {
                 // This can happen when a touch move is started outside of the
@@ -1589,16 +1661,16 @@ class CanvasPlot {
                 // TouchList doesn't implement iterator
                 var touchY = [];
                 for (let i = 0; i < event.targetTouches.length; i++) {
-                    touchY.push(event.targetTouches[i].clientY);
+                    touchY.push(event.targetTouches[i].clientY * this.plot.dpr);
                 }
-                if (lastTouchY) {
+                if (startTouch.Y) {
                     // Use the delta between the touches that are furthest apart
                     const top = this.plot.element.node().getBoundingClientRect().top;
                     const minY = Math.min(...touchY) - top;
                     const maxY = Math.max(...touchY) - top;
-                    const lastMinY = Math.min(...lastTouchY) - top;
-                    const lastMaxY = Math.max(...lastTouchY) - top;
-                    let [begin, end] = this.plot.y.domain();
+                    const lastMinY = Math.min(...startTouch.Y) - top;
+                    const lastMaxY = Math.max(...startTouch.Y) - top;
+                    let [begin, end] = [startTouch.begin, startTouch.end];
 
                     if (lastMaxY - lastMinY > 0 && maxY - minY > 0) {
                          // At least two touch points. Zoom and move
@@ -1617,7 +1689,6 @@ class CanvasPlot {
                     updateViewArea(this.state.viewAreas.length - 1, [begin, end]);
                     event.preventDefault()
                 }
-                lastTouchY = touchY;
             })
 
             this.plot.onSizeChanged(this.draw.bind(this));
@@ -1626,7 +1697,7 @@ class CanvasPlot {
         drawDetails() {
             const filtered_words = this.filtered_words;
             if (filtered_words.length > 3000) {
-                this.plot.context.font = "30px Arial";
+                this.plot.context.font = `${30 * plot.dpr}px Arial`;
                 this.plot.context.textAlign = "center";
                 this.plot.context.textBaseline = "middle";
                 this.plot.context.fillStyle = "gray";
@@ -1764,7 +1835,7 @@ class CanvasPlot {
             });
 
             // Draw word text
-            context.font = `${settings.font_size}px Arial`;
+            context.font = `${settings.font_size * this.plot.dpr}px Arial`;
             context.textAlign = "center";
             context.textBaseline = "middle";
             context.lineWidth = 1;
@@ -1819,7 +1890,7 @@ class CanvasPlot {
                     context.strokeStyle = "lightgray";
                     context.linewidth = 1;
                     const x_ = x + bandwidth / 2;
-                    context.font = `italic ${settings.font_size}px Arial`;
+                    context.font = `italic ${settings.font_size * this.plot.dpr}px Arial`;
                     context.fillStyle = "gray";
                     context.fillText('(empty segment)', x_, (this.plot.y(d.start_time) + this.plot.y(d.end_time)) / 2);
                 }
@@ -1836,7 +1907,7 @@ class CanvasPlot {
                 context.stroke();
 
                 // Write begin time above begin marker
-                context.font = `italic ${settings.font_size}px Arial`;
+                context.font = `italic ${settings.font_size * this.plot.dpr}px Arial`;
                 context.fillStyle = "gray";
                 context.textAlign = "center";
                 context.textBaseline = "bottom";
