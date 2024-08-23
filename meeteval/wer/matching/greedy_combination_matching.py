@@ -14,7 +14,6 @@ def _apply_assignment(assignment, segments, n=None):
         n = max(assignment) + 1
     else:
         n = max(max(assignment) + 1, n)
-        assert n > max(assignment), (n, max(assignment))
     h_ = [[] for _ in range(n)]
     for a, h in zip(assignment, segments):
         h_[a].append(h)
@@ -38,6 +37,15 @@ def _greedy_correct_assignment(
         forward_column: A function to compute a column update. Can be used
             to switch between different cost functions, e.g. with different
             substitution costs or with or without time constraint.
+
+    >>> segments = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.uint)
+    >>> streams = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.uint)
+    >>> _greedy_correct_assignment(segments, streams, [0, 1, 2])
+    ([0, 1, 2], 0)
+    >>> _greedy_correct_assignment(segments, streams, [1, 0, 0])
+    ([0, 1, 2], 0)
+    >>> _greedy_correct_assignment(segments, streams[:2], [1, 0, 0])
+    ([0, 1, 0], 3)
     """
     # Temporary variables
     cost_differences = np.zeros((len(streams),), dtype=int)
@@ -45,7 +53,9 @@ def _greedy_correct_assignment(
     costs_without_utterance = np.zeros((len(streams),), dtype=int)
     updated_forward_columns = [None] * len(streams)
 
-    # Iteratively update assignment greedy
+    # Iteratively update assignment greedy for at most 50 iterations.
+    # The algorithm typically converges after a few iterations. The number 50
+    # is chosen for safety.
     for num_updates in range(1, 50):
         assert all(a < len(streams) for a in assignment), (assignment, len(streams), num_updates)
 
@@ -164,7 +174,7 @@ def initialize_assignment(
             streams,
             distance_fn=siso_levenshtein_distance,
         )
-        # Use integers for th assignment labels.
+        # Use integers for the assignment labels.
         # Map all unmatched segments to stream 0
         c = iter(itertools.count())
         assignment = {
