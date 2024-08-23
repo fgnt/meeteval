@@ -189,7 +189,6 @@ def greedy_orcwer(
         regex=None,
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
-        distancetype='21',
         assignment_initialization='cp',
         uem=None,
         partial=False,
@@ -204,7 +203,6 @@ def greedy_orcwer(
         uem=uem,
         partial=partial,
         normalizer=normalizer,
-        distancetype=distancetype,
         assignment_initialization=assignment_initialization,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
@@ -552,17 +550,6 @@ class CLI:
                      '- None: Do nothing (default)\n'
                      '- lower,rm(.?!,): Lowercase the transcript and remove punctuations (.,?!).',
                 choices=[None, 'lower,rm(.?!,)'],
-            )
-        elif name == 'distancetype':
-            command_parser.add_argument(
-                '--distancetype',
-                choices=['1', '2', '21'],
-                help='Specifies the costs used for substitutions in the greedy distance calculation.\n'
-                     'Choices:\n'
-                     '- 1: A substitution cost of 1 (standard Levenshtein distance)\n'
-                     '- 2: A substitution cost of 2 (subst = ins + del)\n'
-                     '- 21: Optimize with 2 until convergence, then optimize with 1 until convergence. This is the '
-                     'default and recommended for best results.'
             )
         elif name == 'assignment_initialization':
             command_parser.add_argument(

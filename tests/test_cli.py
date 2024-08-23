@@ -89,11 +89,6 @@ def test_burn_greedy_orc():
     # Test sort option. Only test the ones that are available for ORC
     run('python -m meeteval.wer greedy_orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
-    # Test distancetype option
-    run(f'meeteval-wer greedy_orcwer -h hyp.stm -r ref.stm --distancetype 1')
-    run(f'meeteval-wer greedy_orcwer -h hyp.stm -r ref.stm --distancetype 2')
-    run(f'meeteval-wer greedy_orcwer -h hyp.stm -r ref.stm --distancetype 21')
-
     # Test assignment initialization
     run(f'meeteval-wer greedy_orcwer -h hyp.stm -r ref.stm --assignment-initialization random')
     run(f'meeteval-wer greedy_orcwer -h hyp.stm -r ref.stm --assignment-initialization constant')
