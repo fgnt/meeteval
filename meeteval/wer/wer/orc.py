@@ -357,10 +357,6 @@ def greedy_orc_word_error_rate(
             [[w for words in stream.T['words'] for w in words] for stream in hypothesis.values()],
             initial_assignment=initialize_assignment(reference, hypothesis, initialization=assignment_initialization),
         )
-        if not str(distance).endswith('1'):
-            # Let the wrapper compute the distance. The distance returned by the matching
-            # uses a different weight and thus has a different value
-            distance = None
         return distance, assignment
 
     def siso(reference, hypothesis):
