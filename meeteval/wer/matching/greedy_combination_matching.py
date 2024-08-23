@@ -164,11 +164,20 @@ def initialize_assignment(
             - `'constant'`: Assigns a constant stream label of 0 to each segment
             - `'cp'`: Uses the cpWER solver to obtain the initial stream labels. Assumes
                 that the `'speaker'` key is present in both `a` and `b`.
+
+    >>> segments = SegLST([{'words': 'a', 'speaker': 'A', 'segment_index': 0}, {'words': 'b', 'speaker': 'A', 'segment_index': 0}, {'words': 'c', 'speaker': 'B', 'segment_index': 1}])
+    >>> streams = SegLST([{'words': 'c', 'speaker': 'A'}, {'words': 'a b', 'speaker': 'B'}])
+    >>> initialize_assignment(segments, streams, initialization='cp')
+    [1, 0]
+    >>> initialize_assignment(segments, streams, initialization='constant')
+    [0, 0]
     """
     if initialization == 'cp':
         # Compute cpWER to get a good starting point
         from meeteval.wer.wer.cp import _minimum_permutation_assignment
         from meeteval.wer.wer.siso import siso_levenshtein_distance
+        if isinstance(streams, SegLST):
+            streams = streams.groupby('speaker')
         assignment, _ = _minimum_permutation_assignment(
             segments.groupby('speaker'),
             streams,
@@ -176,9 +185,10 @@ def initialize_assignment(
         )
         # Use integers for the assignment labels.
         # Map all unmatched segments to stream 0
-        c = iter(itertools.count())
+        counter = iter(itertools.count())
+        int_stream_labels = {k: next(counter) for k in streams.keys()}
         assignment = {
-            segment_label: next(c) if stream_label is not None else 0
+            segment_label: int_stream_labels.get(stream_label, 0)
             for i, (segment_label, stream_label) in enumerate(assignment)
         }
         assignment = [
@@ -186,9 +196,9 @@ def initialize_assignment(
             for k in segments.groupby('segment_index').values()
         ]
     elif initialization == 'random':
-        assignment = np.random.choice(len(streams), len(segments))
+        assignment = np.random.choice(len(streams), len(set(segments.T['segment_index'])))
     elif initialization == 'constant':
-        assignment = [0] * len(segments)
+        assignment = [0] * len(set(segments.T['segment_index']))
     else:
         raise ValueError(f'Unknown initialization: {initialization}')
     return assignment
