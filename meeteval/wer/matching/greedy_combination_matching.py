@@ -151,7 +151,7 @@ def _greedy_correct_assignment(
         # We know that the cost cannot increase, so check that we do correct
         assert sum(old_stream_costs) >= sum(stream_costs), (old_stream_costs, stream_costs)
 
-    return assignment, np.sum(stream_costs)
+    return assignment, int(np.sum(stream_costs))
 
 
 def initialize_assignment(
@@ -239,4 +239,4 @@ def greedy_combination_matching(
             functools.partial(cy_forward_col, cost_substitution=int(d))
         )
 
-    return int(distance), assignment
+    return distance, assignment
