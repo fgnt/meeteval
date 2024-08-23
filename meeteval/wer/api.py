@@ -9,6 +9,7 @@ from meeteval.wer.wer import ErrorRate
 __all__ = [
     'cpwer',
     'orcwer',
+    'greedy_orcwer',
     'mimower',
     'tcpwer',
     'tcorcwer',

@@ -126,6 +126,12 @@ def _greedy_correct_assignment(
 
             # Find best stream_index for `stream` and update running variables
             best = int(np.argmin(cost_differences))
+
+            # If best != current_assignment but the cost doesn't change, then keep the assignment.
+            # This makes sure that an optimal assignment is not changed
+            if cost_differences[best] == cost_differences[current_assignment]:
+                best = current_assignment
+
             forward_columns[best] = updated_forward_columns[best]
             backward_indices[current_assignment] += 1
             new_assignment.append(best)
