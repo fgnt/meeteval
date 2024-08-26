@@ -127,7 +127,6 @@ def greedy_orcwer(
         regex=None,
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
-        assignment_initialization='cp',
         uem=None,
         partial=False,
         normalizer=None,
@@ -142,7 +141,6 @@ def greedy_orcwer(
         reference, hypothesis, partial=partial,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
-        assignment_initialization=assignment_initialization,
     )
     return results
 

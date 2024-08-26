@@ -189,7 +189,6 @@ def greedy_orcwer(
         regex=None,
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
-        assignment_initialization='cp',
         uem=None,
         partial=False,
         normalizer=None,
@@ -203,7 +202,6 @@ def greedy_orcwer(
         uem=uem,
         partial=partial,
         normalizer=normalizer,
-        assignment_initialization=assignment_initialization,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
 
@@ -550,17 +548,6 @@ class CLI:
                      '- None: Do nothing (default)\n'
                      '- lower,rm(.?!,): Lowercase the transcript and remove punctuations (.,?!).',
                 choices=[None, 'lower,rm(.?!,)'],
-            )
-        elif name == 'assignment_initialization':
-            command_parser.add_argument(
-                '--assignment-initialization',
-                choices=['cp', 'random', 'constant'],
-                help='Specifies how the greedy search should be initialized.\n'
-                     'Choices:\n'
-                     '- cp: Use the assignment from the cpWER. Ensures fast convergence when the speaker labels '
-                     'are already somewhat correct. Requires speaker/stream labels in both, reference and hypothesis.\n'
-                     '- random: Initializes the assignment randomly. This is not deterministic.\n'
-                     '- constant: Initializes the label for all segments to 0.'
             )
         elif name == 'partial':
             command_parser.add_argument(

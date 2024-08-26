@@ -316,8 +316,6 @@ def greedy_orc_word_error_rate(
         hypothesis: 'SegLST',
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
-        *,
-        assignment_initialization='cp',
 ):
     """
     # All correct on a single channel
@@ -355,7 +353,7 @@ def greedy_orc_word_error_rate(
         distance, assignment = greedy_combination_matching(
             reference.T['words'],
             [[w for words in stream.T['words'] for w in words] for stream in hypothesis.values()],
-            initial_assignment=initialize_assignment(reference, hypothesis, initialization=assignment_initialization),
+            initial_assignment=initialize_assignment(reference, hypothesis, initialization='cp'),
         )
         return distance, assignment
 
@@ -394,7 +392,6 @@ def greedy_orc_word_error_rate_multifile(
         partial=False,
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
-        assignment_initialization='cp',
 ) -> 'dict[str, OrcErrorRate]':
     """
     Computes the ORC WER for each example in the reference and hypothesis files.
@@ -408,7 +405,6 @@ def greedy_orc_word_error_rate_multifile(
             greedy_orc_word_error_rate,
             reference_sort=reference_sort,
             hypothesis_sort=hypothesis_sort,
-            assignment_initialization=assignment_initialization,
         ), reference, hypothesis,
         partial=partial
     )
