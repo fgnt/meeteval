@@ -13,6 +13,7 @@ __all__ = [
     'mimower',
     'tcpwer',
     'tcorcwer',
+    'greedy_di_cp_wer',
 ]
 
 
@@ -255,4 +256,27 @@ def tcorcwer(
         average.hypothesis_self_overlap.warn('hypothesis')
     if average.reference_self_overlap is not None:
         average.reference_self_overlap.warn('reference')
+    return results
+
+
+def greedy_di_cp_wer(
+        reference, hypothesis,
+        regex=None,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+        uem=None,
+        partial=False,
+        normalizer=None,
+):
+    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
+    from meeteval.wer.wer.di_cp import greedy_di_cp_word_error_rate_multifile
+    reference, hypothesis = _load_texts(
+        reference, hypothesis, regex=regex,
+        uem=uem, normalizer=normalizer,
+    )
+    results = greedy_di_cp_word_error_rate_multifile(
+        reference, hypothesis, partial=partial,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+    )
     return results

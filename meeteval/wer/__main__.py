@@ -301,6 +301,28 @@ def tcorcwer(
     _save_results(results, hypothesis, per_reco_out, average_out)
 
 
+def greedy_di_cp_wer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_greedy_dicpwer.json',
+        per_reco_out='{parent}/{stem}_greedy_dicpwer_per_reco.json',
+        regex=None,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+        uem=None,
+        partial=False,
+        normalizer=None,
+):
+    """Computes the greedy DI-cpWER"""
+    results = meeteval.wer.api.greedy_di_cp_wer(
+        reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
+        partial=partial,
+        normalizer=normalizer,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out)
+
+
 def _merge(
         files: 'list[str]',
         out: str = '-',
@@ -628,6 +650,7 @@ def cli():
     cli.add_command(mimower)
     cli.add_command(tcpwer)
     cli.add_command(tcorcwer)
+    cli.add_command(greedy_di_cp_wer)
     cli.add_command(merge)
     cli.add_command(average)
 
