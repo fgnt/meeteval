@@ -150,24 +150,24 @@ def test_mimower():
 
 
 def test_di_cpwer():
-    from meeteval.wer import greedy_di_cp_wer
+    from meeteval.wer import greedy_dicpwer
 
     ref = example_files / 'ref.stm'
     hyp = example_files / 'hyp.stm'
 
-    details = greedy_di_cp_wer(ref, hyp)
+    details = greedy_dicpwer(ref, hyp)
     avg = combine_error_rates(details)
     check_result(avg, 9, 92)
 
-    details = greedy_di_cp_wer([ref], [hyp])
+    details = greedy_dicpwer([ref], [hyp])
     avg = combine_error_rates(details)
     check_result(avg, 9, 92)
 
-    details = greedy_di_cp_wer(meeteval.io.load(ref), meeteval.io.load(hyp))
+    details = greedy_dicpwer(meeteval.io.load(ref), meeteval.io.load(hyp))
     avg = combine_error_rates(details)
     check_result(avg, 9, 92)
 
-    details = greedy_di_cp_wer(meeteval.io.load(ref).to_seglst(), meeteval.io.load(hyp).to_seglst())
+    details = greedy_dicpwer(meeteval.io.load(ref).to_seglst(), meeteval.io.load(hyp).to_seglst())
     avg = combine_error_rates(details)
     check_result(avg, 9, 92)
 

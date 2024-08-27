@@ -13,7 +13,7 @@ __all__ = [
     'mimower',
     'tcpwer',
     'tcorcwer',
-    'greedy_di_cp_wer',
+    'greedy_dicpwer',
 ]
 
 
@@ -259,7 +259,7 @@ def tcorcwer(
     return results
 
 
-def greedy_di_cp_wer(
+def greedy_dicpwer(
         reference, hypothesis,
         regex=None,
         reference_sort='segment_if_available',
