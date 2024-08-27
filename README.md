@@ -3,7 +3,7 @@
 <div align="center"><a href="#features">Features</a> | <a href="#installation">Installation</a> | <a href="#python-interface">Python Interface</a> | <a href="#command-line-interface">Command Line Interface</a> | <a href="#visualization">Visualization</a> | <a href="#cite">Cite</a></div>
 <br>
 <a href="https://github.com/fgnt/meeteval/actions"><img src="https://github.com/fgnt/meeteval/actions/workflows/pytest.yml/badge.svg"/></a>
-
+<a href="https://pypi.org/project/meeteval/"><img src="https://img.shields.io/pypi/v/meeteval"/></a>
 
 ## Features
 MeetEval supports the following metrics for meeting transcription evaluation:
@@ -297,27 +297,33 @@ av = AlignmentVisualization(
 The toolkit and the tcpWER were presented at the CHiME-2023 workshop (Computational Hearing in Multisource Environments) with the paper 
 ["MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems"](https://arxiv.org/abs/2307.11394).
 
+[![arXiv](https://img.shields.io/badge/arXiv-2307.11394-b31b1b.svg)](https://arxiv.org/abs/2307.11394)
+[![ISCA DOI](https://img.shields.io/badge/ISCA/DOI-10.21437/CHiME.2023--6-blue.svg)](https://doi.org/10.21437/CHiME.2023-6)
+
+
 ```bibtex
-@inproceedings{MeetEval23,
-  author={von Neumann, Thilo and Boeddeker, Christoph and Delcroix, Marc and Haeb-Umbach, Reinhold},
-  title={{MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems}},
-  year=2023,
-  booktitle={Proc. 7th International Workshop on Speech Processing in Everyday Environments (CHiME 2023)},
-  pages={27--32},
-  doi={10.21437/CHiME.2023-6}
+@InProceedings{MeetEval23,
+  author    = {von Neumann, Thilo and Boeddeker, Christoph and Delcroix, Marc and Haeb-Umbach, Reinhold},
+  title     = {{MeetEval}: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems},
+  year      = {2023},
+  booktitle = {Proc. 7th International Workshop on Speech Processing in Everyday Environments (CHiME 2023)},
+  pages     = {27--32},
+  doi       = {10.21437/CHiME.2023-6}
 }
 ```
 
 The MIMO WER and efficient implementation of ORC WER are presented in the paper 
 ["On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems"](https://ieeexplore.ieee.org/iel7/10094559/10094560/10094784.pdf).
 
+[![arXiv](https://img.shields.io/badge/arXiv-2211.16112-b31b1b.svg)](https://arxiv.org/abs/2211.16112)
+[![IEEE DOI](https://img.shields.io/badge/IEEE/DOI-10.1109/ICASSP49357.2023.10094784-blue.svg)](https://doi.org/10.1109/ICASSP49357.2023.10094784)
+
 ```bibtex
 @InProceedings{MIMO23,
   author       = {von Neumann, Thilo and Boeddeker, Christoph and Kinoshita, Keisuke and Delcroix, Marc and Haeb-Umbach, Reinhold},
   title        = {On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems},
-  booktitle    = {ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
-  pages        = {1--5},
+  booktitle    = {ICASSP 2023 - 2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
   year         = {2023},
-  organization = {IEEE}
+  doi          = {10.1109/ICASSP49357.2023.10094784}
 }
 ```
