@@ -1,5 +1,5 @@
 from distutils.extension import Extension
-from pathlib import Path
+import numpy
 
 from setuptools import setup, find_packages
 
@@ -27,6 +27,12 @@ ext_modules = cythonize(
         Extension(
             'meeteval.wer.matching.cy_time_constrained_orc_matching',
             ['meeteval/wer/matching/cy_time_constrained_orc_matching.pyx'],
+            extra_compile_args=['-std=c++11', '-O3'],
+            extra_link_args=['-std=c++11'],
+        ),
+        Extension(
+            'meeteval.wer.matching.cy_greedy_combination_matching',
+            ['meeteval/wer/matching/cy_greedy_combination_matching.pyx'],
             extra_compile_args=['-std=c++11', '-O3'],
             extra_link_args=['-std=c++11'],
         ),
@@ -131,5 +137,6 @@ setup(
             'meeteval-wer=meeteval.wer.__main__:cli',
             'meeteval-der=meeteval.der.__main__:cli',
         ]
-    }
+    },
+    include_dirs=[numpy.get_include()],
 )

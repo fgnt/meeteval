@@ -9,6 +9,7 @@ from meeteval.wer.wer import ErrorRate
 __all__ = [
     'cpwer',
     'orcwer',
+    'greedy_orcwer',
     'mimower',
     'tcpwer',
     'tcorcwer',
@@ -114,6 +115,29 @@ def orcwer(
         uem=uem, normalizer=normalizer,
     )
     results = orc_word_error_rate_multifile(
+        reference, hypothesis, partial=partial,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+    )
+    return results
+
+
+def greedy_orcwer(
+        reference, hypothesis,
+        regex=None,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+        uem=None,
+        partial=False,
+        normalizer=None,
+):
+    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
+    from meeteval.wer.wer.orc import greedy_orc_word_error_rate_multifile
+    reference, hypothesis = _load_texts(
+        reference, hypothesis, regex=regex,
+        uem=uem, normalizer=normalizer,
+    )
+    results = greedy_orc_word_error_rate_multifile(
         reference, hypothesis, partial=partial,
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,

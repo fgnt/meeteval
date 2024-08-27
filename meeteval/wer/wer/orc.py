@@ -14,7 +14,9 @@ __all__ = [
     'OrcErrorRate',
     'orc_word_error_rate',
     'orc_word_error_rate_multifile',
-    'apply_orc_assignment'
+    'apply_orc_assignment',
+    'greedy_orc_word_error_rate',
+    'greedy_orc_word_error_rate_multifile',
 ]
 
 from meeteval.wer.preprocess import preprocess
@@ -123,9 +125,11 @@ def _orc_error_rate(
         )
         for k in set(hypothesis.keys()) | set(reference_new.keys())
     ])
-    length = len(reference)
+    length = sum([len(s['words']) if isinstance(s['words'], list) else 1 for s in reference])
     assert er.length == length, (length, er)
-    assert er.errors == distance, (distance, er, assignment)
+    if distance is not None:
+        # The matching function can in some cases not compute the distance
+        assert er.errors == distance, (distance, er, assignment)
 
     # Insert labels for empty segments that got removed
     if len(assignment) != total_num_segments:
@@ -189,11 +193,17 @@ def orc_word_error_rate(
     def matching(reference, hypothesis):
         """Use the mimo matching algorithm. Convert inputs and outputs between the formats"""
         distance, assignment = mimo_matching(
-            [[segment.T['words'] for segment in reference.groupby('segment_index').values()]],
-            [stream.T['words'] for stream in hypothesis.values()],
+            [reference.T['words']],
+            [[w for words in stream.T['words'] for w in words] for stream in hypothesis.values()],
         )
         assignment = [a for _, a in assignment]
         return distance, assignment
+
+    def siso(reference, hypothesis):
+        return _siso_error_rate(
+            [w for words in reference.T['words'] for w in words],
+            [w for words in hypothesis.T['words'] for w in words],
+        )
 
     # Drop segment index in reference. It will get a new one after merging by speakers
     reference = meeteval.io.asseglst(reference)
@@ -204,11 +214,11 @@ def orc_word_error_rate(
         keep_keys=('words', 'segment_index', 'speaker'),
         reference_sort=reference_sort,
         hypothesis_sort=hypothesis_sort,
-        segment_representation='word',
+        segment_representation='segment',
         segment_index='segment',
         remove_empty_segments=False,
     )
-    er = _orc_error_rate(reference, hypothesis, matching, _seglst_siso_error_rate)
+    er = _orc_error_rate(reference, hypothesis, matching, siso)
     er = dataclasses.replace(
         er,
         reference_self_overlap=ref_self_overlap,
@@ -299,3 +309,102 @@ def apply_orc_assignment(
         return type(hypothesis)(reference_new.values()), hypothesis
     else:
         raise TypeError(type(hypothesis), hypothesis)
+
+
+def greedy_orc_word_error_rate(
+        reference: 'SegLST',
+        hypothesis: 'SegLST',
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+):
+    """
+    # All correct on a single channel
+    >>> greedy_orc_word_error_rate(['a b', 'c d', 'e f'], ['a b c d e f'])
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=(0, 0, 0))
+
+    # All correct on two channels
+    >>> greedy_orc_word_error_rate(['a b', 'c d', 'e f'], ['a b', 'c d e f'])
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=(0, 1, 1))
+
+    # One utterance is split
+    >>> er = greedy_orc_word_error_rate(['a', 'c d', 'e'], ['a c', 'd e'])
+    >>> er
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=(0, 0, 1))
+    >>> er.apply_assignment(['a', 'c d', 'e'], ['a c', 'd e'])
+    ([['a', 'c d'], ['e']], ['a c', 'd e'])
+
+    >>> greedy_orc_word_error_rate(STM.parse('X 1 A 0.0 1.0 a b\\nX 1 B 0.0 2.0 e f\\nX 1 A 1.0 2.0 c d\\n'), STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n'))
+    OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), hypothesis_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), assignment=('0', '0', '1'))
+
+    >>> er = greedy_orc_word_error_rate(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
+    >>> er
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=('A', 'A', 'B'))
+    >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
+    ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
+
+    >>> greedy_orc_word_error_rate([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': '', 'speaker': 'A'}], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
+    OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=('A',))
+
+    """
+    from meeteval.wer.matching.greedy_combination_matching import greedy_combination_matching, initialize_assignment
+
+    def matching(reference, hypothesis):
+        """Use the mimo matching algorithm. Convert inputs and outputs between the formats"""
+        distance, assignment = greedy_combination_matching(
+            reference.T['words'],
+            [[w for words in stream.T['words'] for w in words] for stream in hypothesis.values()],
+            initial_assignment=initialize_assignment(reference, hypothesis, initialization='cp'),
+        )
+        return distance, assignment
+
+    def siso(reference, hypothesis):
+        return _siso_error_rate(
+            [w for words in reference.T['words'] for w in words],
+            [w for words in hypothesis.T['words'] for w in words],
+        )
+
+    # Drop segment index in reference. It will get a new one after merging by speakers
+    reference = meeteval.io.asseglst(reference)
+    reference = reference.map(lambda x: {k: v for k, v in x.items() if k != 'segment_index'})
+
+    reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
+        reference, hypothesis,
+        keep_keys=('words', 'segment_index', 'speaker'),
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        segment_representation='segment',
+        segment_index='segment',
+        remove_empty_segments=False,
+        convert_to_int=True,
+    )
+    er = _orc_error_rate(reference, hypothesis, matching, siso)
+    er = dataclasses.replace(
+        er,
+        reference_self_overlap=ref_self_overlap,
+        hypothesis_self_overlap=hyp_self_overlap,
+    )
+    return er
+
+
+def greedy_orc_word_error_rate_multifile(
+        reference,
+        hypothesis,
+        partial=False,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+) -> 'dict[str, OrcErrorRate]':
+    """
+    Computes the ORC WER for each example in the reference and hypothesis files.
+
+    To compute the overall WER, use
+    `sum(orc_word_error_rate_multifile(r, h).values())`.
+    """
+    from meeteval.io.seglst import apply_multi_file
+    return apply_multi_file(
+        functools.partial(
+            greedy_orc_word_error_rate,
+            reference_sort=reference_sort,
+            hypothesis_sort=hypothesis_sort,
+        ), reference, hypothesis,
+        partial=partial
+    )

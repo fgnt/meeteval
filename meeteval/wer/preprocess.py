@@ -211,7 +211,7 @@ def words_to_int(*d: 'SegLST'):
     import collections
     sym2int = collections.defaultdict(itertools.count().__next__)
 
-    d = [d_.map(lambda s: {**s, 'words': sym2int[s['words']]}) for d_ in d]
+    d = [d_.map(lambda s: {**s, 'words': [sym2int[w] for w in s['words']] if isinstance(s['words'], list) else sym2int[s['words']]}) for d_ in d]
     return d
 
 

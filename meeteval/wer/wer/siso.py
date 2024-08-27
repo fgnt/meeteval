@@ -35,8 +35,14 @@ def siso_levenshtein_distance(reference: 'SegLST', hypothesis: 'SegLST') -> int:
 
     from meeteval.wer.matching.cy_levenshtein import levenshtein_distance
 
-    reference = [w for w in reference.T['words'] if w]
-    hypothesis = [w for w in hypothesis.T['words'] if w]
+    reference = reference.T['words']
+    if reference and isinstance(reference[0], list):
+        reference = [w for r in reference for w in r]
+    reference = [w for w in reference if w]
+    hypothesis = hypothesis.T['words']
+    if hypothesis and isinstance(hypothesis[0], list):
+        hypothesis = [w for h in hypothesis for w in h]
+    hypothesis = [w for w in hypothesis if w]
 
     return levenshtein_distance(reference, hypothesis)
 

@@ -14,6 +14,8 @@ MeetEval supports the following metrics for meeting transcription evaluation:
   `meeteval-wer cpwer -r ref.stm -h hyp.stm`
 - **Optimal Reference Combination Word Error Rate (ORC WER)**<br>
   `meeteval-wer orcwer -r ref.stm -h hyp.stm`
+- **Fast Greedy Approximation of Optimal Reference Combination Word Error Rate (greedy ORC WER)**<br>
+  `meeteval-wer greedy_orcwer -r ref.stm -h hyp.stm`
 - **Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER)**<br>
   `meeteval-wer mimower -r ref.stm -h hyp.stm`
 - **Time-Constrained minimum-Permutation Word Error Rate (tcpWER)**<br>

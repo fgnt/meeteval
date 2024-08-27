@@ -182,6 +182,30 @@ def orcwer(
     _save_results(results, hypothesis, per_reco_out, average_out)
 
 
+def greedy_orcwer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_orcwer.json',
+        per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
+        regex=None,
+        reference_sort='segment_if_available',
+        hypothesis_sort='segment_if_available',
+        uem=None,
+        partial=False,
+        normalizer=None,
+):
+    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)
+    using a greedy algorithm. This algorithm is a lot faster than the optimal
+    algorithm, but IS NOT GUARANTEED TO PRODUCE THE SAME RESULT!"""
+    results = meeteval.wer.api.greedy_orcwer(
+        reference, hypothesis, regex=regex,
+        reference_sort=reference_sort, hypothesis_sort=hypothesis_sort,
+        uem=uem,
+        partial=partial,
+        normalizer=normalizer,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out)
+
+
 def cpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_cpwer.json',
@@ -542,6 +566,7 @@ class CLI:
             command_name = fn.__name__
         command_parser = self.commands.add_parser(
             command_name,
+            description=fn.__doc__,
             add_help=False,
             formatter_class=SmartFormatter,
             help=fn.__doc__,
@@ -599,6 +624,7 @@ def cli():
     cli.add_command(wer)
     cli.add_command(cpwer)
     cli.add_command(orcwer)
+    cli.add_command(greedy_orcwer)
     cli.add_command(mimower)
     cli.add_command(tcpwer)
     cli.add_command(tcorcwer)

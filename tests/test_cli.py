@@ -81,18 +81,27 @@ def test_burn_orc():
     run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
 
+def test_burn_greedy_orc():
+    # Normal test with stm files
+    run(f'python -m meeteval.wer greedy_orcwer -h hyp.stm -r ref.stm')
+    run(f'meeteval-wer greedy_orcwer -h hyp.stm -r ref.stm')
+
+    # Test sort option. Only test the ones that are available for ORC
+    run('python -m meeteval.wer greedy_orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
+
+
 def test_burn_mimo():
     run(f'python -m meeteval.wer mimower -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer mimower -h 'hyp?.stm' -r 'ref?.stm'")
     run(f'python -m meeteval.wer mimower -h hyp.seglst.json -r ref.seglst.json')
-    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
+    run('python -m meeteval.wer mimower -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
 
 def test_burn_cp():
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer cpwer -h 'hyp?.stm' -r 'ref?.stm'")
     run(f'python -m meeteval.wer cpwer -h hyp.seglst.json -r ref.seglst.json')
-    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
+    run('python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --uem uem.uem')
 
 
