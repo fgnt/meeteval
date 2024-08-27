@@ -295,7 +295,7 @@ av = AlignmentVisualization(
 ## Cite
 
 The toolkit and the tcpWER were presented at the CHiME-2023 workshop (Computational Hearing in Multisource Environments) with the paper 
-["MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems"](https://arxiv.org/abs/2307.11394).
+["MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems"](https://www.isca-archive.org/chime_2023/neumann23_chime.pdf).
 
 [![ISCA DOI](https://img.shields.io/badge/ISCA/DOI-10.21437/CHiME.2023--6-blue.svg)](https://doi.org/10.21437/CHiME.2023-6)
 [![arXiv](https://img.shields.io/badge/arXiv-2307.11394-b31b1b.svg)](https://arxiv.org/abs/2307.11394)
