@@ -208,6 +208,7 @@ def initialize_assignment(
             else int(np.argmin(cost_matrix[int_segment_labels[segment_label], :len(streams)]))
             for i, (segment_label, stream_label) in enumerate(assignment)
         }
+        # Translate assignment to segments
         assignment = [
             assignment[k[0]['speaker']]
             for k in segments.groupby('segment_index').values()
@@ -229,7 +230,17 @@ def greedy_combination_matching(
         distancetype: str = '21',   # '21', '2', '1'
 ):
     """
-    Segments in `a` are assigned to streams in `b`.
+    Segments in `segments` are assigned to streams in `streams`.
+
+    Args:
+        segments: A list of segments for which stream labels should be obtained
+        streams: A list of streams to which the segments are assigned
+        initial_assignment: The initial assignment of the segments to the streams.
+            Can be obtained with `initialize_assignment`.
+        distancetype: The type of distance to use. Can be one of:
+            - `'1'`: Use insertion cost of 1 (like in Levenshtein distance)
+            - `'2'`: Use insertion cost of 2 (cost of insertion + deletion)
+            - `'21'`: Start with '2' until converged and then use '1' until converged
     """
     if len(segments) == 0:
         return sum([len(s) for s in streams]), []
