@@ -373,6 +373,10 @@ assert orc_lev_dynamic_programming(['a', 'bc'], ['bc', 'a']) == 0
 
 ### Greedy Algorithm for the ORC Levenshtein distance
 
+> [!NOTE]
+> 
+> [View Python / Cython / Numpy Implementation](../meeteval/wer/matching/greedy_combination_matching.py)
+
 Even the dynamic programming algorithm can be infeasible when the number of output streams increases.
 The ORC Levenshtein distance can be approximated with high accuracy by a greedy algorithm.
 The greedy algorithm gradually improves an assignment by checking for every utterance whether switching its label would decrease the distance.
