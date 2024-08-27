@@ -4,11 +4,7 @@ from typing import Tuple
 
 import meeteval
 from meeteval.io.seglst import SegLST
-from meeteval.wer.wer.error_rate import ErrorRate, combine_error_rates
-from meeteval.wer.matching.greedy_combination_matching import greedy_combination_matching, initialize_assignment
-from meeteval.wer.preprocess import preprocess
-from meeteval.wer.wer.orc import apply_orc_assignment
-from meeteval.wer.wer.siso import _siso_error_rate
+from meeteval.wer.wer.error_rate import ErrorRate
 
 
 __all__ = [
@@ -20,14 +16,7 @@ __all__ = [
 
 @dataclasses.dataclass(frozen=True)
 class DICPErrorRate(ErrorRate):
-    """
-    >>> DICPErrorRate(0, 10, 0, 0, 0, [(0, 0)])
-    DICPErrorRate(errors=0, length=10, insertions=0, deletions=0, substitutions=0, error_rate=0.0, assignment=[(0, 0)])
-    >>> DICPErrorRate(0, 10, 0, 0, 0, [(0, 0)]) + DICPErrorRate(10, 10, 0, 0, 10, [(0, 0)])
-    ErrorRate(errors=10, length=20, insertions=0, deletions=0, substitutions=10, error_rate=0.5)
-    """
     assignment: Tuple[int, ...]
-    hypothesis_segments: list = None
 
     def apply_assignment(self, reference, hypothesis):
         if reference != []:  # Special case where we don't want to handle [] as SegLST
@@ -86,7 +75,7 @@ def greedy_di_cp_word_error_rate(
     ...     {'segment_index': 3, 'speaker': 'B', 'words': 'd'},
     ... ])
     >>> greedy_di_cp_word_error_rate(reference, hypothesis)
-    DICPErrorRate(error_rate=0.0, errors=0, length=4, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=('A', 'A', 'B', 'B'), hypothesis_segments=None)
+    DICPErrorRate(error_rate=0.0, errors=0, length=4, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=('A', 'A', 'B', 'B'))
     >>> hypothesis = SegLST([
     ...     {'segment_index': 0, 'speaker': 'A', 'words': 'a'},
     ...     {'segment_index': 1, 'speaker': 'B', 'words': 'b'},
@@ -94,14 +83,13 @@ def greedy_di_cp_word_error_rate(
     ...     {'segment_index': 3, 'speaker': 'B', 'words': 'd'},
     ... ])
     >>> greedy_di_cp_word_error_rate(reference, hypothesis)
-    DICPErrorRate(error_rate=0.0, errors=0, length=4, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=('A', 'A', 'B', 'B'), hypothesis_segments=None)
+    DICPErrorRate(error_rate=0.0, errors=0, length=4, insertions=0, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=('A', 'A', 'B', 'B'))
     >>> hypothesis = SegLST([
     ...     {'segment_index': 0, 'speaker': 'A', 'words': 'a b'},
-    ...     {'segment_index': 2, 'speaker': 'A', 'words': 'b d'},
-    ...     {'segment_index': 3, 'speaker': 'A', 'words': 'c'},
+    ...     {'segment_index': 2, 'speaker': 'A', 'words': 'b c d'},
     ... ])
     >>> greedy_di_cp_word_error_rate(reference, hypothesis)
-    DICPErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=0, substitutions=1, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=('A', 'B', 'B'), hypothesis_segments=None)
+    DICPErrorRate(error_rate=0.25, errors=1, length=4, insertions=1, deletions=0, substitutions=0, reference_self_overlap=None, hypothesis_self_overlap=None, assignment=('A', 'B'))
     """
 
     # The assignment of the DI-cpWER is equal to the assignment of the ORC-WER

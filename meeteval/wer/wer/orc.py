@@ -327,20 +327,20 @@ def greedy_orc_word_error_rate(
     OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, assignment=(0, 1, 1))
 
     # One utterance is split
-    >>> er = greedy_orc_word_error_rate(['a', 'c d', 'e'], ['a c', 'd e'])
+    >>> er = greedy_orc_word_error_rate(['a', 'c d e'], ['a c', 'd e'])
     >>> er
-    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=(0, 0, 1))
-    >>> er.apply_assignment(['a', 'c d', 'e'], ['a c', 'd e'])
-    ([['a', 'c d'], ['e']], ['a c', 'd e'])
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=(0, 1))
+    >>> er.apply_assignment(['a', 'c d e'], ['a c', 'd e'])
+    ([['a'], ['c d e']], ['a c', 'd e'])
 
     >>> greedy_orc_word_error_rate(STM.parse('X 1 A 0.0 1.0 a b\\nX 1 B 0.0 2.0 e f\\nX 1 A 1.0 2.0 c d\\n'), STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n'))
     OrcErrorRate(error_rate=0.0, errors=0, length=6, insertions=0, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), hypothesis_self_overlap=SelfOverlap(overlap_rate=Decimal('0E+1'), overlap_time=0, total_time=Decimal('4.0')), assignment=('0', '0', '1'))
 
-    >>> er = greedy_orc_word_error_rate(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
+    >>> er = greedy_orc_word_error_rate(['a', 'c d e'], {'A': 'a c', 'B': 'd e'})
     >>> er
-    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=('A', 'A', 'B'))
-    >>> er.apply_assignment(['a', 'c d', 'e'], {'A': 'a c', 'B': 'd e'})
-    ({'A': ['a', 'c d'], 'B': ['e']}, {'A': 'a c', 'B': 'd e'})
+    OrcErrorRate(error_rate=0.5, errors=2, length=4, insertions=1, deletions=1, substitutions=0, assignment=('A', 'B'))
+    >>> er.apply_assignment(['a', 'c d e'], {'A': 'a c', 'B': 'd e'})
+    ({'A': ['a'], 'B': ['c d e']}, {'A': 'a c', 'B': 'd e'})
 
     >>> greedy_orc_word_error_rate([{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': '', 'speaker': 'A'}], [{'session_id': 'a', 'start_time': 0, 'end_time': 1, 'words': 'a', 'speaker': 'A'}])
     OrcErrorRate(errors=1, length=0, insertions=1, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1), assignment=('A',))
