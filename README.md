@@ -297,8 +297,8 @@ av = AlignmentVisualization(
 The toolkit and the tcpWER were presented at the CHiME-2023 workshop (Computational Hearing in Multisource Environments) with the paper 
 ["MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems"](https://arxiv.org/abs/2307.11394).
 
-[![arXiv](https://img.shields.io/badge/arXiv-2307.11394-b31b1b.svg)](https://arxiv.org/abs/2307.11394)
 [![ISCA DOI](https://img.shields.io/badge/ISCA/DOI-10.21437/CHiME.2023--6-blue.svg)](https://doi.org/10.21437/CHiME.2023-6)
+[![arXiv](https://img.shields.io/badge/arXiv-2307.11394-b31b1b.svg)](https://arxiv.org/abs/2307.11394)
 
 
 ```bibtex
@@ -315,8 +315,8 @@ The toolkit and the tcpWER were presented at the CHiME-2023 workshop (Computatio
 The MIMO WER and efficient implementation of ORC WER are presented in the paper 
 ["On Word Error Rate Definitions and their Efficient Computation for Multi-Speaker Speech Recognition Systems"](https://ieeexplore.ieee.org/iel7/10094559/10094560/10094784.pdf).
 
-[![arXiv](https://img.shields.io/badge/arXiv-2211.16112-b31b1b.svg)](https://arxiv.org/abs/2211.16112)
 [![IEEE DOI](https://img.shields.io/badge/IEEE/DOI-10.1109/ICASSP49357.2023.10094784-blue.svg)](https://doi.org/10.1109/ICASSP49357.2023.10094784)
+[![arXiv](https://img.shields.io/badge/arXiv-2211.16112-b31b1b.svg)](https://arxiv.org/abs/2211.16112)
 
 ```bibtex
 @InProceedings{MIMO23,
