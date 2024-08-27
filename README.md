@@ -298,11 +298,13 @@ The toolkit and the tcpWER were presented at the CHiME-2023 workshop (Computatio
 ["MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems"](https://arxiv.org/abs/2307.11394).
 
 ```bibtex
-@InProceedings{MeetEval23,
-  title={MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems},
-  author={von Neumann, Thilo and Boeddeker, Christoph and Delcroix, Marc and Haeb-Umbach, Reinhold},
-  booktitle={CHiME-2023 Workshop, Dublin, England},
-  year={2023}
+@inproceedings{MeetEval23,
+  author={Thilo von Neumann and Christoph B. Boeddeker and Marc Delcroix and Reinhold Haeb-Umbach},
+  title={{MeetEval: A Toolkit for Computation of Word Error Rates for Meeting Transcription Systems}},
+  year=2023,
+  booktitle={Proc. 7th International Workshop on Speech Processing in Everyday Environments (CHiME 2023)},
+  pages={27--32},
+  doi={10.21437/CHiME.2023-6}
 }
 ```
 
