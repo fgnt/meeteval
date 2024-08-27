@@ -177,6 +177,9 @@ def initialize_assignment(
     [1, 0]
     >>> initialize_assignment(segments, streams, initialization='constant')
     [0, 0]
+    >>> segments = SegLST([{'words': 'a', 'speaker': 'A', 'segment_index': 0}, {'words': 'b', 'speaker': 'C', 'segment_index': 0}, {'words': 'c', 'speaker': 'B', 'segment_index': 1}])
+    >>> initialize_assignment(segments, streams, initialization='cp')
+    [0, 0]
     """
     if initialization == 'cp':
         # Compute cpWER to get a good starting point
@@ -184,17 +187,25 @@ def initialize_assignment(
         from meeteval.wer.wer.siso import siso_levenshtein_distance
         if isinstance(streams, SegLST):
             streams = streams.groupby('speaker')
-        assignment, _ = _minimum_permutation_assignment(
-            segments.groupby('speaker'),
+        speaker_grouped_segments = segments.groupby('speaker')
+        assignment, _, cost_matrix = _minimum_permutation_assignment(
+            speaker_grouped_segments,
             streams,
             distance_fn=siso_levenshtein_distance,
         )
         # Use integers for the assignment labels.
-        # Map all unmatched segments to stream 0
         counter = iter(itertools.count())
         int_stream_labels = {k: next(counter) for k in streams.keys()}
+        counter = iter(itertools.count())
+        int_segment_labels = {k: next(counter) for k in speaker_grouped_segments.keys()}
+        # Map unmatched segments to the stream that produced the lowest distance.
+        # The distances are taken from the cost_matrix, where only the first
+        # `len(streams)` entries are used. The remaining entries represent
+        # matching against an empty (dummy) stream.
         assignment = {
-            segment_label: int_stream_labels.get(stream_label, 0)
+            segment_label: int_stream_labels[stream_label]
+            if stream_label in int_stream_labels
+            else int(np.argmin(cost_matrix[int_segment_labels[segment_label], :len(streams)]))
             for i, (segment_label, stream_label) in enumerate(assignment)
         }
         assignment = [

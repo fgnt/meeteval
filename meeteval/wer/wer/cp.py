@@ -227,13 +227,14 @@ def _minimum_permutation_assignment(
 
     Returns:
         The assignment and the distance
+        The score matrix. Shape (reference hypothesis)
 
     >>> _minimum_permutation_assignment({}, {}, lambda x, y: 0)
     ((), 0)
     >>> _minimum_permutation_assignment({}, {'spkA': meeteval.io.SegLST([])}, lambda x, y: 1)
-    (((None, 'spkA'),), 1)
+    (((None, 'spkA'),), 1, array([[1]]))
     >>> _minimum_permutation_assignment({'spkA': meeteval.io.SegLST([])}, {}, lambda x, y: 1)
-    ((('spkA', None),), 1)
+    ((('spkA', None),), 1, array([[1]]))
     """
     import scipy.optimize
     import numpy as np
@@ -273,7 +274,7 @@ def _minimum_permutation_assignment(
         (reference_keys.get(r), hypothesis_keys.get(c))
         for r, c in itertools.zip_longest(row_ind, col_ind)
     ])
-    return assignment, int(distance)
+    return assignment, int(distance), cost_matrix
 
 
 def _minimum_permutation_word_error_rate(
@@ -307,7 +308,7 @@ def _minimum_permutation_word_error_rate(
             f'for details.'
         )
 
-    assignment, distance = _minimum_permutation_assignment(
+    assignment, distance, _ = _minimum_permutation_assignment(
         reference, hypothesis, distance_fn, missing
     )
 
