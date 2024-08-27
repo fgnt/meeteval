@@ -118,7 +118,7 @@ def greedy_di_cp_word_error_rate_multifile(
         partial=False,
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
-) -> 'dict[str, OrcErrorRate]':
+) -> 'dict[str, DICPErrorRate]':
     """
     Computes the (Greedy) DI-cpWER for each example in the reference and hypothesis files.
 
