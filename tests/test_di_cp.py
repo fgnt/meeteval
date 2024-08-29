@@ -10,7 +10,6 @@ seglst = st.builds(
             speaker=st.sampled_from(['spkA', 'spkB', 'spkC', 'spkD', 'spkE', 'spkF', 'spkG', 'spkH']),
             words=st.text(),
         ),
-        min_size=1,     # For the API wrapper to work, we need at least one element
     )
 )
 
