@@ -78,7 +78,7 @@ def create_viz_folder(
 
         file = out / f"{session_id}.html"
         file.write_text(indent(doc.getvalue()))
-        print(f'Wrote {file.absolute()}')
+        print(f'Wrote file://{file.absolute()}')
 
     ###########################################################################
 
@@ -88,7 +88,7 @@ def create_viz_folder(
     def get_wer(v):
         error_rate = meeteval.wer.combine_error_rates(*[
             meeteval.wer.ErrorRate.from_dict(
-                av.data['info']['wer']['hypothesis'])
+                av.data['info']['wer'])
             for av in v.values()
         ]).error_rate
         return f'{error_rate * 100:.2f} %'
@@ -171,7 +171,7 @@ def create_viz_folder(
                             for (i, alignment), av in v.items():
                                 with tag('td'):
                                     with tag('span', klass='number'):
-                                        wer = av.data['info']['wer']['hypothesis']['error_rate']
+                                        wer = av.data['info']['wer']['error_rate']
                                         doc.text(f"{wer * 100:.2f} %")
                                     doc.text(' (')
                                     with tag('a', href=f'{session_id}_{i}_{alignment}.html'):
@@ -221,7 +221,7 @@ def create_viz_folder(
 
     with open(out / "index.html", "w") as text_file:
         text_file.write(indent(doc.getvalue()))
-    print(f'Open {(out / "index.html").absolute()}')
+    print(f'Open file://{(out / "index.html").absolute()}')
 
 
 def html(
