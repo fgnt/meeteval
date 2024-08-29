@@ -11,6 +11,7 @@ __all__ = [
     'DICPErrorRate',
     'greedy_di_cp_word_error_rate',
     'greedy_di_cp_word_error_rate_multifile',
+    'apply_dicp_assignment',
 ]
 
 
@@ -19,33 +20,7 @@ class DICPErrorRate(ErrorRate):
     assignment: Tuple[int, ...]
 
     def apply_assignment(self, reference, hypothesis):
-        if reference != []:  # Special case where we don't want to handle [] as SegLST
-            from meeteval.io.seglst import SegLST, asseglistconvertible
-            import meeteval
-            try:
-                h_conv = asseglistconvertible(hypothesis, py_convert=False)
-            except:
-                pass
-            else:
-                hypothesis = h_conv.to_seglst()
-
-                if 'segment_index' in hypothesis.T.keys():
-                    hypothesis = hypothesis.groupby('segment_index').values()
-                else:
-                    hypothesis = [[r] for r in hypothesis]
-
-                assert len(hypothesis) == len(self.assignment), (len(hypothesis), len(self.assignment))
-                hypothesis = meeteval.io.SegLST([
-                    {**s, 'speaker': a}
-                    for r, a in zip(hypothesis, self.assignment)
-                    for s in r
-                ])
-
-                return reference, h_conv.new(hypothesis)
-        h = {}
-        for a, h_ in zip(self.assignment, hypothesis):
-            h.setdefault(a, []).append(h_)
-        return reference, h
+        return apply_dicp_assignment(self.assignment, reference, hypothesis)
 
     @classmethod
     def from_dict(cls, d):
@@ -134,3 +109,57 @@ def greedy_di_cp_word_error_rate_multifile(
         ), reference, hypothesis,
         partial=partial
     )
+
+
+def apply_dicp_assignment(
+        assignment: 'list[int | str] | tuple[int | str]',
+        reference: 'list[list[str]] | dict[str, list[str]] | SegLST',
+        hypothesis: 'list[str] | dict[str] | SegLST',
+):
+    """
+        Apply DI-cp assignment so that the hypothesis streams match the reference streams.
+
+        Computing the standard WER on the output of this function yields the same
+        result as the DI-cpWER on the input of this function.
+
+        Arguments:
+            assignment: The assignment of hypothesis segments to the reference
+                streams. The length of the assignment must match the number of
+                segments in the hypothesis. The assignment is a list of stream
+                labels, one entry for each stream.
+            reference: Is passed thorugh unchanged but used to determine the format
+                of the hypothesis output if it is not SegLST.
+            hypothesis: The hypothesis segments. This can be a list of lists of
+                segments, or a SegLST object. If it is a SegLST object, the
+                "segment_index" field is used to group the segments, if present.
+
+        >>> assignment = ('A', 'A', 'B')
+        >>> apply_dicp_assignment(assignment, {'A': 'a c', 'B': 'd e'}, ['a', 'c d', 'e'])
+        ({'A': 'a c', 'B': 'd e'}, {'A': ['a', 'c d'], 'B': ['e']})
+
+        >>> assignment = (0, 0, 1)
+        >>> apply_dicp_assignment(assignment, ['a c', 'd e'], ['a', 'c d', 'e'])
+        (['a c', 'd e'], [['a', 'c d'], ['e']])
+
+        >>> assignment = ('A', )
+        >>> apply_dicp_assignment(assignment, {'A': 'b', 'B': 'c'}, ['a'])
+        ({'A': 'b', 'B': 'c'}, {'A': ['a'], 'B': []})
+
+        >>> ref = meeteval.io.STM.parse('X 1 A 0.0 1.0 a b\\nX 1 A 1.0 2.0 c d\\nX 1 B 0.0 2.0 e f\\n')
+        >>> hyp = meeteval.io.STM.parse('X 1 1 0.0 2.0 c d\\nX 1 0 0.0 2.0 a b e f\\n')
+        >>> ref, hyp = apply_dicp_assignment((0, 1, 1), hyp, ref)
+        >>> print(ref.dumps())
+        X 1 1 0.0 2.0 c d
+        X 1 0 0.0 2.0 a b e f
+        <BLANKLINE>
+        >>> print(hyp.dumps())
+        X 1 0 0.0 1.0 a b
+        X 1 1 1.0 2.0 c d
+        X 1 1 0.0 2.0 e f
+        <BLANKLINE>
+        """
+    # The assignment is identical to the ORC assignment, but with
+    # reference and hypothesis swapped.
+    from meeteval.wer.wer.orc import apply_orc_assignment
+    hypothesis, reference = apply_orc_assignment(assignment, hypothesis, reference)
+    return reference, hypothesis
