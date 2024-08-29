@@ -230,7 +230,7 @@ def _minimum_permutation_assignment(
         The score matrix. Shape (reference hypothesis)
 
     >>> _minimum_permutation_assignment({}, {}, lambda x, y: 0)
-    ((), 0)
+    ((), 0, array([], dtype=float64))
     >>> _minimum_permutation_assignment({}, {'spkA': meeteval.io.SegLST([])}, lambda x, y: 1)
     (((None, 'spkA'),), 1, array([[1]]))
     >>> _minimum_permutation_assignment({'spkA': meeteval.io.SegLST([])}, {}, lambda x, y: 1)
@@ -256,7 +256,7 @@ def _minimum_permutation_assignment(
     ])
 
     if cost_matrix.size == 0:
-        return (), 0
+        return (), 0, cost_matrix
 
     # Find the best permutation with hungarian algorithm
     row_ind, col_ind = scipy.optimize.linear_sum_assignment(cost_matrix)
