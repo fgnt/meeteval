@@ -1,6 +1,7 @@
 # created from tests
 example_files/*.json
 example_files/*.yaml
+example_files/viz
 
 # Files in this JSON format are example files and would otherwise be excluded by the rules above
 !example_files/*.seglst.json

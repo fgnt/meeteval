@@ -198,10 +198,10 @@ def words_to_int(*d: 'SegLST'):
     words in d and assigning an integer to each word.
 
     >>> words_to_int(SegLST([{'words': 'a b c'}]))
-    [SegLST(segments=[{'words': 0}])]
+    [SegLST(segments=[{'words': 1}])]
 
     >>> words_to_int(SegLST([{'words': 'a'}, {'words': 'b'}]), SegLST([{'words': 'c'}, {'words': 'a'}]))
-    [SegLST(segments=[{'words': 0}, {'words': 1}]), SegLST(segments=[{'words': 2}, {'words': 0}])]
+    [SegLST(segments=[{'words': 1}, {'words': 2}]), SegLST(segments=[{'words': 3}, {'words': 1}])]
 
     TODO: use cython code for speedup
     TODO: unify everything. This stuff is done in multiple places in the code base.
@@ -210,8 +210,19 @@ def words_to_int(*d: 'SegLST'):
     # `'words'` contains a single word only.
     import collections
     sym2int = collections.defaultdict(itertools.count().__next__)
+    _ = sym2int['']  # Reserve 0 for the empty string
 
-    d = [d_.map(lambda s: {**s, 'words': [sym2int[w] for w in s['words']] if isinstance(s['words'], list) else sym2int[s['words']]}) for d_ in d]
+    d = [
+        d_.map(lambda s: {
+            **s,
+            'words': [
+                sym2int[w]
+                for w in s['words']]
+                if isinstance(s['words'], list)
+                else sym2int[s['words']]
+        })
+        for d_ in d
+    ]
     return d
 
 

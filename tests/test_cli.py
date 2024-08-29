@@ -1,8 +1,8 @@
 import subprocess
 from pathlib import Path
 
-
 example_files = (Path(__file__).parent.parent / 'example_files').absolute()
+
 
 def run(cmd):
     cp = subprocess.run(
@@ -88,6 +88,12 @@ def test_burn_greedy_orc():
 
     # Test sort option. Only test the ones that are available for ORC
     run('python -m meeteval.wer greedy_orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
+
+
+def test_burn_greedy_dicp():
+    # Normal test with stm files
+    run(f'python -m meeteval.wer greedy_dicpwer -h hyp.stm -r ref.stm')
+    run(f'meeteval-wer greedy_dicpwer -h hyp.stm -r ref.stm')
 
 
 def test_burn_mimo():
