@@ -182,6 +182,14 @@ def initialize_assignment(
     [0, 0]
     """
     if initialization == 'cp':
+        # Special case when no streams are present
+        if len(streams) == 0:
+            return initialize_assignment(segments, streams, 'constant')
+
+        # Special case when no segments are present
+        if len(segments) == 0:
+            return []
+
         # Compute cpWER to get a good starting point
         from meeteval.wer.wer.cp import _minimum_permutation_assignment
         from meeteval.wer.wer.siso import siso_levenshtein_distance
