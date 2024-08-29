@@ -132,7 +132,8 @@ def greedy_orcwer(
         partial=False,
         normalizer=None,
 ):
-    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
+    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)
+    with a greedy algorithm"""
     from meeteval.wer.wer.orc import greedy_orc_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
@@ -268,7 +269,8 @@ def greedy_dicpwer(
         partial=False,
         normalizer=None,
 ):
-    """Computes the Optimal Reference Combination Word Error Rate (ORC WER)"""
+    """Computes the Diarization Invariant cpWER (DI-cpWER) with a greedy
+    algorithm."""
     from meeteval.wer.wer.di_cp import greedy_di_cp_word_error_rate_multifile
     reference, hypothesis = _load_texts(
         reference, hypothesis, regex=regex,
