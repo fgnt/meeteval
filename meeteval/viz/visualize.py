@@ -275,6 +275,10 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
         }
     }
 
+    # Add original speaker/stream label
+    ref = ref.map(lambda s: {**s, 'stream': s['speaker']})
+    hyp = hyp.map(lambda s: {**s, 'stream': s['speaker']})
+
     # Get and apply stream assignment
     wer, ref, hyp = solve_stream_assignment(ref, hyp, assignment)
     align_type = 'time_constrained' if assignment in ['tcp', 'tcorc'] else 'levenshtein'
