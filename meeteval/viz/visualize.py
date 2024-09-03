@@ -1,7 +1,6 @@
 import logging
 import os
-import json
-
+from meeteval.wer.wer.utils import check_single_filename
 import urllib.request
 
 import meeteval
@@ -10,7 +9,6 @@ from meeteval.wer import ErrorRate
 logging.basicConfig(level=logging.ERROR)
 import dataclasses
 import functools
-import shutil
 import uuid
 from pathlib import Path
 
@@ -100,80 +98,13 @@ def dump_json(
         raise TypeError(path)
 
 
-def get_wer(t: SegLST, assignment_type, collar=5, hypothesis_key='hypothesis'):
-    """
-    Compute the WER with the given assignment type and collar between the segments with `s['source'] = 'reference'`
-    and `s['source'] = hypothesis_key`.
-    """
-    ref = t.filter(lambda s: s['source'] == 'reference')
-    hyp = t.filter(lambda s: s['source'] == hypothesis_key)
-    if assignment_type == 'cp':
-        from meeteval.wer.wer.cp import cp_word_error_rate
-        wer = cp_word_error_rate(ref, hyp)
-    elif assignment_type in ('tcp', 'ditcp'):
-        from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
-        # The visualization looks wrong if we don't sort segments
-        wer = time_constrained_minimum_permutation_word_error_rate(
-            ref, hyp,
-            collar=collar,
-            reference_sort='segment',
-            hypothesis_sort='segment',
-            reference_pseudo_word_level_timing='character_based',
-            hypothesis_pseudo_word_level_timing='character_based_points',
-        )
-    else:
-        raise ValueError(assignment_type)
-    return wer
 
-
-def apply_assignment(assignment, d: SegLST, source_key='hypothesis'):
-    """
-    Apply the assignment to the given SegLST by replacing the "speaker" key of the hypothesis.
-    """
-    # Both ref and hyp key can be missing or None
-    # This can happen when the filter function excludes a speaker completely
-    # TODO: Find a good way to name these and adjust apply_cp_assignment accordingly
-    assignment = dict(
-        ((b, a if a is not None else f'[{b}]')
-         for a, b in assignment)
-    )
-    # We only want to change the labels for the hypothesis. This way, we can easily
-    # apply this function to the full set of words
-    return d.map(
-        lambda w:
-        {**w, 'speaker': assignment.get(w['speaker'], f"[{w['speaker']}]")}
-        if w.get('source', None) == source_key
-        else w
-    )
-
-
-# def get_diarization_invariant_alignment(ref: SegLST, hyp: SegLST, collar=5):
-#     from meet_eval.dicpwer.dicp import greedy_di_tcp_error_rate
-#     words, _ = get_alignment(ref, hyp, 'tcp', collar=collar)
-#
-#     wer = greedy_di_tcp_error_rate(
-#         list(ref.groupby('speaker').values()),
-#         [[[vv] for vv in v] for v in (ref.groupby('speaker')).values()],
-#         collar=collar
-#     )
-#
-#     hyp = wer.apply_assignment(sorted(hyp, key=lambda x: x['start_time']))
-#     hyp = [
-#         {**l, 'speaker2': k, }
-#         for k, v in hyp.items()
-#         for l in v
-#     ]
-#
-#     _, alignment = get_alignment(ref, hyp, 'tcp', collar=collar)
-#     return words, alignment
-
-
-def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
+def get_alignment(data, alignment_type, collar=5):
     # Extract hyps and ref from data. They have been merged earlier for easier processing
-    hyp = data.filter(lambda s: s['source'] == hypothesis_key)
+    hyp = data.filter(lambda s: s['source'] == 'hypothesis')
     ref = data.filter(lambda s: s['source'] == 'reference')
 
-    if alignment_type == 'cp':
+    if alignment_type == 'levenshtein':
         from meeteval.wer.wer.time_constrained import align
         # Set the collar large enough that all words overlap with all other words
         min_time = min(map(lambda x: x['start_time'], data))
@@ -188,7 +119,7 @@ def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
             hypothesis_sort=False,
             style='seglst',
         )
-    elif alignment_type == 'tcp':
+    elif alignment_type == 'time_constrained':
         from meeteval.wer.wer.time_constrained import align
         align = functools.partial(
             align,
@@ -200,11 +131,8 @@ def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
             hypothesis_sort=False,
             style='seglst',
         )
-    elif alignment_type == 'ditcp':
-        raise NotImplementedError()
-        # return get_diarization_invariant_alignment(ref, hyp, collar=collar)
     else:
-        raise ValueError(alignment_type)
+        raise NotImplementedError(alignment_type)
 
     # Compute alignment and extract words
     ref = ref.sorted('start_time').groupby('speaker')
@@ -237,68 +165,135 @@ def get_alignment(data, alignment_type, collar=5, hypothesis_key='hypothesis'):
                 r.setdefault('matches', []).append((h['word_index'], 'substitution'))
 
 
-def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignment_transform=None):
-    ref = asseglst(ref)
-    hyp = [asseglst(h) for h in hyp]
-
-    data = {
-        'info': {
-            'filename': ref[0]['session_id'],
-            'alignment_type': assignment,
-            'length': max([e['end_time'] for e in hyp[0] + ref]) - min([e['start_time'] for e in hyp[0] + ref]),
-        }
-    }
-
-    # Solve assignment when assignment is tcorc or orc
-    if assignment == 'tcorc':
-        assert len(hyp) == 1, len(hyp)
-        from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
-        # The visualization looks wrong if we don't sort segments
-        wer = time_constrained_orc_wer(
-            ref, *hyp,
+def solve_stream_assignment(ref, hyp, assignment):
+    """
+    Computes the word error rate and applies the assignment to the reference and hypothesis.
+    """
+    if assignment == 'cp':
+        wer = meeteval.wer.wer.cp.cp_word_error_rate(ref, hyp)
+        ref, hyp = wer.apply_assignment(ref, hyp)
+    elif assignment == 'tcp':
+        wer = meeteval.wer.wer.time_constrained.time_constrained_minimum_permutation_word_error_rate(
+            ref, hyp,
             collar=5,
             reference_sort='segment',
             hypothesis_sort='segment',
             reference_pseudo_word_level_timing='character_based',
             hypothesis_pseudo_word_level_timing='character_based_points',
         )
-        ref, hyp = wer.apply_assignment(ref, *hyp)
-        hyp = (hyp,)
-        assignment = 'tcp'
+        ref, hyp = wer.apply_assignment(ref, hyp)
+    elif assignment == 'tcorc':
+        wer = meeteval.wer.wer.time_constrained_orc.time_constrained_orc_wer(
+            ref, hyp,
+            collar=5,
+            reference_sort='segment',
+            hypothesis_sort='segment',
+            reference_pseudo_word_level_timing='character_based',
+            hypothesis_pseudo_word_level_timing='character_based_points',
+        )
+        ref, hyp = wer.apply_assignment(ref, hyp)
     elif assignment == 'orc':
-        assert len(hyp) == 1, len(hyp)
-        from meeteval.wer.wer.orc import orc_word_error_rate
-        wer = orc_word_error_rate(ref, *hyp)
-        ref, hyp = wer.apply_assignment(ref, *hyp)
-        hyp = (hyp,)
-        assignment = 'cp'
+        wer = meeteval.wer.wer.orc.orc_word_error_rate(ref, hyp)
+        ref, hyp = wer.apply_assignment(ref, hyp)
+    else:
+        raise ValueError(assignment)
+    return wer, ref, hyp
 
-    assert len(hyp) > 0, hyp
+
+def add_overlap_shift(utterances: SegLST):
+    """
+    Adds the keys "overlap_shift" and "overlap_width" to each utterance. These
+    values are used to determine the width and horizontal position of each
+    utterance in the visualization such that they do not overlap visually, even if they
+    overlap temporally.
+    """
+    utterances = utterances.sorted('start_time')
+
+    # Compute the latest seen end time for each utterance up to that point.
+    # This makes the search for overlapping utterances faster.
+    latest_seen_end_times = []
+    for u in utterances:
+        latest_seen_end_times.append(max(u['end_time'], latest_seen_end_times[-1] if latest_seen_end_times else 0))
+
+    for utterance in utterances:
+
+        # Find any other overlapping utterances
+        overlaps = []
+        for other_utterance, end_time in zip(utterances[:utterance['utterance_index']][::-1], latest_seen_end_times[::-1]):
+            if other_utterance['end_time'] > utterance['start_time']:
+                if other_utterance['source'] == utterance['source'] and other_utterance['speaker'] == utterance['speaker']:
+                    overlaps.append(other_utterance['utterance_index'])
+                    other_utterance['utterance_overlaps'].append(utterance['utterance_index'])
+            elif end_time < utterance['start_time']:
+                break
+        
+        # Compute shifts from the overlaps such that the utterances don't overlap
+        # This is a greedy approach that works well for most cases
+        utterance['utterance_overlaps'] = overlaps
+        if overlaps:
+            shifts = [
+                utterances[o]['overlap_shift']
+                for o in overlaps
+            ]
+            for shift in range(len(shifts) + 1):
+                if shift not in shifts:
+                    break
+            utterance['overlap_shift'] = shift
+        else:
+            utterance['overlap_shift'] = 0
+
+    # Compute the width for each (sub)column and assign it to the utterance
+    # This should result in the largest possible width for each utterance
+    # such that no two utterances overlap
+    for utterance in utterances:
+        utterance['num_columns'] = max([utterances[o]['overlap_shift'] for o in utterance['utterance_overlaps']] + [utterance['overlap_shift']]) + 1 
+
+    for utterance in  utterances.sorted(lambda x: -x['num_columns']):
+        num_columns =  max([utterances[o]['num_columns'] for o in utterance['utterance_overlaps']] + [utterance['num_columns']])
+
+        width = 1 / num_columns
+        utterance['overlap_width'] = width
+
+
+
+def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment_transform=None):
+    """
+    Generates the data structure as required by the visualization frontend.
+
+    Solves the stream assignment problem and computes the alignment between the reference and hypothesis.
+    Then, computes additional useful information for display in the visualization.
+    """
+    ref = asseglst(ref)
+    hyp = asseglst(hyp)
+    check_single_filename(ref, hyp)
+
+    data = {
+        'info': {
+            'filename': ref[0]['session_id'],
+            'alignment_type': assignment,
+            'length': max([e['end_time'] for e in hyp + ref]) - min([e['start_time'] for e in hyp + ref]),
+        }
+    }
+
+    # Get and apply stream assignment
+    wer, ref, hyp = solve_stream_assignment(ref, hyp, assignment)
+    align_type = 'time_constrained' if assignment in ['tcp', 'tcorc'] else 'levenshtein'
+
     if alignment_transform is None:
         alignment_transform = lambda x: x
 
-    ref_session_ids = set(ref.T['session_id'])
-    for h in hyp:
-        hyp_session_ids = set(h.T['session_id'])
-        assert 1 == len(ref_session_ids) and ref_session_ids == hyp_session_ids, f'Expect a single session ID/filename and the same for reference an hypothesis, got {ref_session_ids} and {hyp_session_ids}.'
-
     # Add information about ref/hyp to each utterance
     ref = ref.map(lambda s: {**s, 'source': 'reference'})
-    # TODO: how to encode hypothesis correctly? I want to be able to name them from outside.
-    #  Use a new key, "system_name"?
-    if len(hyp) > 1:
-        hypothesis_keys = [f'hypothesis-{i}' for i in range(len(hyp))]
-    else:
-        hypothesis_keys = ['hypothesis']
-    hyp = SegLST.merge(*[
-        h.map(lambda s: {**s, 'source': hypothesis_keys[i]})
-        for i, h in enumerate(hyp)
-    ])
+    hyp = hyp.map(lambda s: {**s, 'source': 'hypothesis'})
 
     u = ref + hyp
 
     # Sort by begin time. Otherwise, the alignment will be unintuitive and likely not what the user wanted
     u = u.sorted('start_time')
+
+    # Add utterance index
+    for i, utterance in enumerate(u):
+        utterance['utterance_index'] = i
 
     # Convert to words so that the transformation can be applied
     w = get_pseudo_word_level_timings(u, 'character_based')
@@ -308,20 +303,11 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
     ignored_words = w.filter(lambda s: not s['words'])  # .map(lambda s: {**s, 'match_type': 'ignored'})
     w = w.filter(lambda s: s['words'])
 
-    # Get assignment using the word-level timestamps and filtered data
-    wers = {}
-    for k in hypothesis_keys:
-        wer = wers[k] = get_wer(w, assignment, collar=5, hypothesis_key=k)
-        u = apply_assignment(wer.assignment, u, source_key=k)
-        w = apply_assignment(wer.assignment, w, source_key=k)
-        ignored_words = apply_assignment(wer.assignment, ignored_words, source_key=k)
-
     # Get the alignment using the filtered data. Add ignored words for visualization
     # Add running word index used by the alignment to refer to different words
     for i, word in enumerate(w):
         word['word_index'] = i
-    for k in hypothesis_keys:
-        get_alignment(w, assignment, collar=5, hypothesis_key=k)
+    get_alignment(w, align_type, collar=5)
     words = w + ignored_words
 
     # Map back to original_words
@@ -345,6 +331,7 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
                 'speaker',
                 'start_time',
                 'duration',
+                'utterance_index',
             ]
         }
         def compress(m):
@@ -365,28 +352,30 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
     else:
         data['words'] = words.segments
 
+    add_overlap_shift(u)
+
     # Add utterances to data. Add total number of words to each utterance
     data['utterances'] = [{**l, 'total': len(l['words'].split())} for l in u]
 
-    data['info']['wer'] = {k: dataclasses.asdict(wer) for k, wer in wers.items()}
+    data['info']['wer'] = dataclasses.asdict(wer)
 
-    def wer_by_speaker(hypothesis_key, speaker):
+    def wer_by_speaker(speaker):
         # Get all words from this speaker
         words_ = words.filter(lambda s: s['speaker'] == speaker)
 
         # Get all hypothesis words. From this we can find the number of insertions, substitutions and correct matches.
         # Ignore any words that are not matched (i.e., don't have a "matches" key)
-        hyp_words = words_.filter(lambda s: s['source'] == k and 'matches' in s)
+        hyp_words = words_.filter(lambda s: s['source'] == 'hypothesis' and 'matches' in s)
         insertions = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'insertion'))
         substitutions = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'substitution'))
         # correct = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'correct'))
 
-        # Get all reference words that match with the current hypothesis_key. From this we can find the number of
+        # Get all reference words. From this we can find the number of
         # deletions, substitutions and correct matches.
         # The number of deletions is the number of reference words that are not matched with a hypothesis word.
         ref_words = words_.filter(lambda s: s['source'] == 'reference' and 'matches' in s)
         deletions = len(ref_words.filter(
-            lambda s: not [w for w, _ in s['matches'] if w is not None and words[w]['source'] == hypothesis_key]))
+            lambda s: not [w for w, _ in s['matches'] if w is not None and words[w]['source'] == 'hypothesis']))
 
         return dataclasses.asdict(ErrorRate(
             errors=insertions + deletions + substitutions,
@@ -399,11 +388,8 @@ def get_visualization_data(ref: SegLST, *hyp: SegLST, assignment='tcp', alignmen
         ))
 
     data['info']['wer_by_speakers'] = {
-        k: {
-            speaker: wer_by_speaker(k, speaker)
-            for speaker in list(ref.unique('speaker'))
-        }
-        for k in hypothesis_keys
+        speaker: wer_by_speaker(speaker)
+        for speaker in list(ref.unique('speaker'))
     }
     return data
 
@@ -625,7 +611,7 @@ class AlignmentVisualization:
                 function exec() {{
                     // Wait for d3 to load
                     if (typeof d3 !== 'undefined') alignment_visualization(
-                        {dumps_json(self.data, indent=None, sort_keys=False, separators=(',', ':'), float_round=4)},
+                        {dumps_json(self.data, indent=1 if self.js_debug else None, sort_keys=False, separators=(',', ':'), float_round=4)},
                         "#{element_id}",
                         {{
                             colors: {self._get_colormap()},

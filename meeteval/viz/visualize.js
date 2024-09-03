@@ -276,6 +276,12 @@ function alignment_visualization(
         settings.font_size = 12;
     }
 
+    const constants = {
+        utteranceMarkerOverhang: 3,  // Overhang (left and right) of the utterance begin and end markers in pixels
+        utteranceMarkerDepth: 6,   // Depth (height) of the utterance marker bracket in pixels
+        minStitchOffset: 10,  // Minimum distance of the kink in the stitching line to the word in pixels
+    };
+
     var urlParams = new URLSearchParams(window.location.search);
     if (settings.encodeURL && urlParams.has('minimaps')) {
         settings.minimaps.number = urlParams.get('minimaps')
@@ -471,11 +477,34 @@ function alignment_visualization(
         update();
     }
 
-    function selectSegment(segment) {
+    function selectSegment(segment, focus=false) {
         state.selectedSegment = segment;
         state.dirty[state.dirty.length - 1] = true;
         selectedUtteranceDetails.update(segment)
+
+        if (focus && segment) {
+            setViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+        }
+
         update();
+    }
+
+    /**
+     * Selects the next segment for which condition(segment) is true.
+     * 
+     * If no segment is selected, the search begins at the beginning.
+     * 
+     * If no next segment is found for which condition is true, the segment will be unselected.
+     */
+    function selectNextMatchingSegment(condition, focus=true, reverse=false) {
+        let candidates;
+        if (reverse) {
+            candidates = data.utterances.slice(0, state.selectedSegment?.utterance_index).reverse();
+        } else {
+            candidates = data.utterances.slice(state.selectedSegment?.utterance_index + 1);
+        }
+        const segment = candidates.find(condition);
+        selectSegment(segment, focus);
     }
 
     if (settings.syncID !== null) {
@@ -671,7 +700,7 @@ class CompactAxis {
 
         // Set up context
         context.lineWidth = 1;
-        context.font = `{12 * this.dpr}px Arial`;
+        context.font = `${12 * this.dpr}px Arial`;
         context.strokeStyle = "black";  // Line color
         context.fillStyle = "black";    // Font color
 
@@ -738,7 +767,7 @@ class DetailsAxis{
 
         // Set up context
         context.lineWidth = 1;
-        context.font = `{12 * self.dpr}px Arial`;
+        context.font = `${12 * this.dpr}px Arial`;
         context.strokeStyle = "black";  // Line color
         context.fillStyle = "black";    // Font color
 
@@ -794,7 +823,11 @@ function addTooltip(element, tooltip, preShow) {
     const tooltipcontent = element.append("div").classed("tooltipcontent", true);
     if (typeof tooltip === "string") tooltipcontent.text(tooltip)
     else if (tooltip) tooltip(tooltipcontent);
+
+    let timeoutID = null;
     element.on("mouseenter", () => {
+        if (timeoutID) clearTimeout(timeoutID);
+
         // Call setup function before the position is corrected
         if (preShow) preShow();
 
@@ -827,10 +860,12 @@ function addTooltip(element, tooltip, preShow) {
     });
     element.on("mouseleave", () => {
         // Hide tooltip and reset tooltip position
+        timeoutID = setTimeout(() => {
         tooltipcontent.classed("visible", false)
         tooltipcontent.node().style.translate = null;
         tooltipcontent.node().style.width = null;
         tooltipcontent.node().style.height = null;
+        }, 250);
     });
     return tooltipcontent;
 }
@@ -1072,7 +1107,7 @@ class CanvasPlot {
 
         label = (label, value, icon=null, tooltip=null) => {
             var l = root.append("div").classed("pill", true)
-            if (icon) l.append("div").html(icon);
+            if (icon) l.append("div").classed("icon", true).html(icon);
             l.append("div").classed("info-label", true).text(label);
             l.append("div").classed("info-value", true).text(value);
             if (tooltip) addTooltip(l, tooltip);
@@ -1081,67 +1116,65 @@ class CanvasPlot {
 
         label("ID:", info.filename);
         label("Length:", info.length.toFixed(2) + "s");
-        label("WER:", (info.wer.hypothesis.error_rate * 100).toFixed(2) + "%", null, c => {
-            if (Object.keys(info.wer).length == 1){
-                const wer = info.wer.hypothesis;
-                const wer_by_speakers = info.wer_by_speakers.hypothesis;
-                const table = c.append("table").classed("wer-table", true);
-                const head = table.append("thead")
-                const hr1 = head.append("tr");
-                hr1.append("th");
-                hr1.append("th");
-                hr1.append("th");
-                hr1.append("th");
+        label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%", null, c => {
+            const wer = info.wer;
+            const wer_by_speakers = info.wer_by_speakers;
+            const table = c.append("table").classed("wer-table", true);
+            const head = table.append("thead")
+            const hr1 = head.append("tr");
+            hr1.append("th");
+            hr1.append("th");
+            hr1.append("th");
+            hr1.append("th");
 
-                // Determine header from alignment type. If it contians orc, write by stream, otherwise, write by spekaer
-                let breakdownHeader;
-                if (info.alignment_type.includes("orc")) {
-                    breakdownHeader = "Counts by Stream";
-                } else {
-                    breakdownHeader = "Counts by Speaker";
-                }
-
-                hr1.append("th").text(breakdownHeader).attr("colspan", Object.keys(wer_by_speakers).length).style("border-bottom", "1px solid white");
-
-                const hr = head.append("tr")
-                hr.append("th").text("");
-                hr.append("th");
-                hr.append("th").text("Count");
-                hr.append("th").text("Relative");
-                Object.keys(wer_by_speakers).forEach(speaker => { hr.append("th").text(speaker); });
-                const body = table.append("tbody");
-                const words = body.append("tr");
-                words.append("td").text("Ref. Words");
-                words.append("td");
-                words.append("td").text(wer.length);
-                words.append("td").text("100.0%");
-                Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { words.append("td").text(wer.length); });
-                const correct = body.append("tr");
-                correct.append("td").text("Correct");
-                correct.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["correct"]);
-                correct.append("td").text(wer.length - wer.substitutions - wer.deletions);
-                correct.append("td").text(((wer.length - wer.substitutions - wer.deletions)/wer.length * 100).toFixed(1) + "%");
-                Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { correct.append("td").text(wer.length - wer.substitutions - wer.deletions); });
-                const substitution = body.append("tr");
-                substitution.append("td").text("Substitution");
-                substitution.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["substitution"]);
-                substitution.append("td").text(wer.substitutions);
-                substitution.append("td").text((wer.substitutions / wer.length * 100).toFixed(1) + "%");
-                Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { substitution.append("td").text(wer.substitutions); });
-                const insertion = body.append("tr");
-                insertion.append("td").text("Insertion");
-                insertion.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["insertion"]);
-                insertion.append("td").text(wer.insertions);
-                insertion.append("td").text((wer.insertions / wer.length * 100).toFixed(1) + "%");
-                Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { insertion.append("td").text(wer.insertions); });
-                const deletion = body.append("tr");
-                deletion.append("td").text("Deletion");
-                deletion.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["deletion"]);
-                deletion.append("td").text(wer.deletions);
-                deletion.append("td").text((wer.deletions / wer.length * 100).toFixed(1) + "%");
-                Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { deletion.append("td").text(wer.deletions); });
-                c.append("div").classed("tooltip-info", true).text("Note: Values don't add up to 100% (except when Insertion=0)\nRef. Words = Correct + Substitution + Deletion\nHyp. Words = Correct + Substitution + Insertion");
+            // Determine header from alignment type. If it contians orc, write by stream, otherwise, write by spekaer
+            let breakdownHeader;
+            if (info.alignment_type.includes("orc")) {
+                breakdownHeader = "Counts by Stream";
+            } else {
+                breakdownHeader = "Counts by Speaker";
             }
+
+            hr1.append("th").text(breakdownHeader).attr("colspan", Object.keys(wer_by_speakers).length).style("border-bottom", "1px solid white");
+
+            const hr = head.append("tr")
+            hr.append("th").text("");
+            hr.append("th");
+            hr.append("th").text("Count");
+            hr.append("th").text("Relative");
+            Object.keys(wer_by_speakers).forEach(speaker => { hr.append("th").text(speaker); });
+            const body = table.append("tbody");
+            const words = body.append("tr");
+            words.append("td").text("Ref. Words");
+            words.append("td");
+            words.append("td").text(wer.length);
+            words.append("td").text("100.0%");
+            Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { words.append("td").text(wer.length); });
+            const correct = body.append("tr");
+            correct.append("td").text("Correct");
+            correct.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["correct"]);
+            correct.append("td").text(wer.length - wer.substitutions - wer.deletions);
+            correct.append("td").text(((wer.length - wer.substitutions - wer.deletions)/wer.length * 100).toFixed(1) + "%");
+            Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { correct.append("td").text(wer.length - wer.substitutions - wer.deletions); });
+            const substitution = body.append("tr");
+            substitution.append("td").text("Substitution");
+            substitution.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["substitution"]);
+            substitution.append("td").text(wer.substitutions);
+            substitution.append("td").text((wer.substitutions / wer.length * 100).toFixed(1) + "%");
+            Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { substitution.append("td").text(wer.substitutions); });
+            const insertion = body.append("tr");
+            insertion.append("td").text("Insertion");
+            insertion.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["insertion"]);
+            insertion.append("td").text(wer.insertions);
+            insertion.append("td").text((wer.insertions / wer.length * 100).toFixed(1) + "%");
+            Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { insertion.append("td").text(wer.insertions); });
+            const deletion = body.append("tr");
+            deletion.append("td").text("Deletion");
+            deletion.append("td").append("div").classed("legend-color", true).style("background-color", settings.colors["deletion"]);
+            deletion.append("td").text(wer.deletions);
+            deletion.append("td").text((wer.deletions / wer.length * 100).toFixed(1) + "%");
+            Object.entries(wer_by_speakers).forEach(([speaker, wer]) => { deletion.append("td").text(wer.deletions); });
+            c.append("div").classed("tooltip-info", true).text("Note: Values don't add up to 100% (except when Insertion=0)\nRef. Words = Correct + Substitution + Deletion\nHyp. Words = Correct + Substitution + Insertion");
         });
         label("Alignment:", info.alignment_type, null,
             c => c.append('div').classed('wrap-60', true).html("The alignment algorithm used to generate this visualization. Available are:" +
@@ -1163,16 +1196,31 @@ class CanvasPlot {
             "Reference self-overlap:",
             (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%",
             icons["warning"],
-            c => c.append('div').classed('wrap-40').text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            c => {
+                c.append('div').classed('wrap-40', true).text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "On the reference, this is usually an indication for annotation errors.\n" +
-            "Extreme self-overlap can lead to unexpected WERs!")
+            "Extreme self-overlap can lead to unexpected WERs!");
+                const d = c.append('div').classed("menu-element", true).style("margin-top", "1em");
+                d.append('div').text("< Show previous").classed("clickable", true)
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'reference', true, true)); 
+                d.append('div').text("Show next >").classed("clickable", true).style("margin-left", "auto")
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'reference', true, false));
+                }
         ).classed("warn", true);
         if (info.wer.hypothesis_self_overlap?.overlap_rate) label(
             "Hypothesis self-overlap:",
             (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%",
             icons["warning"],
-            c => c.append('div').classed('wrap-40').text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            c => {
+                c.append('div').classed('wrap-40', true).text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            "On the hypothesis, this often indicates systematic errors.\n" +
             "Extreme self-overlap can lead to unexpected WERs!")
+               const d = c.append('div').classed("menu-element", true).style("margin-top", "1em");
+                d.append('div').text("< Show previous").classed("clickable", true)
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'hypothesis', true, true)); 
+                d.append('div').text("Show next >").classed("clickable", true).style("margin-left", "auto")
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'hypothesis', true, false));
+                }
         ).classed("warn", true);
     }
 
@@ -1543,52 +1591,67 @@ class CanvasPlot {
                             right_center_time: right.center_time,
                             start_time: Math.min(left.center_time, right.center_time),
                             end_time: Math.max(left.center_time, right.center_time),
+                            left_utterance: utterances[left.utterance_index],
+                            right_utterance: utterances[right.utterance_index],
                         }
                     })
             });
             this.filtered_matches = this.matches;
+
+            // Precompute utterance x positions and widths
+            this.precompute_utterance_positions = () => {
+                const match_width = settings.match_width * this.plot.x.bandwidth() / 2;
+                const columnwidth = this.plot.x.bandwidth() / 2 - match_width;
+
+                this.utterances.forEach(u => {
+                    let x = this.plot.x(u.speaker);
+                    let width = columnwidth;
+
+                    if (u.source === "hypothesis") {
+                        x += this.plot.x.bandwidth() / 2 + match_width;
+                    }
+
+                    if (u.utterance_overlaps) {
+                        width = columnwidth * u.overlap_width;
+                        x = x + width * u.overlap_shift;
+                        width = width - 2*constants.utteranceMarkerOverhang;
+                    }
+                    u.x = x;
+                    u.width = width;
+                })
+                
+            };
+            this.plot.onSizeChanged(this.precompute_utterance_positions);
 
             this.utteranceSelectListeners = [];
 
             // Plot label
             this.plot.element.append("div").classed("plot-label", true).style("margin-left", this.plot.y_axis_padding_html + "px").text("Detailed matching");
 
+            // Click handler for selecting utterances
             const self = this;
-            this.last_utterance_candidates_index = -1
             this.plot.element.on("click", (event) => {
                 const screenX = event.layerX * self.plot.dpr;  // convert from html px to canvas px
                 const screenY = event.layerY * self.plot.dpr;  // convert from html px to canvas px
                 const y = self.plot.y.invert(screenY);
 
-                // invert x band scale
-                const match_width = settings.match_width * self.plot.x.bandwidth() / 2;
-                const eachBand = self.plot.x.step();
-                const index = Math.floor((screenX - self.plot.y_axis_padding) / eachBand);
-                const speaker = self.plot.x.domain()[index];
-
-                const within_speaker_coord = screenX - self.plot.x(speaker);
-                const source = (
-                    within_speaker_coord < self.plot.x.bandwidth() / 2 - match_width
-                        ? "reference"
-                        : (
-                            within_speaker_coord > self.plot.x.bandwidth() / 2 + match_width
-                            ? "hypothesis"
-                            : null
-                        )
-                );
-
-                if (source) {
-                    const utterance_candidates = this.filtered_utterances.filter(
-                        u => u.start_time < y && u.end_time > y && u.speaker === speaker && u.source === source
-                    )
-                    if (utterance_candidates.length > 0) {
-                        self.last_utterance_candidates_index = (self.last_utterance_candidates_index+1) % utterance_candidates.length
-                        selectSegment(utterance_candidates[self.last_utterance_candidates_index]);
-                    }
-                    else selectSegment(null);
-                } else selectSegment(null);
+                // Brute force go through all utterances and check if the click is inside
+                // Use the precomputed x and width values
+                // This should be fast enough since this.filtered_utterances contains only the visible utterances
+                // and this action is not performed frequently
+                const utterance_candidates = this.filtered_utterances.filter(
+                    u => u.start_time < y && u.end_time > y && u.x <= screenX && u.x + u.width >= screenX
+                )
+                if (utterance_candidates.length > 0) {
+                    selectSegment(utterance_candidates[0]);
+                    // With the current layout, utterances should never overlap.
+                    // Log a warning if this happens
+                    if (utterance_candidates.length > 1) console.warn("Multiple utterances selected. This should not happen.")
+                }
+                else selectSegment(null);
             })
 
+            // Scrolling with a mouse wheel
             this.wheel_tracker = {}
             let deltaY = 0;
             let hitCount = 0;
@@ -1696,56 +1759,60 @@ class CanvasPlot {
 
         drawDetails() {
             const filtered_words = this.filtered_words;
+
+            // Draw help message and exit if the amount of displayed words is too high
+            // This would lead to a very slow rendering and any information would be lost due to the scale
             if (filtered_words.length > 3000) {
-                this.plot.context.font = `${30 * plot.dpr}px Arial`;
+                this.plot.context.font = `${30 * this.plot.dpr}px Arial`;
                 this.plot.context.textAlign = "center";
                 this.plot.context.textBaseline = "middle";
                 this.plot.context.fillStyle = "gray";
                 this.plot.context.fillText("Zoom in or select a smaller region in the minimap above", this.plot.width / 2, this.plot.height / 2);
                 return;
             }
+
+            // Precompute constants required later
             const filtered_utterances = this.filtered_utterances;
             const context = this.plot.context;
-
             const draw_text = filtered_words.length < 400;
             const draw_boxes = filtered_words.length < 1000;
             const draw_utterance_markers = filtered_words.length < 2000;
             const match_width = settings.match_width * this.plot.x.bandwidth() / 2;
-            const stitch_offset = Math.min(10, match_width / 2);
+            const stitch_offset = Math.min(constants.minStitchOffset, match_width / 2);
             const rectwidth = this.plot.x.bandwidth() / 2 - match_width;
-            const bandwidth = this.plot.x.bandwidth() / 2;
 
-            // Draw background
+            // Draw background: Gray bands for each speaker
+            const min_y = this.plot.y.range()[0];
+            const plot_height = this.plot.y.range()[1] - this.plot.y.range()[0];
+            const width = this.plot.x.bandwidth();
             for (let i = 0; i < this.plot.x.domain().length; i++) {
                 const speaker = this.plot.x.domain()[i];
-                const y = this.plot.y.range()[0];
                 const x = this.plot.x(speaker);
-                const width = this.plot.x.bandwidth();
-                const height = this.plot.y.range()[1] - this.plot.y.range()[0];
                 context.fillStyle = "#eee";
-                context.fillRect(x, y, width, height);
+                context.fillRect(x, min_y, width, plot_height);
             }
 
-            // Draw utterance begin/end markers
-            if (draw_utterance_markers) {
-                context.strokeStyle = "black";
-                context.lineWidth = .1;
+            // Draw red lines in the background where the the selected segment
+            // starts and ends
+            if (draw_utterance_markers && this.state.selectedSegment) {
+                const [minX, maxX] = this.plot.x.range();
+                context.lineWidth = .5;
+                context.strokeStyle = 'red';
 
-                if (this.state.selectedSegment) {
-                    const [minX, maxX] = this.plot.x.range();
-                    context.lineWidth = .5;
-                    context.strokeStyle = 'red';
-                    var y = this.plot.y(this.state.selectedSegment.start_time) - 1;
-                    context.beginPath();
-                    context.moveTo(minX, y);
-                    context.lineTo(maxX, y);
-                    y = this.plot.y(this.state.selectedSegment.end_time) + 1;
-                    context.moveTo(minX, y);
-                    context.lineTo(maxX, y);
-                    context.stroke();
-                }
+                // Start point
+                var y = this.plot.y(this.state.selectedSegment.start_time) - 1;
+                context.beginPath();
+                context.moveTo(minX, y);
+                context.lineTo(maxX, y);
+
+                // End point
+                y = this.plot.y(this.state.selectedSegment.end_time) + 1;
+                context.moveTo(minX, y);
+                context.lineTo(maxX, y);
+                context.stroke();
             }
 
+            // Draw markers. This feature is not yet fully supported
             const filtered_markers = this.filtered_markers;
             // Draw a range marker on the left side of the plot with two lines spanning the full width
             if (filtered_markers) filtered_markers.forEach(m => {
@@ -1779,42 +1846,45 @@ class CanvasPlot {
 
             // Draw word boxes
             filtered_words.forEach(d => {
-                const bandleft = this.plot.x(d.speaker);
-                let rectleft = bandleft;
-                if (d.source === "hypothesis") rectleft += bandwidth + match_width;
+                // Compute the actual horizontal position and width of the box
+                // considering overlaps with other utterances
+                const utterance = this.utterances[d['utterance_index']];
 
+                // Fill the box with the color of the match
                 if (d.matches?.length > 0 || d.highlight) {
                     context.beginPath();
                     context.rect(
-                        rectleft,
+                        utterance.x,
                         this.plot.y(d.start_time),
-                        rectwidth,
+                        utterance.width,
                         this.plot.y(d.end_time) - this.plot.y(d.start_time));
 
                     if (d.highlight) context.fillStyle = settings.colors.highlight;
                     else context.fillStyle = settings.colors[d.matches[0][1]];
                 }
-
                 context.fill();
+
+                // Draw box border
                 context.strokeStyle = "gray";
                 context.lineWidth = 2;
                 if (draw_boxes) context.stroke();
 
-                // Stitches for insertion / deletion
+                // Draw (stub) stitches for insertion / deletion
+                // These do not connect to other words, but are drawn as a straight line
+                // ending in the space between reference and hypothesis
                 if (d.matches?.length > 0) {
-                    // TODO: support multiple matches
                     const [match_index, match_type] = d.matches[0];
                     context.beginPath();
                     context.lineWidth = 2;
                     context.strokeStyle = settings.colors[match_type];
                     if (match_type === 'insertion') {
                         const y = this.plot.y(d.center_time);
-                        context.moveTo(rectleft, y);
-                        context.lineTo(rectleft - stitch_offset, y);
+                        context.moveTo(utterance.x, y);
+                        context.lineTo(utterance.x - stitch_offset, y);
                     } else if (match_type === 'deletion') {
                         const y = this.plot.y(d.center_time);
-                        context.moveTo(rectleft + rectwidth, y);
-                        context.lineTo(rectleft + rectwidth + stitch_offset, y);
+                        context.moveTo(utterance.x + utterance.width, y);
+                        context.lineTo(utterance.x + utterance.width + stitch_offset, y);
                     }
                     context.stroke();
                 }
@@ -1827,59 +1897,56 @@ class CanvasPlot {
                 context.beginPath();
                 const bandleft = this.plot.x(m.speaker);
                 context.strokeStyle = settings.colors[m.match_type];
-                context.moveTo(bandleft + rectwidth, this.plot.y(m.left_center_time));
+                context.moveTo(m.left_utterance.x + m.left_utterance.width, this.plot.y(m.left_center_time));
                 context.lineTo(bandleft + rectwidth + stitch_offset, this.plot.y(m.left_center_time));
                 context.lineTo(bandleft + rectwidth + 2 * match_width - stitch_offset, this.plot.y(m.right_center_time));
-                context.lineTo(bandleft + rectwidth + 2 * match_width, this.plot.y(m.right_center_time));
+                context.lineTo(m.right_utterance.x, this.plot.y(m.right_center_time));
                 context.stroke();
             });
 
             // Draw word text
+            // This is done after the stitches so that the text is on top even if stitches or boxes overlap
             context.font = `${settings.font_size * this.plot.dpr}px Arial`;
             context.textAlign = "center";
             context.textBaseline = "middle";
             context.lineWidth = 1;
 
             if (draw_text) filtered_words.forEach(d => {
-                const bandleft = this.plot.x(d.speaker);
-                let rectleft = bandleft;
-                if (d.source === "hypothesis") rectleft += bandwidth + match_width;
-
-                rectleft += rectwidth / 2;
+                const utterance = this.utterances[d['utterance_index']];
+                let x = utterance.x + utterance.width / 2;  // Center of the utterance
                 let y_ = this.plot.y((d.start_time + d.end_time) / 2);
                 if (d.matches === undefined) context.fillStyle = "gray";
                 else context.fillStyle = '#000';
-                context.fillText(d.words, rectleft, y_);
+                context.fillText(d.words, x, y_);
             })
 
             // Draw utterance begin and end markers
-            const markerLength = 6;
-            const markerOverhang = 3;
+            // This is done after drawing the word boxes so that the markers are visible
+            // even when the word boxes are too crammed
+            const markerDepth = constants.utteranceMarkerDepth;
+            const markerOverhang = constants.utteranceMarkerOverhang;
             if (draw_utterance_markers) filtered_utterances.forEach(d => {
                 context.strokeStyle = "black";
                 context.lineWidth = 1.5;
                 context.beginPath();
 
                 // x is the left side of the marker
-                var x = this.plot.x(d.speaker);
-                const bandwidth = this.plot.x.bandwidth() / 2 - match_width;
-                if (d.source == "hypothesis") {
-                    x += bandwidth + 2*match_width;
-                }
+                const x = d.x;
+                const width = d.width;
 
                 // Begin marker
                 var y = this.plot.y(d.start_time) - 1;
-                context.moveTo(x - markerOverhang, y + markerLength);
+                context.moveTo(x - markerOverhang, y + markerDepth);
                 context.lineTo(x - markerOverhang, y);
-                context.lineTo(x + bandwidth + markerOverhang, y);
-                context.lineTo(x + bandwidth + markerOverhang, y + markerLength);
+                context.lineTo(x + width + markerOverhang, y);
+                context.lineTo(x + width + markerOverhang, y + markerDepth);
 
                 // End marker
                 y = this.plot.y(d.end_time) + 1;
-                context.moveTo(x - markerOverhang, y - markerLength);
+                context.moveTo(x - markerOverhang, y - markerDepth);
                 context.lineTo(x - markerOverhang, y);
-                context.lineTo(x + bandwidth + markerOverhang, y);
-                context.lineTo(x + bandwidth + markerOverhang, y - markerLength);
+                context.lineTo(x + width + markerOverhang, y);
+                context.lineTo(x + width + markerOverhang, y - markerDepth);
                 context.stroke();
 
                 // Draw marker that text is empty
@@ -1889,7 +1956,7 @@ class CanvasPlot {
                     context.textBaseline = "middle";
                     context.strokeStyle = "lightgray";
                     context.linewidth = 1;
-                    const x_ = x + bandwidth / 2;
+                    const x_ = x + d.width / 2;
                     context.font = `italic ${settings.font_size * this.plot.dpr}px Arial`;
                     context.fillStyle = "gray";
                     context.fillText('(empty segment)', x_, (this.plot.y(d.start_time) + this.plot.y(d.end_time)) / 2);
@@ -1899,11 +1966,10 @@ class CanvasPlot {
             // Draw boundary around the selected utterance
             if (this.state.selectedSegment) {
                 const d = this.state.selectedSegment;
-                const x = this.plot.x(d.speaker) + (d.source === "hypothesis" ? bandwidth + match_width : 0);
                 context.beginPath();
                 context.strokeStyle = "red";
                 context.lineWidth = 3;
-                context.rect(x, this.plot.y(d.start_time), rectwidth, this.plot.y(d.end_time) - this.plot.y(d.start_time));
+                context.rect(d.x, this.plot.y(d.start_time), d.width, this.plot.y(d.end_time) - this.plot.y(d.start_time));
                 context.stroke();
 
                 // Write begin time above begin marker
@@ -1911,11 +1977,11 @@ class CanvasPlot {
                 context.fillStyle = "gray";
                 context.textAlign = "center";
                 context.textBaseline = "bottom";
-                context.fillText(`begin time: ${d.start_time.toFixed(2)}`, x + rectwidth / 2, this.plot.y(d.start_time) - 3);
+                context.fillText(`begin time: ${d.start_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.start_time) - 3);
 
                 // Write end time below end marker
                 context.textBaseline = "top";
-                context.fillText(`end time: ${d.end_time.toFixed(2)}`, x + rectwidth / 2, this.plot.y(d.end_time) + 3);
+                context.fillText(`end time: ${d.end_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.end_time) + 3);
             }
         }
 

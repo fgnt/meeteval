@@ -53,8 +53,13 @@ code {
 }
 
 .pill.warn {
-    background-color: #f3ebc9;
-    border: 1px solid #ffcc00;
+    background-color: #ffff00;
+    border: 1px solid #eed202;
+}
+
+.pill.warn:hover:not(.no-border) {
+    background-color: #ffff00;
+    border: 1px solid #eed202;
 }
 
 .pill:hover:not(.no-border) {
@@ -132,9 +137,9 @@ code {
 }
 
 /* Icons */
-i {
+i, .icon {
     display: inline-block;
-    font-size: 1.2em;
+    /* font-size: 1.2em; */
     margin-right: 5px;
 }
 
@@ -433,4 +438,12 @@ wer table */
     user-select: none;
     -webkit-user-select: none;
     touch-action: manipulation;
+}
+
+.clickable {
+    cursor: pointer;
+    text-decoration: underline;
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none; /* IE 10 and IE 11 */
+    user-select: none; /* Standard syntax */
 }
