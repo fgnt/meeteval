@@ -119,6 +119,10 @@ code {
     flex-wrap: wrap;
 }
 
+audio.info-value {
+    height: 1.5em;
+}
+
 .legend-element {
     margin: 0 3px 0 3px;
     padding: 0 0px 0 0;
@@ -162,6 +166,21 @@ i, .icon {
 
 .copybutton i {
     margin-right: 0px;
+}
+
+/* Make copy button same height as text in the details preview and hide any fancy formatting.
+This prevents the view from jumping when a segment is selected*/
+.info-value .copybutton {
+    height: 1em;
+    padding: 0 5px;
+    margin: 0;
+    border: none;
+}
+
+.info-value .copybutton i {
+    margin-right: 0px;
+    height: 1em;
+    font-size: .75em;
 }
 
 /* Plot elements */
