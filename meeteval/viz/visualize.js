@@ -1085,8 +1085,6 @@ class CanvasPlot {
             return l;
         }
 
-        console.log(info.wer)
-
         label("ID:", info.filename);
         label("Length:", info.length.toFixed(2) + "s");
         label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%", null, c => {
@@ -1559,7 +1557,6 @@ class CanvasPlot {
 
             // Precompute utterance x positions and widths
             this.precompute_utterance_positions = () => {
-                console.log("Precomputing utterance positions")
                 const match_width = settings.match_width * this.plot.x.bandwidth() / 2;
                 const columnwidth = this.plot.x.bandwidth() / 2 - match_width;
 
