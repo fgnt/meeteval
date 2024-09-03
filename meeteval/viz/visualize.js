@@ -2067,7 +2067,10 @@ class CanvasPlot {
             });
             this.update(null);
 
-            this.blacklist = ["source", "session_id"]
+            this.blacklist = [
+                "source", "session_id", "utterance_index", "utterance_overlaps", 
+                "overlap_width", "overlap_shift", "num_columns", "x", "width", "highlight"
+            ];
             this.rename = { total: "# words" }
         }
 
