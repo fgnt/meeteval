@@ -219,7 +219,7 @@ def add_overlap_shift(utterances: SegLST):
 
         # Find any other overlapping utterances
         overlaps = []
-        for other_utterance, end_time in zip(utterances[:utterance['utterance_index']][::-1], latest_seen_end_times):
+        for other_utterance, end_time in zip(utterances[:utterance['utterance_index']][::-1], latest_seen_end_times[::-1]):
             if other_utterance['end_time'] > utterance['start_time']:
                 if other_utterance['source'] == utterance['source'] and other_utterance['speaker'] == utterance['speaker']:
                     overlaps.append(other_utterance['utterance_index'])
