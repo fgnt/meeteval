@@ -700,7 +700,7 @@ class CompactAxis {
 
         // Set up context
         context.lineWidth = 1;
-        context.font = `{12 * this.dpr}px Arial`;
+        context.font = `${12 * this.dpr}px Arial`;
         context.strokeStyle = "black";  // Line color
         context.fillStyle = "black";    // Font color
 
@@ -767,7 +767,7 @@ class DetailsAxis{
 
         // Set up context
         context.lineWidth = 1;
-        context.font = `{12 * self.dpr}px Arial`;
+        context.font = `${12 * this.dpr}px Arial`;
         context.strokeStyle = "black";  // Line color
         context.fillStyle = "black";    // Font color
 
@@ -1763,7 +1763,7 @@ class CanvasPlot {
             // Draw help message and exit if the amount of displayed words is too high
             // This would lead to a very slow rendering and any information would be lost due to the scale
             if (filtered_words.length > 3000) {
-                this.plot.context.font = `${30 * plot.dpr}px Arial`;
+                this.plot.context.font = `${30 * this.plot.dpr}px Arial`;
                 this.plot.context.textAlign = "center";
                 this.plot.context.textBaseline = "middle";
                 this.plot.context.fillStyle = "gray";
