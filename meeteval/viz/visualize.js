@@ -824,48 +824,55 @@ function addTooltip(element, tooltip, preShow) {
     if (typeof tooltip === "string") tooltipcontent.text(tooltip)
     else if (tooltip) tooltip(tooltipcontent);
 
-    let timeoutID = null;
+    let closeTimeoutID = null;
+    let openTimeoutID = null;
     element.on("mouseenter", () => {
-        if (timeoutID) clearTimeout(timeoutID);
+        clearTimeout(closeTimeoutID);
 
-        // Call setup function before the position is corrected
-        if (preShow) preShow();
+        // Add timeout to prevent flickering of the tooltip and accidentally opening it
+        openTimeoutID = setTimeout(() => {
+            // Call setup function before the position is corrected
+            if (preShow) preShow();
 
-        // Correct position if it would be outside the visualization
-        // space. Prioritize left over right because scrolling is
-        // not supported to the left.
-        // Displaying and hiding the tooltip is handled by CSS via
-        // :hover
-        const bound = root_element.node().getBoundingClientRect();
-        const e = tooltipcontent.node().getBoundingClientRect();
-        let shift = 0;
-        if (e.left < bound.left) {
-            shift = bound.left - e.left;
-        } else if (e.right > bound.right) {
-            shift = Math.max(bound.right - e.right, bound.left - e.left);
-        }
-        tooltipcontent.style("translate", shift + "px");
+            // Correct position if it would be outside the visualization
+            // space. Prioritize left over right because scrolling is
+            // not supported to the left.
+            // Displaying and hiding the tooltip is handled by CSS via
+            // :hover
+            const bound = root_element.node().getBoundingClientRect();
+            const e = tooltipcontent.node().getBoundingClientRect();
+            let shift = 0;
+            if (e.left < bound.left) {
+                shift = bound.left - e.left;
+            } else if (e.right > bound.right) {
+                shift = Math.max(bound.right - e.right, bound.left - e.left);
+            }
+            tooltipcontent.style("translate", shift + "px");
 
-        // Scale the element if its width or height are larger than the root
-        // element
-        if (e.width > bound.width) {
-            tooltipcontent.style("width", bound.width + "px");
-        }
-        if (e.height > bound.bottom - e.top) {
-            tooltipcontent.style("height", (bound.bottom - e.top) + "px");
-        }
+            // Scale the element if its width or height are larger than the root
+            // element
+            if (e.width > bound.width) {
+                tooltipcontent.style("width", bound.width + "px");
+            }
+            if (e.height > bound.bottom - e.top) {
+                tooltipcontent.style("height", (bound.bottom - e.top) + "px");
+            }
 
-        // Show tooltip
-        tooltipcontent.classed("visible", true);
+            // Show tooltip
+            tooltipcontent.classed("visible", true);
+        }, 200);
     });
     element.on("mouseleave", () => {
-        // Hide tooltip and reset tooltip position
-        timeoutID = setTimeout(() => {
-        tooltipcontent.classed("visible", false)
-        tooltipcontent.node().style.translate = null;
-        tooltipcontent.node().style.width = null;
-        tooltipcontent.node().style.height = null;
-        }, 250);
+        clearTimeout(openTimeoutID);
+
+        // Hide tooltip and reset tooltip position. Add timeout to prevent 
+        // flickering and accidentally closing the tooltip
+        closeTimeoutID = setTimeout(() => {
+            tooltipcontent.classed("visible", false)
+            tooltipcontent.node().style.translate = null;
+            tooltipcontent.node().style.width = null;
+            tooltipcontent.node().style.height = null;
+        }, 195);
     });
     return tooltipcontent;
 }
@@ -1231,6 +1238,8 @@ class CanvasPlot {
      */
     class SearchBar {
         constructor(container, state, initial_query) {
+            this.last_search = "";
+            this.num_matches = 0;
             this.state = state;
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
             this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
@@ -1255,13 +1264,13 @@ class CanvasPlot {
             if (regex !== this.last_search) {
                 this.last_search = regex;
 
-            // Test all words against the regex. Use ^ and $ to get full match
+                // Test all words against the regex. Use ^ and $ to get full match
                 this.num_matches = 0;
                 data.utterances.forEach(u => u.highlight = false);
-            if (regex === "")  {
-                this.state.words.forEach(w => w.highlight = false);
-            } else {
-                const re = new RegExp("^" + regex + "$", "i");
+                if (regex === "")  {
+                    this.state.words.forEach(w => w.highlight = false);
+                } else {
+                    const re = new RegExp("^" + regex + "$", "i");
                     for (const w of this.state.words) {
                         w.highlight = re.test(w.words);
                         if (w.highlight) {
@@ -1283,11 +1292,11 @@ class CanvasPlot {
                 }
 
                 // Update state
-            this.state.dirty.fill(true);
-            update();
+                this.state.dirty.fill(true);
+                update();
 
                 // Update URL
-            set_url_param('regex', regex)
+                set_url_param('regex', regex)
             } else {
                 // Select the first/next occurence, but only on second hit of the search button / 
                 // enter key. We don't want to change the selection immediately
