@@ -207,15 +207,25 @@ def add_overlap_shift(utterances: SegLST):
     utterance in the visualization such that they do not overlap visually, even if they
     overlap temporally.
     """
+    utterances = utterances.sorted('start_time')
+
+    # Compute the latest seen end time for each utterance up to that point.
+    # This makes the search for overlapping utterances faster.
+    latest_seen_end_times = []
+    for u in utterances:
+        latest_seen_end_times.append(max(u['end_time'], latest_seen_end_times[-1] if latest_seen_end_times else 0))
+
     for utterance in utterances:
+
         # Find any other overlapping utterances
-        # TODO: Make this search more efficient
         overlaps = []
-        for other_utterance in utterances[:utterance['utterance_index']][::-1]:
+        for other_utterance, end_time in zip(utterances[:utterance['utterance_index']][::-1], latest_seen_end_times):
             if other_utterance['end_time'] > utterance['start_time']:
                 if other_utterance['source'] == utterance['source'] and other_utterance['speaker'] == utterance['speaker']:
                     overlaps.append(other_utterance['utterance_index'])
                     other_utterance['utterance_overlaps'].append(utterance['utterance_index'])
+            elif end_time < utterance['start_time']:
+                break
         
         # Compute shifts from the overlaps such that the utterances don't overlap
         # This is a greedy approach that works well for most cases
@@ -360,7 +370,7 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
         substitutions = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'substitution'))
         # correct = len(hyp_words.filter(lambda s: s['matches'][0][1] == 'correct'))
 
-        # Get all reference words that match with the current hypothesis_key. From this we can find the number of
+        # Get all reference words. From this we can find the number of
         # deletions, substitutions and correct matches.
         # The number of deletions is the number of reference words that are not matched with a hypothesis word.
         ref_words = words_.filter(lambda s: s['source'] == 'reference' and 'matches' in s)
