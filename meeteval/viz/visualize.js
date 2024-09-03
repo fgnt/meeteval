@@ -477,11 +477,34 @@ function alignment_visualization(
         update();
     }
 
-    function selectSegment(segment) {
+    function selectSegment(segment, focus=false) {
         state.selectedSegment = segment;
         state.dirty[state.dirty.length - 1] = true;
         selectedUtteranceDetails.update(segment)
+
+        if (focus && segment) {
+            setViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+        }
+
         update();
+    }
+
+    /**
+     * Selects the next segment for which condition(segment) is true.
+     * 
+     * If no segment is selected, the search begins at the beginning.
+     * 
+     * If no next segment is found for which condition is true, the segment will be unselected.
+     */
+    function selectNextMatchingSegment(condition, focus=true, reverse=false) {
+        let candidates;
+        if (reverse) {
+            candidates = data.utterances.slice(0, state.selectedSegment?.utterance_index).reverse();
+        } else {
+            candidates = data.utterances.slice(state.selectedSegment?.utterance_index + 1);
+        }
+        const segment = candidates.find(condition);
+        selectSegment(segment, focus);
     }
 
     if (settings.syncID !== null) {
@@ -800,7 +823,11 @@ function addTooltip(element, tooltip, preShow) {
     const tooltipcontent = element.append("div").classed("tooltipcontent", true);
     if (typeof tooltip === "string") tooltipcontent.text(tooltip)
     else if (tooltip) tooltip(tooltipcontent);
+
+    let timeoutID = null;
     element.on("mouseenter", () => {
+        if (timeoutID) clearTimeout(timeoutID);
+
         // Call setup function before the position is corrected
         if (preShow) preShow();
 
@@ -833,10 +860,12 @@ function addTooltip(element, tooltip, preShow) {
     });
     element.on("mouseleave", () => {
         // Hide tooltip and reset tooltip position
+        timeoutID = setTimeout(() => {
         tooltipcontent.classed("visible", false)
         tooltipcontent.node().style.translate = null;
         tooltipcontent.node().style.width = null;
         tooltipcontent.node().style.height = null;
+        }, 250);
     });
     return tooltipcontent;
 }
@@ -1167,17 +1196,31 @@ class CanvasPlot {
             "Reference self-overlap:",
             (info.wer.reference_self_overlap.overlap_rate * 100).toFixed(2) + "%",
             icons["warning"],
-            c => c.append('div').classed('wrap-40', true).text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            c => {
+                c.append('div').classed('wrap-40', true).text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "On the reference, this is usually an indication for annotation errors.\n" +
-            "Extreme self-overlap can lead to unexpected WERs!")
+            "Extreme self-overlap can lead to unexpected WERs!");
+                const d = c.append('div').classed("menu-element", true).style("margin-top", "1em");
+                d.append('div').text("< Show previous").classed("clickable", true)
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'reference', true, true)); 
+                d.append('div').text("Show next >").classed("clickable", true).style("margin-left", "auto")
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'reference', true, false));
+                }
         ).classed("warn", true);
         if (info.wer.hypothesis_self_overlap?.overlap_rate) label(
             "Hypothesis self-overlap:",
             (info.wer.hypothesis_self_overlap.overlap_rate * 100).toFixed(2) + "%",
             icons["warning"],
-            c => c.append('div').classed('wrap-40', true).text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
+            c => {
+                c.append('div').classed('wrap-40', true).text("Self-overlap is the percentage of time that a speaker annotation overlaps with itself. " +
             "On the hypothesis, this often indicates systematic errors.\n" +
             "Extreme self-overlap can lead to unexpected WERs!")
+               const d = c.append('div').classed("menu-element", true).style("margin-top", "1em");
+                d.append('div').text("< Show previous").classed("clickable", true)
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'hypothesis', true, true)); 
+                d.append('div').text("Show next >").classed("clickable", true).style("margin-left", "auto")
+                    .on("click", () => selectNextMatchingSegment(u => u.utterance_overlaps.length > 0 && u.source == 'hypothesis', true, false));
+                }
         ).classed("warn", true);
     }
 
