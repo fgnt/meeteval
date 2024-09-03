@@ -440,6 +440,18 @@ wer table */
     touch-action: manipulation;
 }
 
+.search-bar button:disabled {
+    background-color: #ccc;
+    color: #666;
+    cursor: default;
+}
+
+/* Make italic and gray*/
+.search-bar .match-number {
+    /* font-style: italic; */
+    color: gray;
+}
+
 .clickable {
     cursor: pointer;
     text-decoration: underline;

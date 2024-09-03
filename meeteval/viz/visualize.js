@@ -1238,7 +1238,10 @@ class CanvasPlot {
             if (initial_query) this.text_input.node().value = initial_query;
 
             // Start search when clicking on the button
+            this.match_number = this.container.append("div").classed("match-number", true);
             this.search_button = this.container.append("button").text("Search").on("click", () => this.search(this.text_input.node().value));
+            this.prev_button = this.container.append("button").text("<").on("click", () => selectNextMatchingSegment(u => u.highlight, true, true));
+            this.next_button = this.container.append("button").text(">").on("click", () => selectNextMatchingSegment(u => u.highlight, true, false));
 
             // Start search on Ctrl + Enter
             this.text_input.on("keydown", (event) => {
@@ -1249,16 +1252,48 @@ class CanvasPlot {
         }
 
         search(regex) {
+            if (regex !== this.last_search) {
+                this.last_search = regex;
+
             // Test all words against the regex. Use ^ and $ to get full match
+                this.num_matches = 0;
+                data.utterances.forEach(u => u.highlight = false);
             if (regex === "")  {
                 this.state.words.forEach(w => w.highlight = false);
             } else {
                 const re = new RegExp("^" + regex + "$", "i");
-                for (const w of this.state.words) w.highlight = re.test(w.words);
-            }
+                    for (const w of this.state.words) {
+                        w.highlight = re.test(w.words);
+                        if (w.highlight) {
+                            data.utterances[w.utterance_index].highlight = true;
+                            this.num_matches++;
+                        }
+                    } 
+                }
+
+                // Adjust UI: enable buttons and show number of matches
+                if (this.num_matches > 0) {
+                    this.prev_button.attr("disabled", null);
+                    this.next_button.attr("disabled", null);
+                    this.match_number.text(`(${this.num_matches})`);
+                } else {
+                    this.prev_button.attr("disabled", true);
+                    this.next_button.attr("disabled", true);
+                    this.match_number.text("");
+                }
+
+                // Update state
             this.state.dirty.fill(true);
             update();
+
+                // Update URL
             set_url_param('regex', regex)
+            } else {
+                // Select the first/next occurence, but only on second hit of the search button / 
+                // enter key. We don't want to change the selection immediately
+                if (this.num_matches > 0) selectNextMatchingSegment(u => u.highlight, true, false);
+            }
+
         }
     }
 
