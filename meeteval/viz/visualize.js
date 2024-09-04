@@ -2021,11 +2021,25 @@ class CanvasPlot {
                 context.fillStyle = "gray";
                 context.textAlign = "center";
                 context.textBaseline = "bottom";
-                context.fillText(`begin time: ${d.start_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.start_time) - 3);
+                {
+                    const text = `begin time: ${d.start_time.toFixed(2)}`;
+                    const textMetrics = context.measureText(text);
+                    context.fillStyle = "#eee";
+                    context.fillRect(d.x + d.width / 2 - textMetrics.width / 2 - 3, this.plot.y(d.start_time), textMetrics.width + 6, - (textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent));
+                    context.fillStyle = "gray";
+                    context.fillText(text, d.x + d.width / 2, this.plot.y(d.start_time) - 1);
+                }
 
                 // Write end time below end marker
-                context.textBaseline = "top";
-                context.fillText(`end time: ${d.end_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.end_time) + 3);
+                {
+                    context.textBaseline = "top";
+                    const text = `end time: ${d.end_time.toFixed(2)}`;
+                    const textMetrics = context.measureText(text);
+                    context.fillStyle = "#eee";
+                    context.fillRect(d.x + d.width / 2 - textMetrics.width / 2 - 3, this.plot.y(d.end_time), textMetrics.width + 6, (textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent));
+                    context.fillStyle = "gray";
+                    context.fillText(`end time: ${d.end_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.end_time) + 2);
+                }
             }
         }
 
