@@ -5,7 +5,7 @@ var colormaps = {
         'insertion': '#33c2f5', // blue
         'deletion': '#f2beb1',  // red
         // 'ignored': 'transparent',   // purple
-        'highlight': 'green'
+        'highlight': 'yellow'
     },
     diff: {
         'correct': 'lightgray',
@@ -1894,24 +1894,35 @@ class CanvasPlot {
                 // considering overlaps with other utterances
                 const utterance = this.utterances[d['utterance_index']];
 
-                // Fill the box with the color of the match
-                if (d.matches?.length > 0 || d.highlight) {
-                    context.beginPath();
-                    context.rect(
-                        utterance.x,
-                        this.plot.y(d.start_time),
-                        utterance.width,
-                        this.plot.y(d.end_time) - this.plot.y(d.start_time));
+                // Draw word boxes
+                context.beginPath();
+                context.rect(
+                    utterance.x,
+                    this.plot.y(d.start_time),
+                    utterance.width,
+                    this.plot.y(d.end_time) - this.plot.y(d.start_time)
+                );
 
-                    if (d.highlight) context.fillStyle = settings.colors.highlight;
-                    else context.fillStyle = settings.colors[d.matches[0][1]];
+                // Fill box with match color
+                if (d.matches?.length > 0) {
+                    context.fillStyle = settings.colors[d.matches[0][1]];
+                    context.fill();
+
+                    // Draw box border
+                    context.strokeStyle = "gray";
+                    context.lineWidth = 2;
+                    if (draw_boxes) context.stroke();
                 }
-                context.fill();
-
-                // Draw box border
-                context.strokeStyle = "gray";
-                context.lineWidth = 2;
-                if (draw_boxes) context.stroke();
+                
+                // Draw inner box border with highlight color
+                if (d.highlight){
+                    context.save();
+                    context.clip(); // Clip to the box so that it doesn't overlap with other words
+                    context.strokeStyle = settings.colors.highlight;
+                    context.lineWidth = 20;
+                    context.stroke();
+                    context.restore();
+                }
 
                 // Draw (stub) stitches for insertion / deletion
                 // These do not connect to other words, but are drawn as a straight line
