@@ -484,6 +484,7 @@ function alignment_visualization(
         return Math.sin((x * Math.PI) / 2);
     }
 
+    let animationIntervalID = null;
     function animateToViewArea(i, viewArea) {
         // Animate view area to the location of the segment.
         // The animation plays for 4 steps over 80ms.
@@ -493,7 +494,7 @@ function alignment_visualization(
         // easily lose track of the position.
         const target_location = viewArea;
         const start_location = state.viewAreas[i];
-
+        clearInterval(animationIntervalID);
         let j = 0;
         const step = () => {
             j += 0.25;
@@ -501,10 +502,10 @@ function alignment_visualization(
             const a = easeOutSine(j);
             setViewArea(i, [start_location[0] * (1 - a) + target_location[0]*a, start_location[1] * (1 - a) + target_location[1]*a]); 
             update();
-            if (j == 1) clearInterval(intervalID);
+            if (j == 1) clearInterval(animationIntervalID);
         };
         // 20ms is the throttling interval for update()
-        let intervalID = setInterval(step, 20);
+        animationIntervalID = setInterval(step, 20);
         step(); // Do first update immediately for instant feedback
     }
 
@@ -2428,4 +2429,21 @@ class CanvasPlot {
 
     rebuild();
     searchBar.search_button.node().click();
+
+    function moveBy(offset) {
+        animateToViewArea(state.viewAreas.length - 1, [state.viewAreas[state.viewAreas.length - 1][0] + offset, state.viewAreas[state.viewAreas.length - 1][1] + offset]);
+    }
+
+    // Register keyboard handler
+    document.addEventListener("keydown", (event) => {
+        switch (event.key) {
+            case "Escape": selectSegment(null); break;
+            // Scroll by 10% of the currently visible range for ArrowUp and ArrowDown. A constant quickly feels too fast or too slow depending on the zoom level.
+            case "ArrowUp": moveBy((state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+            case "ArrowDown": moveBy(-(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+            // Scroll by the currently visible range for PageUP and PageDown
+            case "PageUp": moveBy(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]); break;
+            case "PageDown": moveBy(state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]); break;
+        }
+    });
 }
