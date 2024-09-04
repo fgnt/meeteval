@@ -477,16 +477,46 @@ function alignment_visualization(
         update();
     }
 
-    function selectSegment(segment, focus=false) {
-        state.selectedSegment = segment;
-        state.dirty[state.dirty.length - 1] = true;
-        selectedUtteranceDetails.update(segment)
+    /**
+     * Easing function for scrolling.
+     */
+    function easeOutSine(x) {
+        return Math.sin((x * Math.PI) / 2);
+    }
 
-        if (focus && segment) {
-            setViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+    function animateToViewArea(i, viewArea) {
+        // Animate view area to the location of the segment.
+        // The animation plays for 4 steps over 80ms.
+        // This is deliberately chosen like this so that the animation does not 
+        // get in the way of the user. It is still slow enough to get a sense of the
+        // movement direction and distance. Without the animation, the user can 
+        // easily lose track of the position.
+        const target_location = viewArea;
+        const start_location = state.viewAreas[i];
+
+        let j = 0;
+        const step = () => {
+            j += 0.25;
+            if (j >= 1) j = 1;
+            const a = easeOutSine(j);
+            setViewArea(i, [start_location[0] * (1 - a) + target_location[0]*a, start_location[1] * (1 - a) + target_location[1]*a]); 
+            update();
+            if (j == 1) clearInterval(intervalID);
+        };
+        // 20ms is the throttling interval for update()
+        let intervalID = setInterval(step, 20);
+        step(); // Do first update immediately for instant feedback
+    }
+
+    function selectSegment(segment, focus=false) {
+        if (state.selectedSegment != segment) {
+            state.selectedSegment = segment;
+            state.dirty[state.dirty.length - 1] = true;
+            selectedUtteranceDetails.update(segment)
+            update();
         }
 
-        update();
+        if (focus && segment) animateToViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
     }
 
     /**
@@ -1687,7 +1717,9 @@ class CanvasPlot {
                     u => u.start_time < y && u.end_time > y && u.x <= screenX && u.x + u.width >= screenX
                 )
                 if (utterance_candidates.length > 0) {
-                    selectSegment(utterance_candidates[0]);
+                    // Select the utterance that was clicked on. Move view to utterance on double click
+                    selectSegment(utterance_candidates[0], event.detail === 2);
+
                     // With the current layout, utterances should never overlap.
                     // Log a warning if this happens
                     if (utterance_candidates.length > 1) console.warn("Multiple utterances selected. This should not happen.")
@@ -2256,7 +2288,7 @@ class CanvasPlot {
         }
 
         _onChange() {
-            updateViewArea(this.state.viewAreas.length - 1, this.parsedValue)
+            animateToViewArea(this.state.viewAreas.length - 1, this.parsedValue)
         }
 
         _onInput() {
