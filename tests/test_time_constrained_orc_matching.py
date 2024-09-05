@@ -44,7 +44,7 @@ def seglst(draw, min_segments=0, max_segments=10, max_speakers=2):
 
 @given(
     seglst(max_speakers=1, min_segments=1),
-    seglst(max_speakers=2, min_segments=1)
+    seglst(max_speakers=3, min_segments=1)
 )
 @settings(deadline=None)    # The tests take longer on the GitHub actions test servers
 def test_tcorc_burn(reference, hypothesis):
