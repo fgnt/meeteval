@@ -158,7 +158,7 @@ def test_examples_zero_self_overlap():
 
 def test_assignment_keeps_order():
     """
-    Tests that elements in the assignment corrspond to the order in the input
+    Tests that elements in the assignment correspond to the order in the input
     to the orc_wer function, not the sorted segments.
     """
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
@@ -175,6 +175,6 @@ def test_assignment_keeps_order():
         ]),
         reference_sort='segment',
     )
-    assert tcorc.assignment == ('A1', 'A1', 'A2')
+    assert tcorc.assignment == ('A1', 'A1', 'A2'), tcorc.assignment
 
 
