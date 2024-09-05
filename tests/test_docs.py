@@ -110,6 +110,7 @@ def exec_with_source(code, filename, lineno, globals_=None, locals_=None):
         [
             (str(filename.relative_to(MEETEVAL_ROOT)), codeblock)
             for filename in MEETEVAL_ROOT.glob('**/*.md')
+            if 'build' not in str(filename) and '/.' not in str(filename)
             for codeblock in get_fenced_code_blocks(filename.read_text())
         ]
 )

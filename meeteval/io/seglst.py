@@ -509,6 +509,7 @@ def groupby(
 
     groups = collections.defaultdict(list)
     try:
+        # This keeps the order of the keys
         for key, group in itertools.groupby(iterable, _get_key(key)):
             groups[key].extend(group)
     except KeyError:
