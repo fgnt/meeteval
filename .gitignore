@@ -7,7 +7,7 @@ example_files/viz
 !example_files/*.seglst.json
 
 # Created by pyodide
-.pyodide-xbuildenv
+.pyodide-xbuildenv*
 
 # Downloaded by the md_eval wrapper
 meeteval/der/md-eval-22.pl

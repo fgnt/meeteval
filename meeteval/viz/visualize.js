@@ -5,7 +5,7 @@ var colormaps = {
         'insertion': '#33c2f5', // blue
         'deletion': '#f2beb1',  // red
         // 'ignored': 'transparent',   // purple
-        'highlight': 'green'
+        'highlight': 'yellow'
     },
     diff: {
         'correct': 'lightgray',
@@ -477,16 +477,47 @@ function alignment_visualization(
         update();
     }
 
-    function selectSegment(segment, focus=false) {
-        state.selectedSegment = segment;
-        state.dirty[state.dirty.length - 1] = true;
-        selectedUtteranceDetails.update(segment)
+    /**
+     * Easing function for scrolling.
+     */
+    function easeOutSine(x) {
+        return Math.sin((x * Math.PI) / 2);
+    }
 
-        if (focus && segment) {
-            setViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+    let animationIntervalID = null;
+    function animateToViewArea(i, viewArea) {
+        // Animate view area to the location of the segment.
+        // The animation plays for 4 steps over 80ms.
+        // This is deliberately chosen like this so that the animation does not 
+        // get in the way of the user. It is still slow enough to get a sense of the
+        // movement direction and distance. Without the animation, the user can 
+        // easily lose track of the position.
+        const target_location = viewArea;
+        const start_location = state.viewAreas[i];
+        clearInterval(animationIntervalID);
+        let j = 0;
+        const step = () => {
+            j += 0.25;
+            if (j >= 1) j = 1;
+            const a = easeOutSine(j);
+            setViewArea(i, [start_location[0] * (1 - a) + target_location[0]*a, start_location[1] * (1 - a) + target_location[1]*a]); 
+            update();
+            if (j == 1) clearInterval(animationIntervalID);
+        };
+        // 20ms is the throttling interval for update()
+        animationIntervalID = setInterval(step, 20);
+        step(); // Do first update immediately for instant feedback
+    }
+
+    function selectSegment(segment, focus=false) {
+        if (state.selectedSegment != segment) {
+            state.selectedSegment = segment;
+            state.dirty[state.dirty.length - 1] = true;
+            selectedUtteranceDetails.update(segment)
+            update();
         }
 
-        update();
+        if (focus && segment) animateToViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
     }
 
     /**
@@ -824,48 +855,55 @@ function addTooltip(element, tooltip, preShow) {
     if (typeof tooltip === "string") tooltipcontent.text(tooltip)
     else if (tooltip) tooltip(tooltipcontent);
 
-    let timeoutID = null;
+    let closeTimeoutID = null;
+    let openTimeoutID = null;
     element.on("mouseenter", () => {
-        if (timeoutID) clearTimeout(timeoutID);
+        clearTimeout(closeTimeoutID);
 
-        // Call setup function before the position is corrected
-        if (preShow) preShow();
+        // Add timeout to prevent flickering of the tooltip and accidentally opening it
+        openTimeoutID = setTimeout(() => {
+            // Call setup function before the position is corrected
+            if (preShow) preShow();
 
-        // Correct position if it would be outside the visualization
-        // space. Prioritize left over right because scrolling is
-        // not supported to the left.
-        // Displaying and hiding the tooltip is handled by CSS via
-        // :hover
-        const bound = root_element.node().getBoundingClientRect();
-        const e = tooltipcontent.node().getBoundingClientRect();
-        let shift = 0;
-        if (e.left < bound.left) {
-            shift = bound.left - e.left;
-        } else if (e.right > bound.right) {
-            shift = Math.max(bound.right - e.right, bound.left - e.left);
-        }
-        tooltipcontent.style("translate", shift + "px");
+            // Correct position if it would be outside the visualization
+            // space. Prioritize left over right because scrolling is
+            // not supported to the left.
+            // Displaying and hiding the tooltip is handled by CSS via
+            // :hover
+            const bound = root_element.node().getBoundingClientRect();
+            const e = tooltipcontent.node().getBoundingClientRect();
+            let shift = 0;
+            if (e.left < bound.left) {
+                shift = bound.left - e.left;
+            } else if (e.right > bound.right) {
+                shift = Math.max(bound.right - e.right, bound.left - e.left);
+            }
+            tooltipcontent.style("translate", shift + "px");
 
-        // Scale the element if its width or height are larger than the root
-        // element
-        if (e.width > bound.width) {
-            tooltipcontent.style("width", bound.width + "px");
-        }
-        if (e.height > bound.bottom - e.top) {
-            tooltipcontent.style("height", (bound.bottom - e.top) + "px");
-        }
+            // Scale the element if its width or height are larger than the root
+            // element
+            if (e.width > bound.width) {
+                tooltipcontent.style("width", bound.width + "px");
+            }
+            if (e.height > bound.bottom - e.top) {
+                tooltipcontent.style("height", (bound.bottom - e.top) + "px");
+            }
 
-        // Show tooltip
-        tooltipcontent.classed("visible", true);
+            // Show tooltip
+            tooltipcontent.classed("visible", true);
+        }, 200);
     });
     element.on("mouseleave", () => {
-        // Hide tooltip and reset tooltip position
-        timeoutID = setTimeout(() => {
-        tooltipcontent.classed("visible", false)
-        tooltipcontent.node().style.translate = null;
-        tooltipcontent.node().style.width = null;
-        tooltipcontent.node().style.height = null;
-        }, 250);
+        clearTimeout(openTimeoutID);
+
+        // Hide tooltip and reset tooltip position. Add timeout to prevent 
+        // flickering and accidentally closing the tooltip
+        closeTimeoutID = setTimeout(() => {
+            tooltipcontent.classed("visible", false)
+            tooltipcontent.node().style.translate = null;
+            tooltipcontent.node().style.width = null;
+            tooltipcontent.node().style.height = null;
+        }, 195);
     });
     return tooltipcontent;
 }
@@ -1231,6 +1269,8 @@ class CanvasPlot {
      */
     class SearchBar {
         constructor(container, state, initial_query) {
+            this.last_search = "";
+            this.num_matches = 0;
             this.state = state;
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
             this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
@@ -1238,7 +1278,10 @@ class CanvasPlot {
             if (initial_query) this.text_input.node().value = initial_query;
 
             // Start search when clicking on the button
+            this.match_number = this.container.append("div").classed("match-number", true);
             this.search_button = this.container.append("button").text("Search").on("click", () => this.search(this.text_input.node().value));
+            this.prev_button = this.container.append("button").text("<").on("click", () => selectNextMatchingSegment(u => u.highlight, true, true));
+            this.next_button = this.container.append("button").text(">").on("click", () => selectNextMatchingSegment(u => u.highlight, true, false));
 
             // Start search on Ctrl + Enter
             this.text_input.on("keydown", (event) => {
@@ -1249,16 +1292,48 @@ class CanvasPlot {
         }
 
         search(regex) {
-            // Test all words against the regex. Use ^ and $ to get full match
-            if (regex === "")  {
-                this.state.words.forEach(w => w.highlight = false);
+            if (regex !== this.last_search) {
+                this.last_search = regex;
+
+                // Test all words against the regex. Use ^ and $ to get full match
+                this.num_matches = 0;
+                data.utterances.forEach(u => u.highlight = false);
+                if (regex === "")  {
+                    this.state.words.forEach(w => w.highlight = false);
+                } else {
+                    const re = new RegExp("^" + regex + "$", "i");
+                    for (const w of this.state.words) {
+                        w.highlight = re.test(w.words);
+                        if (w.highlight) {
+                            data.utterances[w.utterance_index].highlight = true;
+                            this.num_matches++;
+                        }
+                    } 
+                }
+
+                // Adjust UI: enable buttons and show number of matches
+                if (this.num_matches > 0) {
+                    this.prev_button.attr("disabled", null);
+                    this.next_button.attr("disabled", null);
+                    this.match_number.text(`(${this.num_matches})`);
+                } else {
+                    this.prev_button.attr("disabled", true);
+                    this.next_button.attr("disabled", true);
+                    this.match_number.text("");
+                }
+
+                // Update state
+                this.state.dirty.fill(true);
+                update();
+
+                // Update URL
+                set_url_param('regex', regex)
             } else {
-                const re = new RegExp("^" + regex + "$", "i");
-                for (const w of this.state.words) w.highlight = re.test(w.words);
+                // Select the first/next occurence, but only on second hit of the search button / 
+                // enter key. We don't want to change the selection immediately
+                if (this.num_matches > 0) selectNextMatchingSegment(u => u.highlight, true, false);
             }
-            this.state.dirty.fill(true);
-            update();
-            set_url_param('regex', regex)
+
         }
     }
 
@@ -1643,7 +1718,9 @@ class CanvasPlot {
                     u => u.start_time < y && u.end_time > y && u.x <= screenX && u.x + u.width >= screenX
                 )
                 if (utterance_candidates.length > 0) {
-                    selectSegment(utterance_candidates[0]);
+                    // Select the utterance that was clicked on. Move view to utterance on double click
+                    selectSegment(utterance_candidates[0], event.detail === 2);
+
                     // With the current layout, utterances should never overlap.
                     // Log a warning if this happens
                     if (utterance_candidates.length > 1) console.warn("Multiple utterances selected. This should not happen.")
@@ -1850,24 +1927,35 @@ class CanvasPlot {
                 // considering overlaps with other utterances
                 const utterance = this.utterances[d['utterance_index']];
 
-                // Fill the box with the color of the match
-                if (d.matches?.length > 0 || d.highlight) {
-                    context.beginPath();
-                    context.rect(
-                        utterance.x,
-                        this.plot.y(d.start_time),
-                        utterance.width,
-                        this.plot.y(d.end_time) - this.plot.y(d.start_time));
+                // Draw word boxes
+                context.beginPath();
+                context.rect(
+                    utterance.x,
+                    this.plot.y(d.start_time),
+                    utterance.width,
+                    this.plot.y(d.end_time) - this.plot.y(d.start_time)
+                );
 
-                    if (d.highlight) context.fillStyle = settings.colors.highlight;
-                    else context.fillStyle = settings.colors[d.matches[0][1]];
+                // Fill box with match color
+                if (d.matches?.length > 0) {
+                    context.fillStyle = settings.colors[d.matches[0][1]];
+                    context.fill();
+
+                    // Draw box border
+                    context.strokeStyle = "gray";
+                    context.lineWidth = 2;
+                    if (draw_boxes) context.stroke();
                 }
-                context.fill();
-
-                // Draw box border
-                context.strokeStyle = "gray";
-                context.lineWidth = 2;
-                if (draw_boxes) context.stroke();
+                
+                // Draw inner box border with highlight color
+                if (d.highlight){
+                    context.save();
+                    context.clip(); // Clip to the box so that it doesn't overlap with other words
+                    context.strokeStyle = settings.colors.highlight;
+                    context.lineWidth = 20;
+                    context.stroke();
+                    context.restore();
+                }
 
                 // Draw (stub) stitches for insertion / deletion
                 // These do not connect to other words, but are drawn as a straight line
@@ -1977,11 +2065,25 @@ class CanvasPlot {
                 context.fillStyle = "gray";
                 context.textAlign = "center";
                 context.textBaseline = "bottom";
-                context.fillText(`begin time: ${d.start_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.start_time) - 3);
+                {
+                    const text = `begin time: ${d.start_time.toFixed(2)}`;
+                    const textMetrics = context.measureText(text);
+                    context.fillStyle = "#eee";
+                    context.fillRect(d.x + d.width / 2 - textMetrics.width / 2 - 3, this.plot.y(d.start_time), textMetrics.width + 6, - (textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent));
+                    context.fillStyle = "gray";
+                    context.fillText(text, d.x + d.width / 2, this.plot.y(d.start_time) - 1);
+                }
 
                 // Write end time below end marker
-                context.textBaseline = "top";
-                context.fillText(`end time: ${d.end_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.end_time) + 3);
+                {
+                    context.textBaseline = "top";
+                    const text = `end time: ${d.end_time.toFixed(2)}`;
+                    const textMetrics = context.measureText(text);
+                    context.fillStyle = "#eee";
+                    context.fillRect(d.x + d.width / 2 - textMetrics.width / 2 - 3, this.plot.y(d.end_time), textMetrics.width + 6, (textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent));
+                    context.fillStyle = "gray";
+                    context.fillText(`end time: ${d.end_time.toFixed(2)}`, d.x + d.width / 2, this.plot.y(d.end_time) + 2);
+                }
             }
         }
 
@@ -2023,7 +2125,10 @@ class CanvasPlot {
             });
             this.update(null);
 
-            this.blacklist = ["source", "session_id"]
+            this.blacklist = [
+                "source", "session_id", "utterance_index", "utterance_overlaps", 
+                "overlap_width", "overlap_shift", "num_columns", "x", "width", "highlight"
+            ];
             this.rename = { total: "# words" }
         }
 
@@ -2184,7 +2289,7 @@ class CanvasPlot {
         }
 
         _onChange() {
-            updateViewArea(this.state.viewAreas.length - 1, this.parsedValue)
+            animateToViewArea(this.state.viewAreas.length - 1, this.parsedValue)
         }
 
         _onInput() {
@@ -2324,4 +2429,21 @@ class CanvasPlot {
 
     rebuild();
     searchBar.search_button.node().click();
+
+    function moveBy(offset) {
+        animateToViewArea(state.viewAreas.length - 1, [state.viewAreas[state.viewAreas.length - 1][0] + offset, state.viewAreas[state.viewAreas.length - 1][1] + offset]);
+    }
+
+    // Register keyboard handler
+    document.addEventListener("keydown", (event) => {
+        switch (event.key) {
+            case "Escape": selectSegment(null); break;
+            // Scroll by 10% of the currently visible range for ArrowUp and ArrowDown. A constant quickly feels too fast or too slow depending on the zoom level.
+            case "ArrowUp": moveBy((state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+            case "ArrowDown": moveBy(-(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+            // Scroll by the currently visible range for PageUP and PageDown
+            case "PageUp": moveBy(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]); break;
+            case "PageDown": moveBy(state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]); break;
+        }
+    });
 }
