@@ -117,13 +117,13 @@ def _orc_error_rate(
 
     # Consistency check: Compute WER with the siso algorithm after applying the
     # assignment and compare the result with the distance from the ORC algorithm
-    reference_new = reference_new.groupby('speaker')
+    reference_new_grouped = reference_new.groupby('speaker')
     er = combine_error_rates(*[
         siso_error_rate(
-            reference_new.get(k, meeteval.io.SegLST([])),
+            reference_new_grouped.get(k, meeteval.io.SegLST([])),
             hypothesis.get(k, meeteval.io.SegLST([])),
         )
-        for k in set(hypothesis.keys()) | set(reference_new.keys())
+        for k in set(hypothesis.keys()) | set(reference_new_grouped.keys())
     ])
     length = sum([len(s['words']) if isinstance(s['words'], list) else 1 for s in reference])
     assert er.length == length, (length, er)
@@ -131,11 +131,14 @@ def _orc_error_rate(
         # The matching function can in some cases not compute the distance
         assert er.errors == distance, (distance, er, assignment)
 
+    # Get the assignment in the order of segment_index
+    assignment = [r['speaker'] for r in reference_new.sorted('segment_index')]
+
     # Insert labels for empty segments that got removed
     if len(assignment) != total_num_segments:
         # Make sure this assignment is reproducible by sorting the keys
         dummy_key = sorted(hypothesis_keys)[0]
-        assignment = sorted([(r, a) for a, r in zip(assignment, sorted(set(reference.unique('segment_index'))))])
+        assignment = sorted([(r, a) for a, r in zip(assignment, sorted(reference.unique('segment_index')))])
         for i in range(total_num_segments):
             if i >= len(assignment) or assignment[i][0] != i:
                 assignment.insert(i, (i, dummy_key))
