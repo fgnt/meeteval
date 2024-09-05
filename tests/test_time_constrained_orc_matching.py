@@ -48,8 +48,6 @@ def seglst(draw, min_segments=0, max_segments=10, max_speakers=2):
 )
 @settings(deadline=None)    # The tests take longer on the GitHub actions test servers
 def test_tcorc_burn(reference, hypothesis):
-    """Burn-test. Brute-force is exponential in the number of reference
-    utterances, so choose a small number."""
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
 
     tcorc = time_constrained_orc_wer(reference, hypothesis, collar=1000, reference_sort=False, hypothesis_sort=False)
