@@ -135,11 +135,13 @@ def _orc_error_rate(
     if len(assignment) != total_num_segments:
         # Make sure this assignment is reproducible by sorting the keys
         dummy_key = sorted(hypothesis_keys)[0]
-        assignment = sorted([(r['segment_index'], a) for a, r in zip(assignment, reference)])
+        assignment = sorted([(r, a) for a, r in zip(assignment, sorted(set(reference.unique('segment_index'))))])
         for i in range(total_num_segments):
             if i >= len(assignment) or assignment[i][0] != i:
                 assignment.insert(i, (i, dummy_key))
         assignment = [a[1] for a in assignment]
+
+        assert len(assignment) == total_num_segments, (len(assignment), total_num_segments)
 
     return OrcErrorRate(
         er.errors, er.length,
@@ -287,7 +289,6 @@ def apply_orc_assignment(
                 reference = reference.groupby('segment_index').values()
             else:
                 reference = [[r] for r in reference]
-
             assert len(reference) == len(assignment), (len(reference), len(assignment))
             reference = meeteval.io.SegLST([
                 {**s, 'speaker': a}
