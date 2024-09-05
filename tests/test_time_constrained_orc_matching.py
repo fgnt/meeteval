@@ -9,7 +9,7 @@ from meeteval.io import SegLST
 # Limit alphabet to ensure a few correct matches
 @st.composite
 def string(draw, max_length=100):
-    return ' '.join(draw(st.text(alphabet='abcdefg', min_size=1, max_size=max_length)))
+    return ' '.join(draw(st.text(alphabet='abcdefg', min_size=0, max_size=max_length)))
 
 
 # Generate a random SegLST object
@@ -40,6 +40,24 @@ def seglst(draw, min_segments=0, max_segments=10, max_speakers=2):
             max_size=max_segments
         ))
     )
+
+
+@given(
+    seglst(max_speakers=1, min_segments=1),
+    seglst(max_speakers=2, min_segments=1)
+)
+@settings(deadline=None)    # The tests take longer on the GitHub actions test servers
+def test_tcorc_burn(reference, hypothesis):
+    """Burn-test. Brute-force is exponential in the number of reference
+    utterances, so choose a small number."""
+    from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
+
+    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=1000, reference_sort=False, hypothesis_sort=False)
+
+    assert len(tcorc.assignment) == len(reference)
+    assert isinstance(tcorc.errors, int)
+    assert tcorc.errors >= 0
+    assigned_reference, assigned_hypothesis = tcorc.apply_assignment(reference, hypothesis)
 
 
 @given(
