@@ -1,3 +1,4 @@
+import itertools
 from pathlib import Path
 
 import pytest
@@ -73,3 +74,63 @@ def test_optimal_assignment_is_not_changed(segments, streams):
 
     assert optimal_distance == greedy_distance
     assert optimal_assignment == greedy_assignment
+
+
+# Limit alphabet to ensure a few correct matches
+string = st.text(alphabet='abcdefg', min_size=0, max_size=100)
+
+
+@st.composite
+def string_with_timing(draw):
+    """
+    Constraints:
+        - end >= start
+        - start values must be increasing
+    """
+    s = draw(string)
+    t = []
+    start = 0
+    for _ in s:
+        start = draw(st.integers(min_value=start, max_value=10))
+        end = draw(st.integers(min_value=start, max_value=start + 10))
+        t.append((start, end))
+    return s, t
+
+
+@given(
+    string_with_timing(),
+    string_with_timing(),
+)
+def test_greedy_time_constrained_correct(a, b):
+    """
+    Tests the time-constrained cython matrix implementation against the
+    time-constrained distance C++ implementation used in the time-constrained
+    siso WER
+    """
+    from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
+    from meeteval.wer.matching.cy_greedy_combination_matching import cy_forward_col_time_constrained
+    import numpy as np
+
+    a, a_timing = a
+    b, b_timing = b
+
+    # cy_forward_col_time_constrained needs the sequences as integers
+    import collections
+    sym2int = collections.defaultdict(itertools.count().__next__)
+    _ = sym2int['']  # Reserve 0 for the empty string
+    a = [sym2int[c] for c in a]
+    b = [sym2int[c] for c in b]
+
+    siso_dist = time_constrained_levenshtein_distance(a, b, a_timing, b_timing)
+
+    column = cy_forward_col_time_constrained(
+        np.arange(len(a) + 1, dtype=np.uint),
+        np.asarray(a, dtype=np.uint),
+        np.asarray(b, dtype=np.uint),
+        np.asarray([t[0] for t in a_timing], float),
+        np.asarray([t[1] for t in a_timing], float),
+        np.asarray([t[0] for t in b_timing], float),
+        np.asarray([t[1] for t in b_timing], float),
+    )
+
+    assert siso_dist == column[-1]
