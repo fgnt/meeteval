@@ -1,6 +1,5 @@
 import argparse
 import dataclasses
-import glob
 import json
 import logging
 import os
@@ -299,6 +298,35 @@ def tcorcwer(
         normalizer=normalizer,
     )
     _save_results(results, hypothesis, per_reco_out, average_out)
+
+
+def greedy_tcorcwer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_greedy_tcorcwer.json',
+        per_reco_out='{parent}/{stem}_greedy_tcorcwer_per_reco.json',
+        regex=None,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        hypothesis_sort='segment',
+        reference_sort='segment',
+        uem=None,
+        normalizer=None,
+        partial=False,
+):
+    """Computes the time-constrained ORC WER (tcORC WER)"""
+    results = meeteval.wer.greedy_tcorcwer(
+        reference, hypothesis, regex=regex,
+        collar=collar,
+        hyp_pseudo_word_timing=hyp_pseudo_word_timing,
+        ref_pseudo_word_timing=ref_pseudo_word_timing,
+        hypothesis_sort=hypothesis_sort,
+        reference_sort=reference_sort,
+        uem=uem, partial=partial,
+        normalizer=normalizer,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out)
+
 
 
 def greedy_dicpwer(
@@ -651,6 +679,7 @@ def cli():
     cli.add_command(tcpwer)
     cli.add_command(tcorcwer)
     cli.add_command(greedy_dicpwer)
+    cli.add_command(greedy_tcorcwer)
     cli.add_command(merge)
     cli.add_command(average)
 

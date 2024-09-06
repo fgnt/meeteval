@@ -127,6 +127,14 @@ def test_burn_tcorc():
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --hypothesis-sort true')
 
 
+def test_burn_greedy_tcorc():
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm')
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --collar 5')
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.seglst.json -r ref.seglst.json')
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hypothesis-sort true')
+
+
 def test_burn_md_eval_22():
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'meeteval-der md_eval_22 -h hyp.stm -r ref.stm')
