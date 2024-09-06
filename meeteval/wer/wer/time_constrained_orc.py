@@ -111,8 +111,8 @@ def time_constrained_orc_wer_multifile(
 
 
 def greedy_time_constrained_orc_wer(
-        reference: 'SegLST',
-        hypothesis: 'SegLST',
+        reference,
+        hypothesis,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
