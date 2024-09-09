@@ -632,6 +632,7 @@ def time_constrained_siso_word_error_rate(
         hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
         collar=collar,
         segment_representation='word',
+        remove_empty_segments=True,
     )
 
     er = _time_constrained_siso_error_rate(reference, hypothesis)

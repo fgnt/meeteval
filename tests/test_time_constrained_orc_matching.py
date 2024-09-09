@@ -3,7 +3,9 @@ from pathlib import Path
 import pytest
 from hypothesis import assume, settings, given, strategies as st, reproduce_failure
 
+import meeteval.io
 from meeteval.io import SegLST
+from meeteval.wer import combine_error_rates
 
 
 # Limit alphabet to ensure a few correct matches
@@ -49,13 +51,33 @@ def seglst(draw, min_segments=0, max_segments=10, max_speakers=2):
 @settings(deadline=None)    # The tests take longer on the GitHub actions test servers
 def test_tcorc_burn(reference, hypothesis):
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
+    from meeteval.wer.wer.time_constrained import time_constrained_siso_word_error_rate
 
-    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=1000, reference_sort=False, hypothesis_sort=False)
+    tcorc = time_constrained_orc_wer(reference, hypothesis, collar=5, reference_sort=False, hypothesis_sort=False)
 
     assert len(tcorc.assignment) == len(reference)
     assert isinstance(tcorc.errors, int)
     assert tcorc.errors >= 0
     assigned_reference, assigned_hypothesis = tcorc.apply_assignment(reference, hypothesis)
+    assigned_reference = assigned_reference.groupby('speaker')
+    assigned_hypothesis = assigned_hypothesis.groupby('speaker')
+    er = combine_error_rates(
+        *[
+            time_constrained_siso_word_error_rate(
+                assigned_reference.get(k, meeteval.io.SegLST([])),
+                assigned_hypothesis.get(k, meeteval.io.SegLST([])),
+                reference_sort=False,
+                hypothesis_sort=False,
+                collar=5,
+            )
+            for k in set(assigned_reference.keys()) | set(assigned_hypothesis.keys())
+        ]
+    )
+    assert er.errors == tcorc.errors
+    assert er.length == tcorc.length
+    assert er.insertions == tcorc.insertions
+    assert er.deletions == tcorc.deletions
+    assert er.substitutions == tcorc.substitutions
 
 
 @given(

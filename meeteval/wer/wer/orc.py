@@ -90,6 +90,7 @@ def _orc_error_rate(
     total_num_segments = len(set(reference.T['segment_index']))
     reference = reference.filter(lambda x: x['words'] != '')
     hypothesis = hypothesis.filter(lambda x: x['words'] != '')
+    num_filtered_segments = len(reference.unique('segment_index'))
 
     # Group by stream. For ORC-WER, only hypothesis must be grouped
     hypothesis = hypothesis.groupby('speaker')
@@ -106,6 +107,7 @@ def _orc_error_rate(
 
     # Compute the ORC distance
     distance, assignment = matching_fn(reference, hypothesis)
+    assert len(assignment) == num_filtered_segments, (len(assignment), num_filtered_segments)
 
     # Translate the assignment from hypothesis index to stream id
     # Fill with a dummy stream if hypothesis is empty
@@ -132,7 +134,7 @@ def _orc_error_rate(
         assert er.errors == distance, (distance, er, assignment)
 
     # Get the assignment in the order of segment_index
-    assignment = [r['speaker'] for r in reference_new.sorted('segment_index')]
+    assignment = [a for _, a in sorted(zip(reference.groupby('segment_index').keys(), assignment))]
 
     # Insert labels for empty segments that got removed
     if len(assignment) != total_num_segments:
