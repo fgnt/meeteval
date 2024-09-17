@@ -656,7 +656,7 @@ class CLI:
         args = self.parser.parse_args()
 
         # Logging
-        logging.basicConfig(level=args.log_level.upper(), format='%(levelname)s - %(message)s')
+        logging.basicConfig(level=args.log_level.upper(), format='%(levelname)s %(message)s', force=True)
 
         if hasattr(args, 'func'):
             kwargs = vars(args)
