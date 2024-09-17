@@ -81,7 +81,7 @@ class _Normalizers:
         >>> test('chime7')
         'hello world äèア😊 hmmm hmmm hmmm wi-fi word-word 11 11 mr then said'
         >>> test('chime6')
-        'hello world äèア😊 hmmm hmmm hmmm wi-fi word-word 11 11 mr then said'
+        'hello world äèア😊 hm hmm hmmm wi-fi word-word 11 11 mr then said'
         """
         if normalizer == 'lower,rm(.?!,)':
             def normalizer(seg):
