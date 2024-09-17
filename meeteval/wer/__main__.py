@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import decimal
+import textwrap
 from pathlib import Path
 
 import meeteval.io
