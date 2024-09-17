@@ -1,12 +1,11 @@
 import itertools
 import functools
-from typing import List, Iterable
-
+from typing import List, Iterable, Tuple
 
 import numpy as np
 
 from meeteval.io.seglst import SegLST
-from meeteval.wer.matching.cy_greedy_combination_matching import cy_forward_col
+from meeteval.wer.matching.cy_greedy_combination_matching import cy_forward_col, cy_forward_col_time_constrained
 
 
 def _apply_assignment(assignment, segments, n=None):
@@ -267,6 +266,70 @@ def greedy_combination_matching(
         assignment, distance = _greedy_correct_assignment(
             segments, streams, assignment,
             functools.partial(cy_forward_col, cost_substitution=int(d))
+        )
+
+    return distance, assignment
+
+
+def greedy_time_constrained_combination_matching(
+        segments: List[Iterable[Tuple[int, float, float]]],
+        streams: List[Iterable[Tuple[int, float, float]]],
+        initial_assignment: List[int],
+        *,
+        distancetype: str = '21',   # '21', '2', '1'
+):
+    """
+    Segments in `segments` are assigned to streams in `streams`.
+
+    Args:
+        segments: A list of segments for which stream labels should be obtained
+        streams: A list of streams to which the segments are assigned
+        initial_assignment: The initial assignment of the segments to the streams.
+            Can be obtained with `initialize_assignment`.
+        distancetype: The type of distance to use. Can be one of:
+            - `'1'`: Use insertion cost of 1 (like in Levenshtein distance)
+            - `'2'`: Use insertion cost of 2 (cost of insertion + deletion)
+            - `'21'`: Start with '2' until converged and then use '1' until converged
+
+    >>> greedy_time_constrained_combination_matching(
+    ...     [[(0, 0, 1), (1, 1, 2)]],
+    ...     [[(0, 0, 1), (1, 1, 2)]],
+    ...     [0]
+    ... )
+    (0, [0])
+
+    >>> greedy_time_constrained_combination_matching(
+    ...     [[(0, 0, 1)], [(1, 1, 2)]],
+    ...     [[(0, 0, 1)], [(1, 1, 2)]],
+    ...     [0, 0]
+    ... )
+    (0, [0, 1])
+    """
+    if len(segments) == 0:
+        return sum([len(s) for s in streams]), []
+    if len(streams) == 0:
+        return sum([len(s) for s in segments]), [0] * len(segments)
+
+    assert len(initial_assignment) == len(segments), (len(initial_assignment), len(segments), initial_assignment)
+
+    # Correct assignment
+    assignment = initial_assignment
+    assert distancetype in ('1', '2', '21'), distancetype
+    for d in distancetype:
+        def forward_col(column, a, b):
+            return cy_forward_col_time_constrained(
+                column,
+                a=np.asarray([t for t, _, _ in a], dtype=np.uint),
+                b=np.asarray([t for t, _, _ in b], dtype=np.uint),
+                a_begin=np.asarray([t for _, t, _ in a], dtype=np.float64),
+                a_end=np.asarray([t for _, _, t in a], dtype=np.float64),
+                b_begin=np.asarray([t for _, t, _ in b], dtype=np.float64),
+                b_end=np.asarray([t for _, _, t in b], dtype=np.float64),
+                cost_substitution=int(d)
+            )
+        assignment, distance = _greedy_correct_assignment(
+            segments, streams, assignment,
+            forward_col
         )
 
     return distance, assignment

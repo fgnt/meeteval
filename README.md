@@ -22,6 +22,8 @@ MeetEval supports the following metrics for meeting transcription evaluation:
   `meeteval-wer tcpwer -r ref.stm -h hyp.stm --collar 5`
 - **Time-Constrained Optimal Reference Combination Word Error Rate (tcORC WER)**<br>
   `meeteval-wer tcorcwer -r ref.stm -h hyp.stm --collar 5`
+- **Fast Greedy Approximation of Time-Constrained Optimal Reference Combination Word Error Rate (greedy tcORC WER)**<br>
+  `meeteval-wer greedy_tcorcwer -r ref.stm -h hyp.stm --collar 5`
 - **Diarization-Invariant cpWER (DI-cpWER)**<br>
   `meeteval-wer greedy_dicpwer -r ref.stm -h hyp.stm`
 - **Diarization Error Rate (DER)** by wrapping [mdeval](https://github.com/nryant/dscore/raw/master/scorelib/md-eval-22.pl)<br>
