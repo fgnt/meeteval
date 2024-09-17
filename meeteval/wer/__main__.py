@@ -591,13 +591,11 @@ class CLI:
                 nargs='+', action=self.extend_action,
             )
         elif name == 'normalizer':
+            from meeteval.wer.api import normalizers
             command_parser.add_argument(
                 '--normalizer',
-                help='A normalizer that is applied to the transcript.\n'
-                     'Choices:\n'
-                     '- None: Do nothing (default)\n'
-                     '- lower,rm(.?!,): Lowercase the transcript and remove punctuations (.,?!).',
-                choices=[None, 'lower,rm(.?!,)'],
+                help=textwrap.dedent(normalizers.__doc__),
+                choices=[None, *normalizers.keys()],
             )
         elif name == 'partial':
             command_parser.add_argument(
