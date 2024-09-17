@@ -1,3 +1,4 @@
 editdistance
 pytest
 hypothesis
+chime-utils @ git+https://github.com/chimechallenge/chime-utils
