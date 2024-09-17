@@ -94,7 +94,7 @@ class _Normalizers:
                 seg['words'] = r2.sub(' ', r.sub('', seg['words'].lower()).strip())
                 return seg
         elif normalizer in ['chime8', 'chime7', 'chime6']:
-            from chime_utils.text_norm import get_txt_norm
+            from chime_utils.text_norm import get_txt_norm  # pip install git+https://github.com/chimechallenge/chime-utils
             chime_utils_normalizer = get_txt_norm(normalizer)
 
             # Note:
