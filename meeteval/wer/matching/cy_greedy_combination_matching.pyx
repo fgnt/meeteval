@@ -21,7 +21,6 @@ def cy_forward_col(
         column: The column to be updated
         a: Sequence in column direction (make sure that `len(column) == len(a) + 1`! otherwise SEGFAULT!!)
         b: Sequence in row direction. This function updates `column` `len(b)` times
-        tmp: Pre-allocated temporary memory. Must have the same shape as `column`
         cost_substitution: Cost for a substitution
     """
     cdef uint i, j, a_, b_, current, prev
@@ -32,7 +31,6 @@ def cy_forward_col(
         current = (j + 1) % 2
         prev = j % 2
         b_ = b[j]
-        # TODO: can we swap without copy?
         tmp[current, 0] = tmp[prev, 0] + 1
         for i in range(1, a.shape[0] + 1):
             a_ = a[i - 1]
@@ -60,7 +58,6 @@ def cy_forward_col_time_constrained(
         column: The column to be updated
         a: Sequence in column direction (make sure that `len(column) == len(a) + 1`! otherwise SEGFAULT!!)
         b: Sequence in row direction. This function updates `column` `len(b)` times
-        tmp: Pre-allocated temporary memory. Must have the same shape as `column`
         cost_substitution: Cost for a substitution
     """
     cdef uint i, j, a_, b_, current, prev
@@ -75,7 +72,6 @@ def cy_forward_col_time_constrained(
         b_begin_ = b_begin[j]
         b_end_ = b_end[j]
 
-        # TODO: can we swap without copy?
         tmp[current, 0] = tmp[prev, 0] + 1
         for i in range(1, a.shape[0] + 1):
             a_ = a[i - 1]
