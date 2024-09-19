@@ -20,7 +20,7 @@ def md_eval_22(
         regions=regions,
         uem=uem,
     )
-    _save_results(results, hypothesis, per_reco_out, average_out)
+    _save_results(results, hypothesis, per_reco_out, average_out, wer_name='DER')
 
 
 def cli():
