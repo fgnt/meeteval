@@ -131,13 +131,23 @@ def _save_results(
         dataclasses.asdict(average),
         average_out.format(parent=parent, stem=stem),
     )
-    logging.info(
-        f'%{wer_name}: {average.error_rate:.2%} '
-        f'[ {average.errors} / {average.length}, '
-        f'{average.insertions} ins, '
-        f'{average.deletions} del, '
-        f'{average.substitutions} sub ]'
-    )
+    if hasattr(average, 'scored_speaker_time'):
+        error_time = average.missed_speaker_time + average.falarm_speaker_time + average.speaker_error_time
+        logging.info(
+            f'%{wer_name}: {average.error_rate:.2%} '
+            f'[ {error_time:.2f}s / {average.scored_speaker_time:.2f}s, '
+            f'{average.missed_speaker_time:.2f}s missed, '
+            f'{average.falarm_speaker_time:.2f}s falarm, '
+            f'{average.speaker_error_time:.2f}s spk error ]'
+        )
+    else:
+        logging.info(
+            f'%{wer_name}: {average.error_rate:.2%} '
+            f'[ {average.errors} / {average.length}, '
+            f'{average.insertions} ins, '
+            f'{average.deletions} del, '
+            f'{average.substitutions} sub ]'
+        )
     return average
 
 
