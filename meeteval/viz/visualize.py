@@ -348,6 +348,11 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
         'duration': w['end_time'] - w['start_time'],
     })
 
+     # Add info about the number of errors to each uttearnce
+    for word in words:
+        utterance = u[word['utterance_index']]
+        utterance['errors'] = utterance.get('errors', 0) + (0 if 'matches' in word and word['matches'] and word['matches'][0][1] == 'correct' else 1)
+
     compress = True
     if compress:
         data['words'] = {k: words.T.get(k) for k in words.T.keys(all=True)}
