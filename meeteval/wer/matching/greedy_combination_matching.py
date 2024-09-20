@@ -180,7 +180,7 @@ def initialize_assignment(
     >>> initialize_assignment(segments, streams, initialization='cp')
     [0, 0]
     """
-    if initialization == 'cp':
+    if initialization in ('cp', 'tcp'):
         # Special case when no streams are present
         if len(streams) == 0:
             return initialize_assignment(segments, streams, 'constant')
@@ -192,13 +192,14 @@ def initialize_assignment(
         # Compute cpWER to get a good starting point
         from meeteval.wer.wer.cp import _minimum_permutation_assignment
         from meeteval.wer.wer.siso import siso_levenshtein_distance
+        from meeteval.wer.wer.time_constrained import time_constrained_siso_levenshtein_distance
         if isinstance(streams, SegLST):
             streams = streams.groupby('speaker')
         speaker_grouped_segments = segments.groupby('speaker')
         assignment, _, cost_matrix = _minimum_permutation_assignment(
             speaker_grouped_segments,
             streams,
-            distance_fn=siso_levenshtein_distance,
+            distance_fn=siso_levenshtein_distance if initialization == 'cp' else time_constrained_siso_levenshtein_distance,
         )
         # Use integers for the assignment labels.
         counter = iter(itertools.count())
