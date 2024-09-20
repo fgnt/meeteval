@@ -1,12 +1,9 @@
-import logging
 import os
 from meeteval.wer.wer.utils import check_single_filename
 import urllib.request
-
 import meeteval
 from meeteval.wer import ErrorRate
 
-logging.basicConfig(level=logging.ERROR)
 import dataclasses
 import functools
 import uuid
