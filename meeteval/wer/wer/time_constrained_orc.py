@@ -142,7 +142,7 @@ def greedy_time_constrained_orc_wer(
             [list(zip(*r)) for r in reference.T['words', 'start_time', 'end_time']],
             [[w for words in stream.T['words', 'start_time', 'end_time'] for w in zip(*words)] for stream in
              hypothesis.values()],
-            initial_assignment=initialize_assignment(reference, hypothesis, initialization='cp'),
+            initial_assignment=initialize_assignment(reference, hypothesis, initialization='tcp'),
         )
         return distance, assignment
 

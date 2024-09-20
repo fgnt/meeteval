@@ -15,6 +15,7 @@ __all__ = [
     'tcorcwer',
     'greedy_tcorcwer',
     'greedy_dicpwer',
+    'greedy_ditcpwer',
 ]
 
 

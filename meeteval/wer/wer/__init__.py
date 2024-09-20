@@ -5,3 +5,4 @@ from .siso import siso_word_error_rate, siso_character_error_rate, siso_word_err
 from .error_rate import ErrorRate, combine_error_rates
 from .time_constrained import time_constrained_minimum_permutation_word_error_rate, time_constrained_siso_word_error_rate, tcp_word_error_rate_multifile
 from .di_cp import greedy_di_cp_word_error_rate, DICPErrorRate, greedy_di_cp_word_error_rate_multifile
+from .time_constrained_orc import time_constrained_orc_wer, time_constrained_orc_wer_multifile

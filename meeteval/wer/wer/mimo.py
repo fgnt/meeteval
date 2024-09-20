@@ -26,6 +26,13 @@ class MimoErrorRate(ErrorRate):
     """
     assignment: 'tuple[int, ...]'
 
+    def apply_assignment(self, reference, hypothesis):
+        return apply_mimo_assignment(
+            self.assignment,
+            reference=reference,
+            hypothesis=hypothesis,
+        )
+
 
 def mimo_error_rate(
         reference: 'list[list[Iterable]] | dict[Any, list[Iterable]]',

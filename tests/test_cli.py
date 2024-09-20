@@ -96,6 +96,12 @@ def test_burn_greedy_dicp():
     run(f'meeteval-wer greedy_dicpwer -h hyp.stm -r ref.stm')
 
 
+def test_burn_greedy_ditcp():
+    # Normal test with stm files
+    run(f'python -m meeteval.wer greedy_ditcpwer -h hyp.stm -r ref.stm')
+    run(f'meeteval-wer greedy_ditcpwer -h hyp.stm -r ref.stm')
+
+
 def test_burn_mimo():
     run(f'python -m meeteval.wer mimower -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer mimower -h 'hyp?.stm' -r 'ref?.stm'")

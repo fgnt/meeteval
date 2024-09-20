@@ -380,8 +380,8 @@ def greedy_ditcpwer(
         hypothesis_sort='segment',
         reference_sort='segment',
         uem=None,
-        normalizer=None,
         partial=False,
+        normalizer=None,
 ):
     """Computes the time-constrained diarization-invariant cpWER (greedy DI-tcpWER)"""
     results = meeteval.wer.api.greedy_ditcpwer(

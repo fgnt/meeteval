@@ -350,8 +350,10 @@ def apply_collar(s: SegLST, collar: float):
     return s.map(
         lambda s: {
             **s,
-            'start_time': [t - collar for t in s['start_time']] if isinstance(s['start_time'], list) else s['start_time'] - collar,
-            'end_time': [t + collar for t in s['end_time']] if isinstance(s['end_time'], list) else s['end_time'] + collar,
+            'start_time': [t - collar for t in s['start_time']] if isinstance(s['start_time'], list) else s[
+                                                                                                              'start_time'] - collar,
+            'end_time': [t + collar for t in s['end_time']] if isinstance(s['end_time'], list) else s[
+                                                                                                        'end_time'] + collar,
         }
     )
 
@@ -548,6 +550,18 @@ def time_constrained_siso_levenshtein_distance(
         reference: 'SegLST', hypothesis: 'SegLST'
 ) -> int:
     from meeteval.wer.matching.cy_levenshtein import time_constrained_levenshtein_distance
+
+    # Flatten words when segment_representation is 'segment'
+    def flatten_words(s):
+        if not isinstance(s['words'], list):
+            return [s]
+        return [
+            {'words': w, 'start_time': st, 'end_time': et}
+            for w, st, et in zip(s['words'], s['start_time'], s['end_time'])
+        ]
+
+    reference = reference.flatmap(flatten_words)
+    hypothesis = hypothesis.flatmap(flatten_words)
 
     # Ignore empty segments
     reference = reference.filter(lambda s: s['words'])
