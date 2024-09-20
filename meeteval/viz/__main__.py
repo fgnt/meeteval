@@ -307,10 +307,20 @@ def cli():
             if name == 'alignment':
                 command_parser.add_argument(
                     '--alignment',
-                    choices=['tcp', 'cp', 'tcp,cp', 'cp,tcp', 'tcorc', 'orc'],
-                    help='Specifies which alignment is used.\n'
-                         '- cp: Find the permutation that minimizes the cpWER and use the "classical" alignment.\n'
-                         '- tcp: Find the permutation that minimizes the tcpWER and use a time constraint alignment.'
+                    choices=['tcp', 'cp', 'orc', 'greedy_orc', 'tcorc', 'greedy_tcorc', 'greedy_dicp', 'greedy_ditcp'],
+                    nargs='+',
+                    help='Specifies which assigment and alignment are used. If a time-constrained algorithm is '
+                         'selected for the stream assignment, then a time-constrained alignment will be computed, '
+                         'otherwise the "classical" alignment without a time constraint is used.\n'
+                         'Choices:\n'
+                         '- cp: cpWER and "classical" alignment\n'
+                         '- tcp: tcpWER and time-constrained alignment\n'
+                         '- orc: ORC-WER and "classical" alignment.\n'
+                         '- greedy_orc: greedy ORC-WER and "classical" alignment.\n'
+                         '- tcorc: tcORC-WER and time-constrained alignment.\n'
+                         '- greedy_tcorc: greedy tcORC-WER.\n'
+                         '- greedy_dicp: greedy DI-cpWER and "classical" alignment.\n'
+                         '- greedy_ditcp: greedy DI-tcpWER and time-constrained alignment.',
                 )
             elif name == 'hypothesis':
                 command_parser.add_argument(
