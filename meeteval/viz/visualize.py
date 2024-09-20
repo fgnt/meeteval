@@ -186,10 +186,30 @@ def get_error_rate(ref, hyp, assignment):
             reference_pseudo_word_level_timing='character_based',
             hypothesis_pseudo_word_level_timing='character_based_points',
         )
-        ref, hyp = wer.apply_assignment(ref, hyp)
+    elif assignment == 'greedy_tcorc':
+        wer = meeteval.wer.wer.greedy_time_constrained_orc_wer(
+            ref, hyp,
+            collar=5,
+            reference_sort='segment',
+            hypothesis_sort='segment',
+            reference_pseudo_word_level_timing='character_based',
+            hypothesis_pseudo_word_level_timing='character_based_points',
+        )
+    elif assignment == 'greedy_ditcp':
+        wer = meeteval.wer.wer.greedy_di_tcp_word_error_rate(
+            ref, hyp,
+            collar=5,
+            reference_sort='segment',
+            hypothesis_sort='segment',
+            reference_pseudo_word_level_timing='character_based',
+            hypothesis_pseudo_word_level_timing='character_based_points',
+        )
     elif assignment == 'orc':
         wer = meeteval.wer.wer.orc.orc_word_error_rate(ref, hyp)
-        ref, hyp = wer.apply_assignment(ref, hyp)
+    elif assignment == 'greedy_orc':
+        wer = meeteval.wer.wer.greedy_orc_word_error_rate(ref, hyp)
+    elif assignment == 'greedy_dicp':
+        wer = meeteval.wer.wer.greedy_di_cp_word_error_rate(ref, hyp)
     else:
         raise ValueError(assignment)
     
