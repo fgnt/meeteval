@@ -271,6 +271,13 @@ function alignment_visualization(
         encodeURL: true,
     }
 ) {
+
+    window.parent.postMessage({
+        type: 'url',
+        url: window.location.href,
+        }, '*'
+    )
+
     if (settings.font_size === undefined) {
         // The default from the function signature doesn't work.
         settings.font_size = 12;
