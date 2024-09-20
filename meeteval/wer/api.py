@@ -361,6 +361,43 @@ def greedy_dicpwer(
     return results
 
 
+def greedy_ditcpwer(
+        reference, hypothesis,
+        regex=None,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        hypothesis_sort='segment',
+        reference_sort='segment',
+        uem=None,
+        partial=False,
+        normalizer=None,
+):
+    """Computes the Diarization Invariant cpWER (DI-cpWER) with a greedy
+    algorithm."""
+    from meeteval.wer.wer.di_cp import greedy_di_tcp_word_error_rate_multifile
+    reference, hypothesis = _load_texts(
+        reference, hypothesis, regex=regex,
+        uem=uem, normalizer=normalizer,
+    )
+    results = greedy_di_tcp_word_error_rate_multifile(
+        reference, hypothesis,
+        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+        collar=collar,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        partial=partial,
+    )
+    from meeteval.wer import combine_error_rates
+    average: ErrorRate = combine_error_rates(results)
+    if average.hypothesis_self_overlap is not None:
+        average.hypothesis_self_overlap.warn('hypothesis')
+    if average.reference_self_overlap is not None:
+        average.reference_self_overlap.warn('reference')
+    return results
+
+
 def greedy_tcorcwer(
         reference, hypothesis,
         regex=None,
