@@ -454,7 +454,7 @@ class AlignmentVisualization:
             colormap='default',
             barplot_style='absolute',
             barplot_scale_exclude_total=False,
-            num_minimaps=2,
+            num_minimaps='auto',
             show_details=True,
             show_legend=True,
             highlight_regex=None,
@@ -639,6 +639,21 @@ class AlignmentVisualization:
         d3 = f'<script>{load_cdn("d3.js", cdn["d3"])}</script>'
         # font_awesome = f'<style>{load_cdn("d3font_awesome.css", cdn["font_awesome"])}</style>'
 
+        # Determine the number of minimaps based on the number of utterances. If it's a large number, 
+        # use two minimaps, else use one
+        # Typical number of utterances (`max([len(v) for v in meeteval.io.load('ref.seglst.json').groupby('session_id').values()]) * 2`):
+        #   - libricss: 250
+        #   - notsofar: 652
+        #   - dipco: 2568
+        #   - chime6: 6738
+        if self.num_minimaps == 'auto':
+            if len(self.data['utterances']) > 1000:
+                num_minimaps = 2
+            else:
+                num_minimaps = 1
+        else:
+            num_minimaps = self.num_minimaps
+
         font_awesome = ''
         html = f'''
             {d3}
@@ -660,7 +675,7 @@ class AlignmentVisualization:
                                 scaleExcludeCorrect: {'true' if self.barplot_scale_exclude_total else 'false'}
                             }},
                             minimaps: {{
-                                number: {self.num_minimaps}
+                                number: {num_minimaps}
                             }},
                             show_details: {'true' if self.show_details else 'false'},
                             show_legend: {'true' if self.show_legend else 'false'},
