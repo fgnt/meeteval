@@ -464,6 +464,7 @@ class AlignmentVisualization:
             js_debug=False,  # If True, don't embed js (and css) code and use absolute paths
             sync_id=None,
             precomputed_error_rate=None,   # A precomputed assignment. Saves computation
+            show_playhead=True,
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -492,6 +493,7 @@ class AlignmentVisualization:
         self.recording_file = recording_file
         self.sync_id = sync_id
         self.precomputed_error_rate = precomputed_error_rate
+        self.show_playhead = show_playhead
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -687,6 +689,7 @@ class AlignmentVisualization:
                             syncID: {dumps_json(self.sync_id, default='null')},
                             audio_server: 'http://localhost:7777',
                             encodeURL: {'true' if encode_url else 'false'},
+                            show_playhead: {'true' if self.show_playhead else 'false'},
                         }}
                     );
                     else setTimeout(exec, 100);

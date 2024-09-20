@@ -269,6 +269,7 @@ function alignment_visualization(
         audio_server: 'http://localhost:7777',
         syncID: null,
         encodeURL: true,
+        show_playhead: true,    // Show the current position of audio playback in the details plot
     }
 ) {
 
@@ -375,6 +376,9 @@ function alignment_visualization(
         words: data.words,
         // Track which viewAreas changed
         dirty: [],
+        // Track current playback time
+        playbackTime: null,
+        playbackDirty: false,
     };
 
     function initializeViewAreas(domain, finalViewArea=null) {
@@ -449,6 +453,11 @@ function alignment_visualization(
                 );
             }
 
+            // Update playhead
+            if (state.playbackDirty) {
+                details_plot.updatePlayhead(state.playbackTime);
+                state.playbackDirty = false;
+            }
         }, drawTracker, 20);
 
          // Update URL
@@ -541,6 +550,7 @@ function alignment_visualization(
         } else {
             candidates = data.utterances.slice(state.selectedSegment?.utterance_index + 1);
         }
+        console.log(candidates, condition)
         const segment = candidates.find(condition);
         selectSegment(segment, focus);
     }
@@ -968,9 +978,13 @@ class CanvasPlot {
      *       The canvas has the size of the number of pixels of the display to
      *       ensure sharp rendering. In html we have to use different numbers.
      */
-    constructor(element, x_scale, y_scale, xAxis, yAxis, invert_y=false) {
+    constructor(element, x_scale, y_scale, xAxis, yAxis, invert_y=false, layers=1) {
         this.element = element.style('position', 'relative');
-        this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%").style("position", "absolute").style("top", 0).style("left", 0);
+        this.layers = [];
+        for (let i = 0; i < layers; i++) {
+            this.layers.push(this.element.append("canvas").style("width", "100%").style("height", "100%").style("position", "absolute").style("top", 0).style("left", 0));
+        }
+        this.canvas = this.layers[0];
 
         this.context = this.canvas.node().getContext("2d")
         this.xAxis = xAxis;
@@ -1020,11 +1034,13 @@ class CanvasPlot {
         this.width = this.width_html * this.dpr;
         this.height = this.height_html * this.dpr;
 
-        this.canvas.attr("width", this.width);
-        this.canvas.attr("height", this.height);
-        // The canvas size must match the pixel size exactly
-        this.canvas.style("width", this.width_html + "px");
-        this.canvas.style("height", this.height_html + "px");
+        this.layers.forEach(l => {
+            l.attr("width", this.width);
+            l.attr("height", this.height);
+            // The canvas size must match the pixel size exactly
+            l.style("width", this.width_html + "px");
+            l.style("height", this.height_html + "px");
+        });
         this.x.range([this.y_axis_padding, this.width])
         if (this.invert_y) {
             this.y.range([0, this.height - this.x_axis_padding])
@@ -1079,6 +1095,13 @@ class CanvasPlot {
             state.dirty[state.dirty.length - 1] = true;
             update();
         }).node().value = settings.match_width * 100;
+        menuElement = m.append("div").classed("menu-element", true)
+        menuElement.append("div").classed("menu-label", true).text("Show Playhead:");
+        menuElement.append("input").classed("menu-control", true).attr("type", "checkbox").on("change", function () {
+            settings.show_playhead = this.checked;
+            state.dirty[state.dirty.length - 1] = true;
+            selectedUtteranceDetails.update(state.selectedSegment);
+        }).node().checked = settings.show_playhead;
 
         // Minimaps
         m.append("div").classed("divider", true);
@@ -1650,7 +1673,8 @@ class CanvasPlot {
     class DetailsPlot {
         constructor(plot, state, utterances, markers, initial=null) {
             this.plot = plot;
-            this.plot.element.classed("plot", true)
+            this.plot.element.classed("plot", true);
+
             this.state = state;
             this.utterances = utterances;
             this.filtered_utterances = utterances;
@@ -1839,6 +1863,24 @@ class CanvasPlot {
             })
 
             this.plot.onSizeChanged(this.draw.bind(this));
+        }
+
+        updatePlayhead(time) {
+            this.playhead = time;
+            this.drawPlayhead();
+        }
+
+        drawPlayhead() {
+            if (!settings.show_playhead) return;
+            const context = this.plot.layers[1].node().getContext('2d');
+            context.clearRect(0, 0, this.plot.width, this.plot.height);
+            // Draw horizontal line at playhead position
+            context.strokeStyle = "green";
+            context.lineWidth = 2;
+            context.beginPath();
+            context.moveTo(0, this.plot.y(this.playhead));
+            context.lineTo(this.plot.width, this.plot.y(this.playhead));
+            context.stroke();
         }
 
         drawDetails() {
@@ -2097,6 +2139,7 @@ class CanvasPlot {
         draw() {
             this.plot.clear();
             this.drawDetails();
+            this.drawPlayhead();
             this.plot.drawAxes();
         }
 
@@ -2179,6 +2222,21 @@ class CanvasPlot {
                     .attr("controls", "true")
                     .attr("src", trials.shift())  // pop the first entry from trials
                     .text(value);
+
+                if (settings.show_playhead) {
+                    let playheadTimer;
+                    audio.on('play', e => {
+                        playheadTimer = setInterval(() => {
+                            state.playbackTime = audio.node().currentTime + state.selectedSegment.start_time;
+                            details_plot.updatePlayhead(state.playbackTime);
+                        }, 50);
+                    });
+                    audio.on('pause', e => {
+                        clearInterval(playheadTimer);
+                        state.playbackTime = null;
+                        details_plot.updatePlayhead(state.playbackTime);
+                    });
+                }
 
                 let fallback_text_box = element.append('div').classed("info-value", true)
 
@@ -2427,7 +2485,7 @@ class CanvasPlot {
             new CanvasPlot(plot_div.append('div').style('flex-grow', '1'),
                 d3.scaleBand().domain(speakers).padding(0.1),
                 d3.scaleLinear().domain(time_domain),
-                new DetailsAxis(30), new Axis(50), true
+                new DetailsAxis(30), new Axis(50), true, 2
             ), state, data.utterances, data.markers,
         )
 
@@ -2443,14 +2501,23 @@ class CanvasPlot {
 
     // Register keyboard handler
     document.addEventListener("keydown", (event) => {
-        switch (event.key) {
-            case "Escape": selectSegment(null); break;
-            // Scroll by 10% of the currently visible range for ArrowUp and ArrowDown. A constant quickly feels too fast or too slow depending on the zoom level.
-            case "ArrowUp": moveBy((state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
-            case "ArrowDown": moveBy(-(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
-            // Scroll by the currently visible range for PageUP and PageDown
-            case "PageUp": moveBy(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]); break;
-            case "PageDown": moveBy(state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]); break;
-        }
+        if (!event.ctrlKey) {
+            switch (event.key) {
+                case "Escape": selectSegment(null); break;
+                // Scroll by 10% of the currently visible range for ArrowUp and ArrowDown. A constant quickly feels too fast or too slow depending on the zoom level.
+                case "ArrowUp": moveBy((state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+                case "ArrowDown": moveBy(-(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+                // Scroll by the currently visible range for PageUP and PageDown
+                case "PageUp": moveBy(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]); break;
+                case "PageDown": moveBy(state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]); break;
+            }
+        } else {
+            switch(event.key) {
+                // Go to previous/next error on Ctrl+ArrowUp/Down
+                // This is useful when the recognition only contains a few errors and the user wants to quickly jump between them
+                case "ArrowUp": selectNextMatchingSegment(u => u.errors > 0, true, true); break;
+                case "ArrowDown": selectNextMatchingSegment(u => u.errors > 0, true, false); break;
+            }
+        } 
     });
 }
