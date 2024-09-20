@@ -136,6 +136,7 @@ setup(
         'console_scripts': [
             'meeteval-wer=meeteval.wer.__main__:cli',
             'meeteval-der=meeteval.der.__main__:cli',
+            'meeteval-viz=meeteval.viz.__main__:cli',
         ]
     },
     include_dirs=[numpy.get_include()],
