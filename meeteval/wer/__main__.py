@@ -369,6 +369,34 @@ def greedy_dicpwer(
     _save_results(results, hypothesis, per_reco_out, average_out, wer_name='greedy-DI-cpWER')
 
 
+def greedy_ditcpwer(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_greedy_ditcpwer.json',
+        per_reco_out='{parent}/{stem}_greedy_ditcpwer_per_reco.json',
+        regex=None,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        hypothesis_sort='segment',
+        reference_sort='segment',
+        uem=None,
+        normalizer=None,
+        partial=False,
+):
+    """Computes the time-constrained diarization-invariant cpWER (greedy DI-tcpWER)"""
+    results = meeteval.wer.api.greedy_ditcpwer(
+        reference, hypothesis, regex=regex,
+        collar=collar,
+        hyp_pseudo_word_timing=hyp_pseudo_word_timing,
+        ref_pseudo_word_timing=ref_pseudo_word_timing,
+        hypothesis_sort=hypothesis_sort,
+        reference_sort=reference_sort,
+        uem=uem, partial=partial,
+        normalizer=normalizer,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out, wer_name='greedy-DI-tcpWER')
+
+
 def _merge(
         files: 'list[str]',
         out: str = '-',
@@ -695,6 +723,7 @@ def cli():
     cli.add_command(tcpwer)
     cli.add_command(tcorcwer)
     cli.add_command(greedy_dicpwer)
+    cli.add_command(greedy_ditcpwer)
     cli.add_command(greedy_tcorcwer)
     cli.add_command(merge)
     cli.add_command(average)
