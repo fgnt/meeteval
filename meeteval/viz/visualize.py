@@ -162,13 +162,12 @@ def get_alignment(data, alignment_type, collar=5):
                 r.setdefault('matches', []).append((h['word_index'], 'substitution'))
 
 
-def solve_stream_assignment(ref, hyp, assignment):
+def get_error_rate(ref, hyp, assignment):
     """
     Computes the word error rate and applies the assignment to the reference and hypothesis.
     """
     if assignment == 'cp':
         wer = meeteval.wer.wer.cp.cp_word_error_rate(ref, hyp)
-        ref, hyp = wer.apply_assignment(ref, hyp)
     elif assignment == 'tcp':
         wer = meeteval.wer.wer.time_constrained.time_constrained_minimum_permutation_word_error_rate(
             ref, hyp,
@@ -178,9 +177,8 @@ def solve_stream_assignment(ref, hyp, assignment):
             reference_pseudo_word_level_timing='character_based',
             hypothesis_pseudo_word_level_timing='character_based_points',
         )
-        ref, hyp = wer.apply_assignment(ref, hyp)
     elif assignment == 'tcorc':
-        wer = meeteval.wer.wer.time_constrained_orc.time_constrained_orc_wer(
+        wer = meeteval.wer.wer.time_constrained_orc_wer(
             ref, hyp,
             collar=5,
             reference_sort='segment',
@@ -194,7 +192,8 @@ def solve_stream_assignment(ref, hyp, assignment):
         ref, hyp = wer.apply_assignment(ref, hyp)
     else:
         raise ValueError(assignment)
-    return wer, ref, hyp
+    
+    return wer
 
 
 def add_overlap_shift(utterances: SegLST):
@@ -253,12 +252,17 @@ def add_overlap_shift(utterances: SegLST):
 
 
 
-def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment_transform=None):
+def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment_transform=None, precomputed_error_rate=None):
     """
     Generates the data structure as required by the visualization frontend.
 
     Solves the stream assignment problem and computes the alignment between the reference and hypothesis.
     Then, computes additional useful information for display in the visualization.
+
+    Args:
+        precomputed_error_rate: A precomputed `ErrorRate` object with a `apply_assignment` method. If given, 
+            the alignment will be applied to the reference and hypothesis.
+            Note that this assigment should match the `assignment` parameter. If not, the visualization will be incorrect.
     """
     ref = asseglst(ref)
     hyp = asseglst(hyp)
@@ -277,7 +281,11 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
     hyp = hyp.map(lambda s: {**s, 'stream': s['speaker']})
 
     # Get and apply stream assignment
-    wer, ref, hyp = solve_stream_assignment(ref, hyp, assignment)
+    if precomputed_error_rate is not None:
+        wer = precomputed_error_rate
+    else:
+        wer = get_error_rate(ref, hyp, assignment)
+    ref, hyp = wer.apply_assignment(ref, hyp)
     align_type = 'time_constrained' if assignment in ['tcp', 'tcorc'] else 'levenshtein'
 
     if alignment_transform is None:
@@ -430,6 +438,7 @@ class AlignmentVisualization:
             recording_file: 'str | Path | dict[str, str | Path]' = None,
             js_debug=False,  # If True, don't embed js (and css) code and use absolute paths
             sync_id=None,
+            precomputed_error_rate=None,   # A precomputed assignment. Saves computation
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -457,6 +466,7 @@ class AlignmentVisualization:
             recording_file = {'': ''}
         self.recording_file = recording_file
         self.sync_id = sync_id
+        self.precomputed_error_rate = precomputed_error_rate
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -480,8 +490,12 @@ class AlignmentVisualization:
     @cached_property
     def data(self):
         d = get_visualization_data(
-            self.reference, self.hypothesis, assignment=self.alignment,
-                                   alignment_transform=self.alignment_transform)
+            self.reference, 
+            self.hypothesis, 
+            assignment=self.alignment,
+            alignment_transform=self.alignment_transform,
+            precomputed_error_rate=self.precomputed_error_rate,
+        )
         d['markers'] = self.markers
         return d
 

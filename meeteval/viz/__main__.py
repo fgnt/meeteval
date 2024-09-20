@@ -16,14 +16,45 @@ def create_viz_folder(
         regex=None,
         normalizer=None,
         js_debug=False,
+        per_reco_file=None,
 ):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
 
+
+    if isinstance(alignments, str):
+        alignments = alignments.split(',')
+
+    if per_reco_file is not None:
+        assert len(alignments) == len(per_reco_file), alignments
+
+        error_rate_classes = {
+            'tcp': meeteval.wer.CPErrorRate,
+            'cp': meeteval.wer.CPErrorRate,
+            'tcorc': meeteval.wer.OrcErrorRate,
+            'orc': meeteval.wer.OrcErrorRate,
+        }
+
+        def load_per_reco_file(alignment, f):
+            from meeteval.wer.__main__ import _load
+
+            error_rate_cls = error_rate_classes[alignment]
+
+            return {
+                session_id: error_rate_cls.from_dict(pr)
+                for session_id, pr in _load(Path(f)).items()
+            }
+        per_reco = {
+            alignment: load_per_reco_file(alignment, f)
+            for alignment, f in zip(alignments, per_reco_file)
+        }
+    else:
+        per_reco = collections.defaultdict(lambda: collections.defaultdict(lambda: None))
+
     avs = {}
     for (i, hypothesis), alignment in tqdm.tqdm(list(itertools.product(
             hypothesiss.items(),
-            alignments.split(','),
+            alignments,
     ))):
 
         r, h = _load_texts(
@@ -43,11 +74,14 @@ def create_viz_folder(
             print(f'Ignore {xor}, because they are not available in reference and hypothesis.')
 
         for session_id in tqdm.tqdm(session_ids):
-            av = AlignmentVisualization(r[session_id],
-                                        h[session_id],
-                                        alignment=alignment,
-                                        js_debug=js_debug,
-                                        sync_id=1)
+            av = AlignmentVisualization(
+                r[session_id],
+                h[session_id],
+                alignment=alignment,
+                js_debug=js_debug,
+                sync_id=1,
+                precomputed_error_rate=per_reco[alignment][session_id],
+            )   
             av.dump(out / f'{session_id}_{i}_{alignment}.html')
             avs.setdefault((i, alignment), {})[session_id] = av
 
@@ -105,7 +139,7 @@ def create_viz_folder(
                 pass
             doc.asis('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">')
             with tag('style'):
-                n = len(alignments.split(','))
+                n = len(alignments)
                 doc.asis(f'''
                     /* Center table */
                     body {{
@@ -143,7 +177,7 @@ def create_viz_folder(
                             with tag('th', ('data-sorter', "false"), colspan=len(list(item))):
                                 doc.text(system)
 
-                        if ',' in alignments or len(hypothesiss) > 1:
+                        if len(alignments) > 1 or len(hypothesiss) > 1:
                             with tag('th', ('data-sorter', "false"), colspan=2):
                                 with tag('span', klass='synced-view'):
                                     pass
@@ -159,7 +193,7 @@ def create_viz_folder(
                                 with tag('span', klass='number'):
                                     doc.text(get_wer(v))
 
-                        if ',' in alignments or len(hypothesiss) > 1:
+                        if len(alignments) > 1 or len(hypothesiss) > 1:
                             with tag('th', ('data-sorter', "false"), colspan=2):
                                 doc.text("Side-by-side views")
 
@@ -232,6 +266,7 @@ def html(
         normalizer=None,
         out='viz',
         js_debug=False,
+        per_reco_file=None,
 ):
     def prepare(i: int, h: str):
         if ':' in h and not Path(h).exists():
@@ -259,6 +294,7 @@ def html(
         regex=regex,
         normalizer=normalizer,
         js_debug=js_debug,
+        per_reco_file=per_reco_file,
     )
 
 
@@ -290,6 +326,14 @@ def cli():
                     '--js-debug',
                     action='store_true',
                     help='Add a debug flag to the HTML output to enable debugging in the browser.'
+                )
+            elif name == 'per_reco_file':
+                command_parser.add_argument(
+                    '--per-reco-file',
+                    help='A precomputed per-reco file. Loads the WER and (stream) '
+                         'assignment information from this file instead of computing it.',
+                    default=None,
+                    nargs='+',
                 )
             else:
                 return super().add_argument(command_parser, name, p)
