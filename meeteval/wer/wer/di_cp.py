@@ -11,6 +11,8 @@ __all__ = [
     'DICPErrorRate',
     'greedy_di_cp_word_error_rate',
     'greedy_di_cp_word_error_rate_multifile',
+    'greedy_di_tcp_word_error_rate',
+    'greedy_di_tcp_word_error_rate_multifile',
     'apply_dicp_assignment',
 ]
 
@@ -114,7 +116,7 @@ def greedy_di_cp_word_error_rate_multifile(
 def greedy_di_tcp_word_error_rate(
         reference,
         hypothesis,
-            reference_pseudo_word_level_timing='character_based',
+        reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         collar: int = 0,
         reference_sort='segment',
