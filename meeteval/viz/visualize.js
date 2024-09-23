@@ -2096,7 +2096,7 @@ class CanvasPlot {
                     const x_ = x + d.width / 2;
                     context.font = `italic ${settings.font_size * this.plot.dpr}px Arial`;
                     context.fillStyle = "gray";
-                    context.fillText('(empty segment)', x_, (this.plot.y(d.start_time) + this.plot.y(d.end_time)) / 2);
+                    context.fillText('(empty)', x_, (this.plot.y(d.start_time) + this.plot.y(d.end_time)) / 2);
                 }
             });
 
