@@ -312,6 +312,8 @@ def cli():
                     help='Specifies which assigment and alignment are used. If a time-constrained algorithm is '
                          'selected for the stream assignment, then a time-constrained alignment will be computed, '
                          'otherwise the "classical" alignment without a time constraint is used.\n'
+                         'Multiple alignments can be specified to generate multiple visualizations with a single '
+                         'merged overview table and side-by-side views.\n'
                          'Choices:\n'
                          '- cp: cpWER and "classical" alignment\n'
                          '- tcp: tcpWER and time-constrained alignment\n'
@@ -341,7 +343,9 @@ def cli():
                 command_parser.add_argument(
                     '--per-reco-file',
                     help='A precomputed per-reco file. Loads the WER and (stream) '
-                         'assignment information from this file instead of computing it.',
+                         'assignment information from this file instead of computing it. '
+                         'If supplied, the number of files must match the number of alignments specified '
+                         'with --alignment.',
                     default=None,
                     nargs='+',
                 )
