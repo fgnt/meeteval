@@ -96,24 +96,6 @@ def create_viz_folder(
             avs_T[session_id][i] = av
     avs_T = dict(avs_T)
 
-    for session_id, v in avs_T.items():
-        doc, tag, text = Doc().tagtext()
-        doc.asis('<!DOCTYPE html>')
-
-        # With 100 % there is a scroll bar -> use 99 %
-        with tag('html', style="height: 99%; margin: 0;"):
-            with tag('body', style="width: 100%; height: 100%; margin: 0; display: flex;"):
-                for (i, alignment), av in v.items():
-                    with tag('div', style='flex-grow: 1'):
-                        with tag('iframe', src=f'{session_id}_{i}_{alignment}.html',
-                                 title="right", width="100%",
-                                 height="100%", style="border-width: 0"):
-                            pass
-
-        file = out / f"{session_id}.html"
-        file.write_text(indent(doc.getvalue()))
-        print(f'Wrote file://{file.absolute()}')
-
     ###########################################################################
 
     from yattag import Doc
@@ -214,12 +196,9 @@ def create_viz_folder(
 
                             if len(v) > 1:
                                 with tag('td'):
-                                    with tag('a', href=f'{session_id}.html'):
-                                        doc.text('SideBySide')
-                                with tag('td'):
-                                    tags = '&'.join(f'{session_id}_{i}_{a}' for i, a in v.keys())
+                                    tags = '&'.join(f'{session_id}_{i}_{a}.html' for i, a in v.keys())
                                     with tag('a', href=f'side_by_side_sync.html?{tags}'):
-                                        doc.text('SydeBySide Synced')
+                                        doc.text('SydeBySide')
             doc.asis('''
 <script>
     $(document).ready(function() {
