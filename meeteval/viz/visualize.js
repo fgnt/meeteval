@@ -508,6 +508,9 @@ function alignment_visualization(
         // get in the way of the user. It is still slow enough to get a sense of the
         // movement direction and distance. Without the animation, the user can 
         // easily lose track of the position.
+        // It can happen that this animation stutters due to the throttling of the
+        // update function when other update events arrive at the same time or the
+        // timers interfere
         const target_location = viewArea;
         const start_location = state.viewAreas[i];
         clearInterval(animationIntervalID);
@@ -525,7 +528,7 @@ function alignment_visualization(
         step(); // Do first update immediately for instant feedback
     }
 
-    function selectSegment(segment, focus=false) {
+    function selectSegment(segment, focus=false, keepZoom=false) {
         if (state.selectedSegment != segment) {
             state.selectedSegment = segment;
             state.dirty[state.dirty.length - 1] = true;
@@ -533,7 +536,16 @@ function alignment_visualization(
             update();
         }
 
-        if (focus && segment) animateToViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+        if (focus && segment) {
+            if (keepZoom) {
+                // Move such that the center point of the segment is in the center of the view area
+                const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
+                const c = (segment.start_time + segment.end_time) / 2;
+                animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
+            } else {
+                animateToViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+            }
+        }
     }
 
     /**
@@ -543,16 +555,16 @@ function alignment_visualization(
      * 
      * If no next segment is found for which condition is true, the segment will be unselected.
      */
-    function selectNextMatchingSegment(condition, focus=true, reverse=false) {
+    function selectNextMatchingSegment(condition, focus=true, reverse=false, keepZoom=false) {
         let candidates;
         if (reverse) {
             candidates = data.utterances.slice(0, state.selectedSegment?.utterance_index).reverse();
         } else {
             candidates = data.utterances.slice(state.selectedSegment?.utterance_index + 1);
         }
-        console.log(candidates, condition)
         const segment = candidates.find(condition);
-        selectSegment(segment, focus);
+        selectSegment(segment, focus, keepZoom);
+        return segment;
     }
 
     if (settings.syncID !== null) {
@@ -1304,26 +1316,33 @@ class CanvasPlot {
             this.state = state;
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
             this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
+            this.matched_words_indices = []; // Indices of words that match the regex needed for jumping between matches
+            this.current_focus_index = null;    // The currently focused word, indexing into matched_words_indices
 
             if (initial_query) this.text_input.node().value = initial_query;
 
             // Start search when clicking on the button
             this.match_number = this.container.append("div").classed("match-number", true);
             this.search_button = this.container.append("button").text("Search").on("click", () => this.search(this.text_input.node().value));
-            this.prev_button = this.container.append("button").text("<").on("click", () => selectNextMatchingSegment(u => u.highlight, true, true));
-            this.next_button = this.container.append("button").text(">").on("click", () => selectNextMatchingSegment(u => u.highlight, true, false));
+            this.prev_button = this.container.append("button").text("<").on("click", () => selectNextMatchingSegment(u => u.highlight, true, true, true));
+            this.next_button = this.container.append("button").text(">").on("click", () => selectNextMatchingSegment(u => u.highlight, true, false, true));
 
-            // Start search on Ctrl + Enter
+            // Start search on Enter
             this.text_input.on("keydown", (event) => {
                 if (event.key === "Enter") {
-                    this.search(this.text_input.node().value);
+                    this.search(this.text_input.node().value, event.shiftKey);
                 }
             });
         }
 
-        search(regex) {
+        search(regex, reverse=false) {
             if (regex !== this.last_search) {
                 this.last_search = regex;
+                if (this.current_focus_index !== null) {
+                    this.state.words[this.matched_words_indices[this.current_focus_index]].focused = false;
+                }
+                this.matched_words_indices = [];
+                this.current_focus_index = null;
 
                 // Test all words against the regex. Use ^ and $ to get full match
                 this.num_matches = 0;
@@ -1332,9 +1351,10 @@ class CanvasPlot {
                     this.state.words.forEach(w => w.highlight = false);
                 } else {
                     const re = new RegExp("^" + regex + "$", "i");
-                    for (const w of this.state.words) {
+                    for (const [index, w] of this.state.words.entries()) {
                         w.highlight = re.test(w.words);
                         if (w.highlight) {
+                            this.matched_words_indices.push(index);
                             data.utterances[w.utterance_index].highlight = true;
                             this.num_matches++;
                         }
@@ -1359,11 +1379,31 @@ class CanvasPlot {
                 // Update URL
                 set_url_param('regex', regex)
             } else {
-                // Select the first/next occurence, but only on second hit of the search button / 
+                // Select the first/next occurrence, but only on second hit of the search button /
                 // enter key. We don't want to change the selection immediately
-                if (this.num_matches > 0) selectNextMatchingSegment(u => u.highlight, true, false);
-            }
+                if (this.num_matches > 0) {
+                    if (this.current_focus_index === null) {
+                        if (reverse) this.current_focus_index = this.matched_words_indices.length - 1;
+                        else this.current_focus_index = 0;
+                    } else {
+                        this.state.words[this.matched_words_indices[this.current_focus_index]].focused = false;
+                        this.current_focus_index = this.current_focus_index + (reverse ? -1 : 1);
+                    }
+                    if (this.current_focus_index < 0 || this.current_focus_index > this.matched_words_indices.length - 1){
+                        this.current_focus_index = null;
+                    }
+                    if (this.current_focus_index !== null) {
+                        const word_index = this.matched_words_indices[this.current_focus_index];
+                        const word = this.state.words[word_index];
+                        word.focused = true;
 
+                        // Move such that the center point of the segment is in the center of the view area
+                        const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
+                        const c = (word.start_time + word.end_time) / 2;
+                        animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
+                    }
+                }
+            }
         }
     }
 
@@ -2003,6 +2043,13 @@ class CanvasPlot {
                     context.strokeStyle = settings.colors.highlight;
                     context.lineWidth = 20;
                     context.stroke();
+
+                    // Draw a narrower outer box border in "highlight orange"
+                    if (d.focused) {
+                        context.strokeStyle = '#ffa500';
+                        context.lineWidth = 10;
+                        context.stroke();
+                    }
                     context.restore();
                 }
 
