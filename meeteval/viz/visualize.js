@@ -2318,7 +2318,7 @@ class CanvasPlot {
                         warning_field.style("display", "block")
                         audio.remove();
                         fallback_text_box.text(value + ' ');
-                        fallback_text_box.append('div').html(icons['warning']);
+                        fallback_text_box.append('div').style("display", "inline-block").html(icons['warning']);
                     }
                 };
                 audio.on('error', on_error_fn)
