@@ -503,20 +503,15 @@ function alignment_visualization(
     let animationIntervalID = null;
     function animateToViewArea(i, viewArea) {
         // Animate view area to the location of the segment.
-        // The animation plays for 4 steps over 80ms.
-        // This is deliberately chosen like this so that the animation does not 
-        // get in the way of the user. It is still slow enough to get a sense of the
-        // movement direction and distance. Without the animation, the user can 
-        // easily lose track of the position.
-        // It can happen that this animation stutters due to the throttling of the
-        // update function when other update events arrive at the same time or the
-        // timers interfere
+        // This animation is intentionally quick as to not distract the user 
+        // or disturb the workflow. It is meant to give a quick visual feedback
+        // about the context / direction of movement.
         const target_location = viewArea;
         const start_location = state.viewAreas[i];
         clearInterval(animationIntervalID);
         let j = 0;
         const step = () => {
-            j += 0.25;
+            j += 0.08;
             if (j >= 1) j = 1;
             const a = easeOutSine(j);
             setViewArea(i, [start_location[0] * (1 - a) + target_location[0]*a, start_location[1] * (1 - a) + target_location[1]*a]); 
@@ -1324,8 +1319,8 @@ class CanvasPlot {
             // Start search when clicking on the button
             this.match_number = this.container.append("div").classed("match-number", true);
             this.search_button = this.container.append("button").text("Search").on("click", () => this.search(this.text_input.node().value));
-            this.prev_button = this.container.append("button").text("<").on("click", () => selectNextMatchingSegment(u => u.highlight, true, true, true));
-            this.next_button = this.container.append("button").text(">").on("click", () => selectNextMatchingSegment(u => u.highlight, true, false, true));
+            this.prev_button = this.container.append("button").text("<").on("click", () => this.search(this.text_input.node().value, true));
+            this.next_button = this.container.append("button").text(">").on("click", () => this.search(this.text_input.node().value, false));
 
             // Start search on Enter
             this.text_input.on("keydown", (event) => {
@@ -1397,10 +1392,17 @@ class CanvasPlot {
                         const word = this.state.words[word_index];
                         word.focused = true;
 
-                        // Move such that the center point of the segment is in the center of the view area
-                        const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
-                        const c = (word.start_time + word.end_time) / 2;
-                        animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
+                        // Move such that the word is in the center of the view area
+                        const [start, end] = state.viewAreas[state.viewAreas.length - 1];
+                        if (start > word.start_time || end < word.end_time) {
+                            const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
+                            const c = (word.start_time + word.end_time) / 2;
+                            animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
+                        } else {
+                            state.dirty[state.dirty.length - 1] = true;
+                            update();
+                        }
+                        selectSegment(data.utterances[word.utterance_index]);
                     }
                 }
             }
@@ -2029,28 +2031,23 @@ class CanvasPlot {
                 if (d.matches?.length > 0) {
                     context.fillStyle = settings.colors[d.matches[0][1]];
                     context.fill();
-
-                    // Draw box border
-                    context.strokeStyle = "gray";
-                    context.lineWidth = 2;
-                    if (draw_boxes) context.stroke();
                 }
-                
+
                 // Draw inner box border with highlight color
-                if (d.highlight){
+                if (d.highlight && d.focused){
                     context.save();
                     context.clip(); // Clip to the box so that it doesn't overlap with other words
                     context.strokeStyle = settings.colors.highlight;
                     context.lineWidth = 20;
                     context.stroke();
-
-                    // Draw a narrower outer box border in "highlight orange"
-                    if (d.focused) {
-                        context.strokeStyle = '#ffa500';
-                        context.lineWidth = 10;
-                        context.stroke();
-                    }
                     context.restore();
+                }
+
+                // Draw box border
+                if (d.matches?.length > 0) {
+                    context.strokeStyle = "gray";
+                    context.lineWidth = 2;
+                    if (draw_boxes) context.stroke();
                 }
 
                 // Draw (stub) stitches for insertion / deletion
@@ -2099,8 +2096,22 @@ class CanvasPlot {
                 const utterance = this.utterances[d['utterance_index']];
                 let x = utterance.x + utterance.width / 2;  // Center of the utterance
                 let y_ = this.plot.y((d.start_time + d.end_time) / 2);
+
+                if (d.highlight) {
+                    // Color text background with highlight color
+                    const textMetrics = context.measureText(d.words);
+                    context.fillStyle = settings.colors.highlight;
+                    context.fillRect(
+                        x - textMetrics.width / 2 - 3,
+                        y_ - (textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent) / 2,
+                        textMetrics.width + 6,
+                        textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent
+                    );
+                }
+
                 if (d.matches === undefined) context.fillStyle = "gray";
                 else context.fillStyle = '#000';
+
                 context.fillText(d.words, x, y_);
             })
 
