@@ -194,3 +194,9 @@ def test_viz_html():
     run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=tcp')
     run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=cp')
     run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --out=viz')
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment cp tcorc')
+
+    # Test loading a precomputed assignment
+    run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --per-reco-out hyp_cpwer_per_reco.json')
+    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --per-reco-out hyp_tcorcwer_per_reco.json --collar 5')
+    run(f'meeteval-viz html -h hyp.stm -r ref.stm --alignment cp tcorc --per-reco-file hyp_cpwer_per_reco.json hyp_tcorcwer_per_reco.json')

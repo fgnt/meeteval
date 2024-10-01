@@ -269,8 +269,16 @@ function alignment_visualization(
         audio_server: 'http://localhost:7777',
         syncID: null,
         encodeURL: true,
+        show_playhead: true,    // Show the current position of audio playback in the details plot
     }
 ) {
+
+    window.parent.postMessage({
+        type: 'url',
+        url: window.location.href,
+        }, '*'
+    )
+
     if (settings.font_size === undefined) {
         // The default from the function signature doesn't work.
         settings.font_size = 12;
@@ -368,6 +376,9 @@ function alignment_visualization(
         words: data.words,
         // Track which viewAreas changed
         dirty: [],
+        // Track current playback time
+        playbackTime: null,
+        playbackDirty: false,
     };
 
     function initializeViewAreas(domain, finalViewArea=null) {
@@ -442,6 +453,11 @@ function alignment_visualization(
                 );
             }
 
+            // Update playhead
+            if (state.playbackDirty) {
+                details_plot.updatePlayhead(state.playbackTime);
+                state.playbackDirty = false;
+            }
         }, drawTracker, 20);
 
          // Update URL
@@ -487,17 +503,15 @@ function alignment_visualization(
     let animationIntervalID = null;
     function animateToViewArea(i, viewArea) {
         // Animate view area to the location of the segment.
-        // The animation plays for 4 steps over 80ms.
-        // This is deliberately chosen like this so that the animation does not 
-        // get in the way of the user. It is still slow enough to get a sense of the
-        // movement direction and distance. Without the animation, the user can 
-        // easily lose track of the position.
+        // This animation is intentionally quick as to not distract the user 
+        // or disturb the workflow. It is meant to give a quick visual feedback
+        // about the context / direction of movement.
         const target_location = viewArea;
         const start_location = state.viewAreas[i];
         clearInterval(animationIntervalID);
         let j = 0;
         const step = () => {
-            j += 0.25;
+            j += 0.08;
             if (j >= 1) j = 1;
             const a = easeOutSine(j);
             setViewArea(i, [start_location[0] * (1 - a) + target_location[0]*a, start_location[1] * (1 - a) + target_location[1]*a]); 
@@ -509,7 +523,7 @@ function alignment_visualization(
         step(); // Do first update immediately for instant feedback
     }
 
-    function selectSegment(segment, focus=false) {
+    function selectSegment(segment, focus=false, keepZoom=false) {
         if (state.selectedSegment != segment) {
             state.selectedSegment = segment;
             state.dirty[state.dirty.length - 1] = true;
@@ -517,7 +531,16 @@ function alignment_visualization(
             update();
         }
 
-        if (focus && segment) animateToViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+        if (focus && segment) {
+            if (keepZoom) {
+                // Move such that the center point of the segment is in the center of the view area
+                const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
+                const c = (segment.start_time + segment.end_time) / 2;
+                animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
+            } else {
+                animateToViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
+            }
+        }
     }
 
     /**
@@ -527,7 +550,7 @@ function alignment_visualization(
      * 
      * If no next segment is found for which condition is true, the segment will be unselected.
      */
-    function selectNextMatchingSegment(condition, focus=true, reverse=false) {
+    function selectNextMatchingSegment(condition, focus=true, reverse=false, keepZoom=false) {
         let candidates;
         if (reverse) {
             candidates = data.utterances.slice(0, state.selectedSegment?.utterance_index).reverse();
@@ -535,7 +558,8 @@ function alignment_visualization(
             candidates = data.utterances.slice(state.selectedSegment?.utterance_index + 1);
         }
         const segment = candidates.find(condition);
-        selectSegment(segment, focus);
+        selectSegment(segment, focus, keepZoom);
+        return segment;
     }
 
     if (settings.syncID !== null) {
@@ -961,9 +985,13 @@ class CanvasPlot {
      *       The canvas has the size of the number of pixels of the display to
      *       ensure sharp rendering. In html we have to use different numbers.
      */
-    constructor(element, x_scale, y_scale, xAxis, yAxis, invert_y=false) {
+    constructor(element, x_scale, y_scale, xAxis, yAxis, invert_y=false, layers=1) {
         this.element = element.style('position', 'relative');
-        this.canvas = this.element.append("canvas").style("width", "100%").style("height", "100%").style("position", "absolute").style("top", 0).style("left", 0);
+        this.layers = [];
+        for (let i = 0; i < layers; i++) {
+            this.layers.push(this.element.append("canvas").style("width", "100%").style("height", "100%").style("position", "absolute").style("top", 0).style("left", 0));
+        }
+        this.canvas = this.layers[0];
 
         this.context = this.canvas.node().getContext("2d")
         this.xAxis = xAxis;
@@ -1013,11 +1041,13 @@ class CanvasPlot {
         this.width = this.width_html * this.dpr;
         this.height = this.height_html * this.dpr;
 
-        this.canvas.attr("width", this.width);
-        this.canvas.attr("height", this.height);
-        // The canvas size must match the pixel size exactly
-        this.canvas.style("width", this.width_html + "px");
-        this.canvas.style("height", this.height_html + "px");
+        this.layers.forEach(l => {
+            l.attr("width", this.width);
+            l.attr("height", this.height);
+            // The canvas size must match the pixel size exactly
+            l.style("width", this.width_html + "px");
+            l.style("height", this.height_html + "px");
+        });
         this.x.range([this.y_axis_padding, this.width])
         if (this.invert_y) {
             this.y.range([0, this.height - this.x_axis_padding])
@@ -1070,8 +1100,16 @@ class CanvasPlot {
         menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "1").attr("max", "90").classed("slider", true).attr("step", 1).on("input", function () {
             settings.match_width = parseInt(this.value) / 100;
             state.dirty[state.dirty.length - 1] = true;
+            details_plot.precompute_utterance_positions();
             update();
         }).node().value = settings.match_width * 100;
+        menuElement = m.append("div").classed("menu-element", true)
+        menuElement.append("div").classed("menu-label", true).text("Show Playhead:");
+        menuElement.append("input").classed("menu-control", true).attr("type", "checkbox").on("change", function () {
+            settings.show_playhead = this.checked;
+            state.dirty[state.dirty.length - 1] = true;
+            selectedUtteranceDetails.update(state.selectedSegment);
+        }).node().checked = settings.show_playhead;
 
         // Minimaps
         m.append("div").classed("divider", true);
@@ -1274,26 +1312,33 @@ class CanvasPlot {
             this.state = state;
             this.container = container.append("div").classed("pill", true).classed("search-bar", true);
             this.text_input = this.container.append("input").attr("type", "text").attr("placeholder", "Regex (e.g., s?he)...");
+            this.matched_words_indices = []; // Indices of words that match the regex needed for jumping between matches
+            this.current_focus_index = null;    // The currently focused word, indexing into matched_words_indices
 
             if (initial_query) this.text_input.node().value = initial_query;
 
             // Start search when clicking on the button
             this.match_number = this.container.append("div").classed("match-number", true);
             this.search_button = this.container.append("button").text("Search").on("click", () => this.search(this.text_input.node().value));
-            this.prev_button = this.container.append("button").text("<").on("click", () => selectNextMatchingSegment(u => u.highlight, true, true));
-            this.next_button = this.container.append("button").text(">").on("click", () => selectNextMatchingSegment(u => u.highlight, true, false));
+            this.prev_button = this.container.append("button").text("<").on("click", () => this.search(this.text_input.node().value, true));
+            this.next_button = this.container.append("button").text(">").on("click", () => this.search(this.text_input.node().value, false));
 
-            // Start search on Ctrl + Enter
+            // Start search on Enter
             this.text_input.on("keydown", (event) => {
                 if (event.key === "Enter") {
-                    this.search(this.text_input.node().value);
+                    this.search(this.text_input.node().value, event.shiftKey);
                 }
             });
         }
 
-        search(regex) {
+        search(regex, reverse=false) {
             if (regex !== this.last_search) {
                 this.last_search = regex;
+                if (this.current_focus_index !== null) {
+                    this.state.words[this.matched_words_indices[this.current_focus_index]].focused = false;
+                }
+                this.matched_words_indices = [];
+                this.current_focus_index = null;
 
                 // Test all words against the regex. Use ^ and $ to get full match
                 this.num_matches = 0;
@@ -1302,9 +1347,10 @@ class CanvasPlot {
                     this.state.words.forEach(w => w.highlight = false);
                 } else {
                     const re = new RegExp("^" + regex + "$", "i");
-                    for (const w of this.state.words) {
+                    for (const [index, w] of this.state.words.entries()) {
                         w.highlight = re.test(w.words);
                         if (w.highlight) {
+                            this.matched_words_indices.push(index);
                             data.utterances[w.utterance_index].highlight = true;
                             this.num_matches++;
                         }
@@ -1329,11 +1375,38 @@ class CanvasPlot {
                 // Update URL
                 set_url_param('regex', regex)
             } else {
-                // Select the first/next occurence, but only on second hit of the search button / 
+                // Select the first/next occurrence, but only on second hit of the search button /
                 // enter key. We don't want to change the selection immediately
-                if (this.num_matches > 0) selectNextMatchingSegment(u => u.highlight, true, false);
-            }
+                if (this.num_matches > 0) {
+                    if (this.current_focus_index === null) {
+                        if (reverse) this.current_focus_index = this.matched_words_indices.length - 1;
+                        else this.current_focus_index = 0;
+                    } else {
+                        this.state.words[this.matched_words_indices[this.current_focus_index]].focused = false;
+                        this.current_focus_index = this.current_focus_index + (reverse ? -1 : 1);
+                    }
+                    if (this.current_focus_index < 0 || this.current_focus_index > this.matched_words_indices.length - 1){
+                        this.current_focus_index = null;
+                    }
+                    if (this.current_focus_index !== null) {
+                        const word_index = this.matched_words_indices[this.current_focus_index];
+                        const word = this.state.words[word_index];
+                        word.focused = true;
 
+                        // Move such that the word is in the center of the view area
+                        const [start, end] = state.viewAreas[state.viewAreas.length - 1];
+                        if (start > word.start_time || end < word.end_time) {
+                            const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
+                            const c = (word.start_time + word.end_time) / 2;
+                            animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
+                        } else {
+                            state.dirty[state.dirty.length - 1] = true;
+                            update();
+                        }
+                        selectSegment(data.utterances[word.utterance_index]);
+                    }
+                }
+            }
         }
     }
 
@@ -1643,7 +1716,8 @@ class CanvasPlot {
     class DetailsPlot {
         constructor(plot, state, utterances, markers, initial=null) {
             this.plot = plot;
-            this.plot.element.classed("plot", true)
+            this.plot.element.classed("plot", true);
+
             this.state = state;
             this.utterances = utterances;
             this.filtered_utterances = utterances;
@@ -1834,6 +1908,24 @@ class CanvasPlot {
             this.plot.onSizeChanged(this.draw.bind(this));
         }
 
+        updatePlayhead(time) {
+            this.playhead = time;
+            this.drawPlayhead();
+        }
+
+        drawPlayhead() {
+            if (!settings.show_playhead) return;
+            const context = this.plot.layers[1].node().getContext('2d');
+            context.clearRect(0, 0, this.plot.width, this.plot.height);
+            // Draw horizontal line at playhead position
+            context.strokeStyle = "green";
+            context.lineWidth = 2;
+            context.beginPath();
+            context.moveTo(0, this.plot.y(this.playhead));
+            context.lineTo(this.plot.width, this.plot.y(this.playhead));
+            context.stroke();
+        }
+
         drawDetails() {
             const filtered_words = this.filtered_words;
 
@@ -1940,21 +2032,23 @@ class CanvasPlot {
                 if (d.matches?.length > 0) {
                     context.fillStyle = settings.colors[d.matches[0][1]];
                     context.fill();
-
-                    // Draw box border
-                    context.strokeStyle = "gray";
-                    context.lineWidth = 2;
-                    if (draw_boxes) context.stroke();
                 }
-                
+
                 // Draw inner box border with highlight color
-                if (d.highlight){
+                if (d.highlight && d.focused){
                     context.save();
                     context.clip(); // Clip to the box so that it doesn't overlap with other words
                     context.strokeStyle = settings.colors.highlight;
                     context.lineWidth = 20;
                     context.stroke();
                     context.restore();
+                }
+
+                // Draw box border
+                if (d.matches?.length > 0) {
+                    context.strokeStyle = "gray";
+                    context.lineWidth = 2;
+                    if (draw_boxes) context.stroke();
                 }
 
                 // Draw (stub) stitches for insertion / deletion
@@ -2003,8 +2097,22 @@ class CanvasPlot {
                 const utterance = this.utterances[d['utterance_index']];
                 let x = utterance.x + utterance.width / 2;  // Center of the utterance
                 let y_ = this.plot.y((d.start_time + d.end_time) / 2);
+
+                if (d.highlight) {
+                    // Color text background with highlight color
+                    const textMetrics = context.measureText(d.words);
+                    context.fillStyle = settings.colors.highlight;
+                    context.fillRect(
+                        x - textMetrics.width / 2 - 3,
+                        y_ - (textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent) / 2,
+                        textMetrics.width + 6,
+                        textMetrics.fontBoundingBoxAscent + textMetrics.fontBoundingBoxDescent
+                    );
+                }
+
                 if (d.matches === undefined) context.fillStyle = "gray";
                 else context.fillStyle = '#000';
+
                 context.fillText(d.words, x, y_);
             })
 
@@ -2047,7 +2155,7 @@ class CanvasPlot {
                     const x_ = x + d.width / 2;
                     context.font = `italic ${settings.font_size * this.plot.dpr}px Arial`;
                     context.fillStyle = "gray";
-                    context.fillText('(empty segment)', x_, (this.plot.y(d.start_time) + this.plot.y(d.end_time)) / 2);
+                    context.fillText('(empty)', x_, (this.plot.y(d.start_time) + this.plot.y(d.end_time)) / 2);
                 }
             });
 
@@ -2090,6 +2198,7 @@ class CanvasPlot {
         draw() {
             this.plot.clear();
             this.drawDetails();
+            this.drawPlayhead();
             this.plot.drawAxes();
         }
 
@@ -2173,6 +2282,21 @@ class CanvasPlot {
                     .attr("src", trials.shift())  // pop the first entry from trials
                     .text(value);
 
+                if (settings.show_playhead) {
+                    let playheadTimer;
+                    audio.on('play', e => {
+                        playheadTimer = setInterval(() => {
+                            state.playbackTime = audio.node().currentTime + state.selectedSegment.start_time;
+                            details_plot.updatePlayhead(state.playbackTime);
+                        }, 50);
+                    });
+                    audio.on('pause', e => {
+                        clearInterval(playheadTimer);
+                        state.playbackTime = null;
+                        details_plot.updatePlayhead(state.playbackTime);
+                    });
+                }
+
                 let fallback_text_box = element.append('div').classed("info-value", true)
 
                 // Display tooltip with file path
@@ -2206,7 +2330,7 @@ class CanvasPlot {
                         warning_field.style("display", "block")
                         audio.remove();
                         fallback_text_box.text(value + ' ');
-                        fallback_text_box.append('div').html(icons['warning']);
+                        fallback_text_box.append('div').style("display", "inline-block").html(icons['warning']);
                     }
                 };
                 audio.on('error', on_error_fn)
@@ -2420,7 +2544,7 @@ class CanvasPlot {
             new CanvasPlot(plot_div.append('div').style('flex-grow', '1'),
                 d3.scaleBand().domain(speakers).padding(0.1),
                 d3.scaleLinear().domain(time_domain),
-                new DetailsAxis(30), new Axis(50), true
+                new DetailsAxis(30), new Axis(50), true, 2
             ), state, data.utterances, data.markers,
         )
 
@@ -2436,14 +2560,23 @@ class CanvasPlot {
 
     // Register keyboard handler
     document.addEventListener("keydown", (event) => {
-        switch (event.key) {
-            case "Escape": selectSegment(null); break;
-            // Scroll by 10% of the currently visible range for ArrowUp and ArrowDown. A constant quickly feels too fast or too slow depending on the zoom level.
-            case "ArrowUp": moveBy((state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
-            case "ArrowDown": moveBy(-(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
-            // Scroll by the currently visible range for PageUP and PageDown
-            case "PageUp": moveBy(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]); break;
-            case "PageDown": moveBy(state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]); break;
-        }
+        if (!event.ctrlKey) {
+            switch (event.key) {
+                case "Escape": selectSegment(null); break;
+                // Scroll by 10% of the currently visible range for ArrowUp and ArrowDown. A constant quickly feels too fast or too slow depending on the zoom level.
+                case "ArrowUp": moveBy((state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+                case "ArrowDown": moveBy(-(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]) / 10); break;
+                // Scroll by the currently visible range for PageUP and PageDown
+                case "PageUp": moveBy(state.viewAreas[state.viewAreas.length - 1][0] - state.viewAreas[state.viewAreas.length - 1][1]); break;
+                case "PageDown": moveBy(state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]); break;
+            }
+        } else {
+            switch(event.key) {
+                // Go to previous/next error on Ctrl+ArrowUp/Down
+                // This is useful when the recognition only contains a few errors and the user wants to quickly jump between them
+                case "ArrowUp": selectNextMatchingSegment(u => u.errors > 0, true, true); break;
+                case "ArrowDown": selectNextMatchingSegment(u => u.errors > 0, true, false); break;
+            }
+        } 
     });
 }
