@@ -1100,6 +1100,7 @@ class CanvasPlot {
         menuElement.append("input").classed("menu-control", true).attr("type", "range").attr("min", "1").attr("max", "90").classed("slider", true).attr("step", 1).on("input", function () {
             settings.match_width = parseInt(this.value) / 100;
             state.dirty[state.dirty.length - 1] = true;
+            details_plot.precompute_utterance_positions();
             update();
         }).node().value = settings.match_width * 100;
         menuElement = m.append("div").classed("menu-element", true)
