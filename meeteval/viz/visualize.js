@@ -23,6 +23,13 @@ var colormaps = {
     }
 }
 
+const constants = {
+    utteranceMarkerOverhang: 3,  // Overhang (left and right) of the utterance begin and end markers in pixels
+    utteranceMarkerDepth: 6,   // Depth (height) of the utterance marker bracket in pixels
+    minStitchOffset: 10,  // Minimum distance of the kink in the stitching line to the word in pixels
+    maxViewAreaOverhang: 10, // Maximum time in seconds that the view area can exceed the global domain
+};
+
 /**
  * Throttles a function call. Tracks different instances via `object`.
  *
@@ -127,6 +134,28 @@ function brushExceedsViewArea(viewArea, brushArea, tolerance=0.00001) {
 }
 
 /**
+ * Moves the view area `v` into `bound` if at least one boundary of `v` lies outside of `bound`.
+ * If the size of `v` is larger than `bound`, `v` is clipped to `bound`, resulting in `v = bound`.
+ */
+function moveOrClip(v, bound) {
+    let dirty = false;
+    if (v[0] < bound[0]) {
+        v = [bound[0], v[1] + bound[0] - v[0]];
+        dirty = true;
+    } else if (v[1] > bound[1]) {
+        v = [v[0] + bound[1] - v[1], bound[1]];
+        dirty = true;
+    }
+    if (v[0] < bound[0] || v[1] > bound[1]) {
+        // This can only happen if one of the previous if statements is true, 
+        // so dirty is alread set
+        v = bound;
+    }
+    return [v, dirty];
+}
+
+
+/**
  * Ensures that every entry (index i) lies within its parent (index i - 1).
  *
  * Keeps the viewArea at `anchor` fixed if it doesn't exceed viewAreas[0].
@@ -138,32 +167,12 @@ function adjustViewAreas(viewAreas, anchor, viewArea) {
 
     const oldViewAreas = [...viewAreas];
 
-    // Limit the viewArea to the global domain +/- 10 seconds
-    const maxArea = [viewAreas[0][0] - 10, viewAreas[0][1] + 10];
+    // Limit the viewArea to the global domain +/- constants.maxViewAreaOverhang seconds
+    const maxArea = [viewAreas[0][0] - constants.maxViewAreaOverhang, viewAreas[0][1] + constants.maxViewAreaOverhang];
 
     // Limit zoom to 0.1 seconds
     const minAreaLength = 0.1;
 
-    /**
-     * Moves the view area `v` into `bound` if at least one boundary of `v` lies outside of `bound`.
-     * If the size of `v` is larger than `bound`, `v` is clipped to `bound`, resulting in `v = bound`.
-     */
-    function moveOrClip(v, bound) {
-        let dirty = false;
-        if (v[0] < bound[0]) {
-            v = [bound[0], v[1] + bound[0] - v[0]];
-            dirty = true;
-        } else if (v[1] > bound[1]) {
-            v = [v[0] + bound[1] - v[1], bound[1]];
-            dirty = true;
-        }
-        if (v[0] < bound[0] || v[1] > bound[1]) {
-            // This can only happen if one of the previous if statements is true, 
-            // so dirty is alread set
-            v = bound;
-        }
-        return [v, dirty];
-    }
 
     /**
      * Moves or extends the view area `v` such that `bound` lies within `v`.
@@ -283,12 +292,6 @@ function alignment_visualization(
         // The default from the function signature doesn't work.
         settings.font_size = 12;
     }
-
-    const constants = {
-        utteranceMarkerOverhang: 3,  // Overhang (left and right) of the utterance begin and end markers in pixels
-        utteranceMarkerDepth: 6,   // Depth (height) of the utterance marker bracket in pixels
-        minStitchOffset: 10,  // Minimum distance of the kink in the stitching line to the word in pixels
-    };
 
     var urlParams = new URLSearchParams(window.location.search);
     if (settings.encodeURL && urlParams.has('minimaps')) {
@@ -493,37 +496,54 @@ function alignment_visualization(
         update();
     }
 
-    /**
-     * Easing function for scrolling.
-     */
-    function easeOutSine(x) {
-        return Math.sin((x * Math.PI) / 2);
-    }
-
     let animationIntervalID = null;
     function animateToViewArea(i, viewArea) {
+        if (viewArea[0] > viewArea[1]) {
+            console.error('Invalid view area', viewArea);
+            return;
+        }
+
+        const maxArea = [state.viewAreas[0][0] - constants.maxViewAreaOverhang, state.viewAreas[0][1] + constants.maxViewAreaOverhang];
+
         // Animate view area to the location of the segment.
-        // This animation is intentionally quick as to not distract the user 
-        // or disturb the workflow. It is meant to give a quick visual feedback
-        // about the context / direction of movement.
-        const target_location = viewArea;
-        const start_location = state.viewAreas[i];
+        const target_location = moveOrClip(viewArea, maxArea)[0];
+
         clearInterval(animationIntervalID);
-        let j = 0;
+
+        // Animate top and bottom independently exponentially
         const step = () => {
-            j += 0.08;
-            if (j >= 1) j = 1;
-            const a = easeOutSine(j);
-            setViewArea(i, [start_location[0] * (1 - a) + target_location[0]*a, start_location[1] * (1 - a) + target_location[1]*a]); 
+            const currentLocation = state.viewAreas[state.viewAreas.length - 1];
+            const distance0 = currentLocation[0] - target_location[0];
+            const distance1 = currentLocation[1] - target_location[1];
+            let step0 = Math.min(Math.abs(distance0) / 4 + 0.05, Math.abs(distance0));
+            let step1 = Math.min(Math.abs(distance1) / 4 + 0.05, Math.abs(distance1));
+            // Limit the speed of the faster moving point such that both end at the same time
+            if (step0 > step1) {
+                if (distance0 > 0) step1 = step0 * Math.abs(distance1 / distance0);
+            } else {
+                if (distance1 > 0) step0 = step1 * Math.abs(distance0 / distance1);
+            }
+            step0 *= Math.sign(distance0);
+            step1 *= Math.sign(distance1);
+            setViewArea(i, [currentLocation[0] - step0, currentLocation[1] - step1]); 
             update();
-            if (j == 1) clearInterval(animationIntervalID);
+            if (distance0 == 0 && distance1 == 0) clearInterval(animationIntervalID);
         };
+
         // 20ms is the throttling interval for update()
-        animationIntervalID = setInterval(step, 20);
+        animationIntervalID = setInterval(step, 25);
         step(); // Do first update immediately for instant feedback
     }
 
-    function selectSegment(segment, focus=false, keepZoom=false) {
+    /**
+     * Selects a segment and updates the details plot.
+     *  
+     * If `focus` is true, the view area is moved such that the segment is in the center of the view area.
+     * If `keepZoom` is true, the zoom level is kept. If `keepZoom` is false, the zoom level is adjusted to the segment.
+     * If `keepZoom` is auto, the zoom level is increased until no more than 15s are visible. If the segment is larger 
+     * than 15s, the zoom level is adjusted to the segment.
+     */
+    function selectSegment(segment, focus=false, keepZoom='auto') {
         if (state.selectedSegment != segment) {
             state.selectedSegment = segment;
             state.dirty[state.dirty.length - 1] = true;
@@ -532,7 +552,18 @@ function alignment_visualization(
         }
 
         if (focus && segment) {
-            if (keepZoom) {
+            if (keepZoom === 'auto') {
+                // Move such that the segment is in the center of the view area
+                const segment_length = segment.end_time - segment.start_time;
+                const maxAreaWidth = 30;
+                const c = (segment.start_time + segment.end_time) / 2;
+                if (segment_length > maxAreaWidth) {
+                    animateToViewArea(state.viewAreas.length - 1, [segment.start_time - 5, segment.end_time + 5]);
+                } else {
+                    let l = Math.max((state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2, maxAreaWidth / 2);
+                    animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
+                }
+            } else if (keepZoom) {
                 // Move such that the center point of the segment is in the center of the view area
                 const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
                 const c = (segment.start_time + segment.end_time) / 2;
@@ -550,7 +581,7 @@ function alignment_visualization(
      * 
      * If no next segment is found for which condition is true, the segment will be unselected.
      */
-    function selectNextMatchingSegment(condition, focus=true, reverse=false, keepZoom=false) {
+    function selectNextMatchingSegment(condition, focus=true, reverse=false, keepZoom='auto') {
         let candidates;
         if (reverse) {
             candidates = data.utterances.slice(0, state.selectedSegment?.utterance_index).reverse();
@@ -1394,9 +1425,13 @@ class CanvasPlot {
                         word.focused = true;
 
                         // Move such that the word is in the center of the view area
+                        const maxViewAreaWidth = 15;
                         const [start, end] = state.viewAreas[state.viewAreas.length - 1];
-                        if (start > word.start_time || end < word.end_time) {
-                            const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
+                        let l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
+                        if (start > word.start_time || end < word.end_time || l > maxViewAreaWidth) {
+                            if (l > maxViewAreaWidth) {
+                                l = maxViewAreaWidth;
+                            }
                             const c = (word.start_time + word.end_time) / 2;
                             animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
                         } else {
