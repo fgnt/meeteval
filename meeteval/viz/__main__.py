@@ -21,7 +21,6 @@ def create_viz_folder(
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
 
-
     if isinstance(alignments, str):
         alignments = alignments.split(',')
 
@@ -33,6 +32,10 @@ def create_viz_folder(
             'cp': meeteval.wer.CPErrorRate,
             'tcorc': meeteval.wer.OrcErrorRate,
             'orc': meeteval.wer.OrcErrorRate,
+            'greedy_orc': meeteval.wer.OrcErrorRate,
+            'greedy_tcorc': meeteval.wer.OrcErrorRate,
+            'greedy_dicp': meeteval.wer.DICPErrorRate,
+            'greedy_ditcp': meeteval.wer.DICPErrorRate,
         }
 
         def load_per_reco_file(alignment, f):
