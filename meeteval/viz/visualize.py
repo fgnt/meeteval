@@ -292,6 +292,8 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
         'info': {
             'filename': ref[0]['session_id'],
             'alignment_type': assignment,
+            'end_time': max([e['end_time'] for e in hyp + ref]),
+            'sart_time': min([e['start_time'] for e in hyp + ref]),
             'length': max([e['end_time'] for e in hyp + ref]) - min([e['start_time'] for e in hyp + ref]),
         }
     }
@@ -641,15 +643,18 @@ class AlignmentVisualization:
         d3 = f'<script>{load_cdn("d3.js", cdn["d3"])}</script>'
         # font_awesome = f'<style>{load_cdn("d3font_awesome.css", cdn["font_awesome"])}</style>'
 
-        # Determine the number of minimaps based on the number of utterances. If it's a large number, 
-        # use two minimaps, else use one
-        # Typical number of utterances (`max([len(v) for v in meeteval.io.load('ref.seglst.json').groupby('session_id').values()]) * 2`):
-        #   - libricss: 250
-        #   - notsofar: 652
-        #   - dipco: 2568
-        #   - chime6: 6738
+        # Determine the number of minimaps based on the displayed time length. If it's large, show two minimaps.
+        # Else, use one minimap.
+        # Assuming an average word rate of 160 words per minute (0.375 s per word) and a full-hd screen with 1920px width,
+        # 300 seconds correspond to roughly 2 pixel per word in the minimap on average. At this size, you can still see 
+        # individual word errors.
+        # Typical end times (`e = [max(g.T['end_time']) for g in meeteval.io.load('ref.seglst.json').groupby('session_id').values()]; (min(e), max(e))`):
+        #   - libricss: (597, 615)
+        #   - notsofar: (246, 531)
+        #   - dipco: (1209, 2753)
+        #   - chime6: (7159, 8902)
         if self.num_minimaps == 'auto':
-            if len(self.data['utterances']) > 1000:
+            if self.data['info']['end_time'] > 300:
                 num_minimaps = 2
             else:
                 num_minimaps = 1
