@@ -250,6 +250,21 @@ def html(
         js_debug=False,
         per_reco_file=None,
 ):
+    """
+    Creates a visualization of the alignment between reference and hypothesis for the specified WER algorithm.
+
+    The visualization is created in two steps.
+    
+    First, compute the WER and assignment, i.e. the mapping of utterances/segments to streams. Any WER algorithm 
+    from meeteval can be used for this. Depending on the algorithm, the labels of the reference or 
+    hypothesis utterances or streams are modified.
+
+    
+    
+    Second, compute the alignment, i.e. the matching of words between reference and hypothesis (insertion, 
+    deletion, substitution). This is done with a time-constrained algorithm if the assignment was 
+    time-constrained, otherwise with a "classical" unconstrained algorithm.
+    """
     def prepare(i: int, h: str):
         if ':' in h and not Path(h).exists():
             # inspired by tensorboard from the --logdir_spec argument.
@@ -291,20 +306,9 @@ def cli():
                     '--alignment',
                     choices=['tcp', 'cp', 'orc', 'greedy_orc', 'tcorc', 'greedy_tcorc', 'greedy_dicp', 'greedy_ditcp'],
                     nargs='+',
-                    help='Specifies which assigment and alignment are used. If a time-constrained algorithm is '
-                         'selected for the stream assignment, then a time-constrained alignment will be computed, '
-                         'otherwise the "classical" alignment without a time constraint is used.\n'
+                    help='Specifies the algorithm used to obtain the alignment. \n'
                          'Multiple alignments can be specified to generate multiple visualizations with a single '
-                         'merged overview table and side-by-side views.\n'
-                         'Choices:\n'
-                         '- cp: cpWER and "classical" alignment\n'
-                         '- tcp: tcpWER and time-constrained alignment\n'
-                         '- orc: ORC-WER and "classical" alignment.\n'
-                         '- greedy_orc: greedy ORC-WER and "classical" alignment.\n'
-                         '- tcorc: tcORC-WER and time-constrained alignment.\n'
-                         '- greedy_tcorc: greedy tcORC-WER.\n'
-                         '- greedy_dicp: greedy DI-cpWER and "classical" alignment.\n'
-                         '- greedy_ditcp: greedy DI-tcpWER and time-constrained alignment.',
+                         'merged overview table and side-by-side views.'
                 )
             elif name == 'hypothesis':
                 command_parser.add_argument(
