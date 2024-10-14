@@ -28,6 +28,8 @@ const constants = {
     utteranceMarkerDepth: 6,   // Depth (height) of the utterance marker bracket in pixels
     minStitchOffset: 10,  // Minimum distance of the kink in the stitching line to the word in pixels
     maxViewAreaOverhang: 10, // Maximum time in seconds that the view area can exceed the global domain
+    focusZoomThreshold: 45,  // Zoom in if the view area is larger than this threshold when focusing a point / smaller area
+    focusMaxViewAreasize: 30,  // Maximum view area size when focusing on a point / small area
 };
 
 /**
@@ -496,18 +498,81 @@ function alignment_visualization(
         update();
     }
 
+    /**
+     * Focus the view on a point.
+     * 
+     * Animates the details plot and all minimaps such that the point is visible in the details view.
+     * Centers the point if it was not visible before or if moveIfInViewport=true.
+     * 
+     * Zooms in such that 30s are visible if the current zoom level is larger than 45s. This is to make sure
+     * that the text is readable.
+     */
+    function focusPoint(point, moveIfInViewport=false) {
+        const [start, end] = state.viewAreas[state.viewAreas.length - 1];
+        let currentViewAreaSize = end - start;
+
+        // Nothing to do if the point is already in the viewport and not zoomed out too much
+        if (!moveIfInViewport && point > start && point < end && (currentViewAreaSize < constants.zoomThreshold)) return;
+
+        // Limit the size of the viewport to maxViewAreaSize if the threshold is exceeded
+        if (currentViewAreaSize > zoomThreshold) {
+            currentViewAreaSize = constants.maxViewAreaSize;
+        }
+
+        const viewArea = [viewArea - currentViewAreaSize / 2, viewArea + currentViewAreaSize / 2];
+
+        animateToViewArea(state.viewAreas.length - 1, viewArea, moveIfInViewport);
+    }
+
+    /**
+     * Focus the view on an area.
+     * 
+     * Animates the details plot and all minimaps such that the area is in the center of the details view.
+     * 
+     * Zooms out if the area is larger than the current view area. Zooms in if the area is smaller than the 
+     * current view area and the current view area is larger than 45s. This is to prevent exessively changing 
+     * the zoom level.
+     */
+    function focusArea(area, moveIfInViewport=true, margin=1) {
+        const [start, end] = state.viewAreas[state.viewAreas.length - 1];
+        let viewAreaCenter = (start + end) / 2;
+        let viewAreaSize = end - start;
+        const areaSize = area[1] - area[0] + margin;
+        const areaCenter = (area[0] + area[1]) / 2;
+
+        // Zoom in if the current view area is too large
+        if (areaSize < constants.zoomThreshold && viewAreaSize > constants.zoomThreshold) {
+            viewAreaSize = Math.max(constants.maxViewAreaSize, areaSize);
+        }
+
+        // Zoom out if the area is larger than the current view area
+        if (viewAreaSize < areaSize) {
+            viewAreaSize = areaSize;
+        }
+
+        // Center to the area if moving is requested or the area is not in the viewport
+        if (moveIfInViewport || areaCenter - areaSize / 2 < start || areaCenter + areaSize / 2 > end) {
+            viewAreaCenter = areaCenter;
+        }
+
+        animateToViewArea(state.viewAreas.length - 1, [viewAreaCenter - viewAreaSize / 2, viewAreaCenter + viewAreaSize / 2]);
+    }
+
     let animationIntervalID = null;
     function animateToViewArea(i, viewArea) {
+        console.log('Animate to view area', i, viewArea);
         if (viewArea[0] > viewArea[1]) {
             console.error('Invalid view area', viewArea);
             return;
         }
 
+        // Clip to the max allowed view area by the global domain. This is not strictly required 
+        // since it also happens in setViewArea, but makes the animation smoother if the animation
+        // ends at the correct position.
         const maxArea = [state.viewAreas[0][0] - constants.maxViewAreaOverhang, state.viewAreas[0][1] + constants.maxViewAreaOverhang];
-
-        // Animate view area to the location of the segment.
         const target_location = moveOrClip(viewArea, maxArea)[0];
 
+        // Animate view area to the location
         clearInterval(animationIntervalID);
 
         // Animate top and bottom independently exponentially
@@ -543,7 +608,7 @@ function alignment_visualization(
      * If `keepZoom` is auto, the zoom level is increased until no more than 15s are visible. If the segment is larger 
      * than 15s, the zoom level is adjusted to the segment.
      */
-    function selectSegment(segment, focus=false, keepZoom='auto') {
+    function selectSegment(segment, focus=false) {
         if (state.selectedSegment != segment) {
             state.selectedSegment = segment;
             state.dirty[state.dirty.length - 1] = true;
@@ -552,25 +617,7 @@ function alignment_visualization(
         }
 
         if (focus && segment) {
-            if (keepZoom === 'auto') {
-                // Move such that the segment is in the center of the view area
-                const segment_length = segment.end_time - segment.start_time;
-                const maxAreaWidth = 30;
-                const c = (segment.start_time + segment.end_time) / 2;
-                if (segment_length > maxAreaWidth) {
-                    animateToViewArea(state.viewAreas.length - 1, [segment.start_time - 5, segment.end_time + 5]);
-                } else {
-                    let l = Math.max((state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2, maxAreaWidth / 2);
-                    animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
-                }
-            } else if (keepZoom) {
-                // Move such that the center point of the segment is in the center of the view area
-                const l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
-                const c = (segment.start_time + segment.end_time) / 2;
-                animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
-            } else {
-                animateToViewArea(state.viewAreas.length - 1, [segment.start_time - .5, segment.end_time + .5]);
-            }
+            focusArea([segment.start_time, segment.end_time]);
         }
     }
 
@@ -581,7 +628,7 @@ function alignment_visualization(
      * 
      * If no next segment is found for which condition is true, the segment will be unselected.
      */
-    function selectNextMatchingSegment(condition, focus=true, reverse=false, keepZoom='auto') {
+    function selectNextMatchingSegment(condition, focus=true, reverse=false) {
         let candidates;
         if (reverse) {
             candidates = data.utterances.slice(0, state.selectedSegment?.utterance_index).reverse();
@@ -589,7 +636,7 @@ function alignment_visualization(
             candidates = data.utterances.slice(state.selectedSegment?.utterance_index + 1);
         }
         const segment = candidates.find(condition);
-        selectSegment(segment, focus, keepZoom);
+        selectSegment(segment, focus);
         return segment;
     }
 
@@ -1425,20 +1472,11 @@ class CanvasPlot {
                         word.focused = true;
 
                         // Move such that the word is in the center of the view area
-                        const maxViewAreaWidth = 15;
-                        const [start, end] = state.viewAreas[state.viewAreas.length - 1];
-                        let l = (state.viewAreas[state.viewAreas.length - 1][1] - state.viewAreas[state.viewAreas.length - 1][0]) / 2;
-                        if (start > word.start_time || end < word.end_time || l > maxViewAreaWidth) {
-                            if (l > maxViewAreaWidth) {
-                                l = maxViewAreaWidth;
-                            }
-                            const c = (word.start_time + word.end_time) / 2;
-                            animateToViewArea(state.viewAreas.length - 1, [c - l, c + l]);
-                        } else {
-                            state.dirty[state.dirty.length - 1] = true;
-                            update();
-                        }
+                        // Make sure that the word highlight is drawn
+                        state.dirty[state.dirty.length - 1] = true;
+                        focusPoint((word.start_time + word.end_time) / 2, false);
                         selectSegment(data.utterances[word.utterance_index]);
+                        update();   // Only necessary if view area is not moved and the segment selection is not changed
                     }
                 }
             }
@@ -1827,6 +1865,7 @@ class CanvasPlot {
                     u => u.start_time < y && u.end_time > y && u.x <= screenX && u.x + u.width >= screenX
                 )
                 if (utterance_candidates.length > 0) {
+                    console.log('click')
                     // Select the utterance that was clicked on. Move view to utterance on double click
                     selectSegment(utterance_candidates[0], event.detail === 2);
 
