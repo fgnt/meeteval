@@ -672,8 +672,10 @@ class CLI:
             command_name = fn.__name__
         command_parser = self.commands.add_parser(
             command_name,
-            description=fn.__doc__, # Use full docstring as description at the top of the help text (e.g., meeteval-wer cpwer --help)
-            help=fn.__doc__.split('\n\n')[0],   # Use first paragraph as short help text in the command list (e.g., meeteval-wer --help)
+            # Use full docstring as description at the top of the help text (e.g., meeteval-wer cpwer --help)
+            description=fn.__doc__,
+            # Use first paragraph as short help text in the command list (e.g., meeteval-wer --help)
+            help=fn.__doc__.split('\n\n')[0] if fn.__doc__ is not None else None,
             formatter_class=SmartFormatter, # Custom formatter for help and description texts
             add_help=False,
         )
