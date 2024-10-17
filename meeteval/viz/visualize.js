@@ -512,14 +512,14 @@ function alignment_visualization(
         let currentViewAreaSize = end - start;
 
         // Nothing to do if the point is already in the viewport and not zoomed out too much
-        if (!moveIfInViewport && point > start && point < end && (currentViewAreaSize < constants.zoomThreshold)) return;
+        if (!moveIfInViewport && point > start && point < end && (currentViewAreaSize < constants.focusZoomThreshold)) return;
 
         // Limit the size of the viewport to maxViewAreaSize if the threshold is exceeded
-        if (currentViewAreaSize > zoomThreshold) {
-            currentViewAreaSize = constants.maxViewAreaSize;
+        if (currentViewAreaSize > constants.focusZoomThreshold) {
+            currentViewAreaSize = constants.focusMaxViewAreasize;
         }
 
-        const viewArea = [viewArea - currentViewAreaSize / 2, viewArea + currentViewAreaSize / 2];
+        const viewArea = [point - currentViewAreaSize / 2, point + currentViewAreaSize / 2];
 
         animateToViewArea(state.viewAreas.length - 1, viewArea, moveIfInViewport);
     }
@@ -541,8 +541,8 @@ function alignment_visualization(
         const areaCenter = (area[0] + area[1]) / 2;
 
         // Zoom in if the current view area is too large
-        if (areaSize < constants.zoomThreshold && viewAreaSize > constants.zoomThreshold) {
-            viewAreaSize = Math.max(constants.maxViewAreaSize, areaSize);
+        if (areaSize < constants.focusZoomThreshold && viewAreaSize > constants.focusZoomThreshold) {
+            viewAreaSize = Math.max(constants.focusMaxViewAreasize, areaSize);
         }
 
         // Zoom out if the area is larger than the current view area
