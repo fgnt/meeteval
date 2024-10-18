@@ -460,7 +460,19 @@ class SmartFormatter(argparse.ArgumentDefaultsHelpFormatter):
             for i, t in enumerate(text.split('\n'))
             for tt in textwrap.wrap(t, width, subsequent_indent='  ' if i > 0 else '')
         ]
-
+    
+    def _fill_text(self, text: str, width: int, indent: str) -> str:
+        """
+        Extends `_fill_text` to work with multiple paragraphs, separated by \n\n.
+        This function is used to format the (long) command descriptions at the top of 
+        the help text.
+        """
+        import textwrap
+        text = textwrap.dedent(text)
+        return '\n\n'.join(
+            textwrap.fill(p, width, initial_indent=indent, subsequent_indent=indent)
+            for p in text.split('\n\n')
+        )
 
 class CLI:
     def __init__(self):
@@ -660,10 +672,12 @@ class CLI:
             command_name = fn.__name__
         command_parser = self.commands.add_parser(
             command_name,
+            # Use full docstring as description at the top of the help text (e.g., meeteval-wer cpwer --help)
             description=fn.__doc__,
+            # Use first paragraph as short help text in the command list (e.g., meeteval-wer --help)
+            help=fn.__doc__.split('\n\n')[0] if fn.__doc__ is not None else None,
+            formatter_class=SmartFormatter, # Custom formatter for help and description texts
             add_help=False,
-            formatter_class=SmartFormatter,
-            help=fn.__doc__,
         )
         command_parser.add_argument(
             '--help', help='show this help message and exit',

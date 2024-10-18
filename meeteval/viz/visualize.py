@@ -1,12 +1,9 @@
-import logging
 import os
 from meeteval.wer.wer.utils import check_single_filename
 import urllib.request
-
 import meeteval
 from meeteval.wer import ErrorRate
 
-logging.basicConfig(level=logging.ERROR)
 import dataclasses
 import functools
 import uuid
@@ -165,13 +162,12 @@ def get_alignment(data, alignment_type, collar=5):
                 r.setdefault('matches', []).append((h['word_index'], 'substitution'))
 
 
-def solve_stream_assignment(ref, hyp, assignment):
+def get_error_rate(ref, hyp, assignment):
     """
     Computes the word error rate and applies the assignment to the reference and hypothesis.
     """
     if assignment == 'cp':
         wer = meeteval.wer.wer.cp.cp_word_error_rate(ref, hyp)
-        ref, hyp = wer.apply_assignment(ref, hyp)
     elif assignment == 'tcp':
         wer = meeteval.wer.wer.time_constrained.time_constrained_minimum_permutation_word_error_rate(
             ref, hyp,
@@ -181,9 +177,8 @@ def solve_stream_assignment(ref, hyp, assignment):
             reference_pseudo_word_level_timing='character_based',
             hypothesis_pseudo_word_level_timing='character_based_points',
         )
-        ref, hyp = wer.apply_assignment(ref, hyp)
     elif assignment == 'tcorc':
-        wer = meeteval.wer.wer.time_constrained_orc.time_constrained_orc_wer(
+        wer = meeteval.wer.wer.time_constrained_orc_wer(
             ref, hyp,
             collar=5,
             reference_sort='segment',
@@ -191,13 +186,34 @@ def solve_stream_assignment(ref, hyp, assignment):
             reference_pseudo_word_level_timing='character_based',
             hypothesis_pseudo_word_level_timing='character_based_points',
         )
-        ref, hyp = wer.apply_assignment(ref, hyp)
+    elif assignment == 'greedy_tcorc':
+        wer = meeteval.wer.wer.greedy_time_constrained_orc_wer(
+            ref, hyp,
+            collar=5,
+            reference_sort='segment',
+            hypothesis_sort='segment',
+            reference_pseudo_word_level_timing='character_based',
+            hypothesis_pseudo_word_level_timing='character_based_points',
+        )
+    elif assignment == 'greedy_ditcp':
+        wer = meeteval.wer.wer.greedy_di_tcp_word_error_rate(
+            ref, hyp,
+            collar=5,
+            reference_sort='segment',
+            hypothesis_sort='segment',
+            reference_pseudo_word_level_timing='character_based',
+            hypothesis_pseudo_word_level_timing='character_based_points',
+        )
     elif assignment == 'orc':
         wer = meeteval.wer.wer.orc.orc_word_error_rate(ref, hyp)
-        ref, hyp = wer.apply_assignment(ref, hyp)
+    elif assignment == 'greedy_orc':
+        wer = meeteval.wer.wer.greedy_orc_word_error_rate(ref, hyp)
+    elif assignment == 'greedy_dicp':
+        wer = meeteval.wer.wer.greedy_di_cp_word_error_rate(ref, hyp)
     else:
         raise ValueError(assignment)
-    return wer, ref, hyp
+    
+    return wer
 
 
 def add_overlap_shift(utterances: SegLST):
@@ -256,12 +272,17 @@ def add_overlap_shift(utterances: SegLST):
 
 
 
-def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment_transform=None):
+def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment_transform=None, precomputed_error_rate=None):
     """
     Generates the data structure as required by the visualization frontend.
 
     Solves the stream assignment problem and computes the alignment between the reference and hypothesis.
     Then, computes additional useful information for display in the visualization.
+
+    Args:
+        precomputed_error_rate: A precomputed `ErrorRate` object with a `apply_assignment` method. If given, 
+            the alignment will be applied to the reference and hypothesis.
+            Note that this assigment should match the `assignment` parameter. If not, the visualization will be incorrect.
     """
     ref = asseglst(ref)
     hyp = asseglst(hyp)
@@ -271,6 +292,8 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
         'info': {
             'filename': ref[0]['session_id'],
             'alignment_type': assignment,
+            'end_time': max([e['end_time'] for e in hyp + ref]),
+            'sart_time': min([e['start_time'] for e in hyp + ref]),
             'length': max([e['end_time'] for e in hyp + ref]) - min([e['start_time'] for e in hyp + ref]),
         }
     }
@@ -280,7 +303,11 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
     hyp = hyp.map(lambda s: {**s, 'stream': s['speaker']})
 
     # Get and apply stream assignment
-    wer, ref, hyp = solve_stream_assignment(ref, hyp, assignment)
+    if precomputed_error_rate is not None:
+        wer = precomputed_error_rate
+    else:
+        wer = get_error_rate(ref, hyp, assignment)
+    ref, hyp = wer.apply_assignment(ref, hyp)
     align_type = 'time_constrained' if assignment in ['tcp', 'tcorc'] else 'levenshtein'
 
     if alignment_transform is None:
@@ -322,6 +349,11 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
         'transformed_words': w['words'],
         'duration': w['end_time'] - w['start_time'],
     })
+
+     # Add info about the number of errors to each uttearnce
+    for word in words:
+        utterance = u[word['utterance_index']]
+        utterance['errors'] = utterance.get('errors', 0) + (0 if 'matches' in word and word['matches'] and word['matches'][0][1] == 'correct' else 1)
 
     compress = True
     if compress:
@@ -424,7 +456,7 @@ class AlignmentVisualization:
             colormap='default',
             barplot_style='absolute',
             barplot_scale_exclude_total=False,
-            num_minimaps=2,
+            num_minimaps='auto',
             show_details=True,
             show_legend=True,
             highlight_regex=None,
@@ -433,6 +465,8 @@ class AlignmentVisualization:
             recording_file: 'str | Path | dict[str, str | Path]' = None,
             js_debug=False,  # If True, don't embed js (and css) code and use absolute paths
             sync_id=None,
+            precomputed_error_rate=None,   # A precomputed assignment. Saves computation
+            show_playhead=True,
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -460,6 +494,8 @@ class AlignmentVisualization:
             recording_file = {'': ''}
         self.recording_file = recording_file
         self.sync_id = sync_id
+        self.precomputed_error_rate = precomputed_error_rate
+        self.show_playhead = show_playhead
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -483,8 +519,12 @@ class AlignmentVisualization:
     @cached_property
     def data(self):
         d = get_visualization_data(
-            self.reference, self.hypothesis, assignment=self.alignment,
-                                   alignment_transform=self.alignment_transform)
+            self.reference, 
+            self.hypothesis, 
+            assignment=self.alignment,
+            alignment_transform=self.alignment_transform,
+            precomputed_error_rate=self.precomputed_error_rate,
+        )
         d['markers'] = self.markers
         return d
 
@@ -603,6 +643,24 @@ class AlignmentVisualization:
         d3 = f'<script>{load_cdn("d3.js", cdn["d3"])}</script>'
         # font_awesome = f'<style>{load_cdn("d3font_awesome.css", cdn["font_awesome"])}</style>'
 
+        # Determine the number of minimaps based on the displayed time length. If it's large, show two minimaps.
+        # Else, use one minimap.
+        # Assuming an average word rate of 160 words per minute (0.375 s per word) and a full-hd screen with 1920px width,
+        # 300 seconds correspond to roughly 2 pixel per word in the minimap on average. At this size, you can still see 
+        # individual word errors.
+        # Typical end times (`e = [max(g.T['end_time']) for g in meeteval.io.load('ref.seglst.json').groupby('session_id').values()]; (min(e), max(e))`):
+        #   - libricss: (597, 615)
+        #   - notsofar: (246, 531)
+        #   - dipco: (1209, 2753)
+        #   - chime6: (7159, 8902)
+        if self.num_minimaps == 'auto':
+            if self.data['info']['end_time'] > 300:
+                num_minimaps = 2
+            else:
+                num_minimaps = 1
+        else:
+            num_minimaps = self.num_minimaps
+
         font_awesome = ''
         html = f'''
             {d3}
@@ -624,7 +682,7 @@ class AlignmentVisualization:
                                 scaleExcludeCorrect: {'true' if self.barplot_scale_exclude_total else 'false'}
                             }},
                             minimaps: {{
-                                number: {self.num_minimaps}
+                                number: {num_minimaps}
                             }},
                             show_details: {'true' if self.show_details else 'false'},
                             show_legend: {'true' if self.show_legend else 'false'},
@@ -636,6 +694,7 @@ class AlignmentVisualization:
                             syncID: {dumps_json(self.sync_id, default='null')},
                             audio_server: 'http://localhost:7777',
                             encodeURL: {'true' if encode_url else 'false'},
+                            show_playhead: {'true' if self.show_playhead else 'false'},
                         }}
                     );
                     else setTimeout(exec, 100);

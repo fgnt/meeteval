@@ -201,6 +201,9 @@ def md_eval_22_multifile(
 
 
 def md_eval_22(reference, hypothesis, collar=0, regions='all', uem=None):
+    """
+    Computes the Diarization Error Rate (DER) using md-eval-22.pl.
+    """
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference, filename='dummy')
     hypothesis = RTTM.new(hypothesis, filename='dummy')

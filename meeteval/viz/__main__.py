@@ -16,14 +16,48 @@ def create_viz_folder(
         regex=None,
         normalizer=None,
         js_debug=False,
+        per_reco_file=None,
 ):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
 
+    if isinstance(alignments, str):
+        alignments = alignments.split(',')
+
+    if per_reco_file is not None:
+        assert len(alignments) == len(per_reco_file), alignments
+
+        error_rate_classes = {
+            'tcp': meeteval.wer.CPErrorRate,
+            'cp': meeteval.wer.CPErrorRate,
+            'tcorc': meeteval.wer.OrcErrorRate,
+            'orc': meeteval.wer.OrcErrorRate,
+            'greedy_orc': meeteval.wer.OrcErrorRate,
+            'greedy_tcorc': meeteval.wer.OrcErrorRate,
+            'greedy_dicp': meeteval.wer.DICPErrorRate,
+            'greedy_ditcp': meeteval.wer.DICPErrorRate,
+        }
+
+        def load_per_reco_file(alignment, f):
+            from meeteval.wer.__main__ import _load
+
+            error_rate_cls = error_rate_classes[alignment]
+
+            return {
+                session_id: error_rate_cls.from_dict(pr)
+                for session_id, pr in _load(Path(f)).items()
+            }
+        per_reco = {
+            alignment: load_per_reco_file(alignment, f)
+            for alignment, f in zip(alignments, per_reco_file)
+        }
+    else:
+        per_reco = collections.defaultdict(lambda: collections.defaultdict(lambda: None))
+
     avs = {}
     for (i, hypothesis), alignment in tqdm.tqdm(list(itertools.product(
             hypothesiss.items(),
-            alignments.split(','),
+            alignments,
     ))):
 
         r, h = _load_texts(
@@ -43,11 +77,14 @@ def create_viz_folder(
             print(f'Ignore {xor}, because they are not available in reference and hypothesis.')
 
         for session_id in tqdm.tqdm(session_ids):
-            av = AlignmentVisualization(r[session_id],
-                                        h[session_id],
-                                        alignment=alignment,
-                                        js_debug=js_debug,
-                                        sync_id=1)
+            av = AlignmentVisualization(
+                r[session_id],
+                h[session_id],
+                alignment=alignment,
+                js_debug=js_debug,
+                sync_id=1,
+                precomputed_error_rate=per_reco[alignment][session_id],
+            )   
             av.dump(out / f'{session_id}_{i}_{alignment}.html')
             avs.setdefault((i, alignment), {})[session_id] = av
 
@@ -61,24 +98,6 @@ def create_viz_folder(
         for session_id, av in v.items():
             avs_T[session_id][i] = av
     avs_T = dict(avs_T)
-
-    for session_id, v in avs_T.items():
-        doc, tag, text = Doc().tagtext()
-        doc.asis('<!DOCTYPE html>')
-
-        # With 100 % there is a scroll bar -> use 99 %
-        with tag('html', style="height: 99%; margin: 0;"):
-            with tag('body', style="width: 100%; height: 100%; margin: 0; display: flex;"):
-                for (i, alignment), av in v.items():
-                    with tag('div', style='flex-grow: 1'):
-                        with tag('iframe', src=f'{session_id}_{i}_{alignment}.html',
-                                 title="right", width="100%",
-                                 height="100%", style="border-width: 0"):
-                            pass
-
-        file = out / f"{session_id}.html"
-        file.write_text(indent(doc.getvalue()))
-        print(f'Wrote file://{file.absolute()}')
 
     ###########################################################################
 
@@ -105,7 +124,7 @@ def create_viz_folder(
                 pass
             doc.asis('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">')
             with tag('style'):
-                n = len(alignments.split(','))
+                n = len(alignments)
                 doc.asis(f'''
                     /* Center table */
                     body {{
@@ -143,7 +162,7 @@ def create_viz_folder(
                             with tag('th', ('data-sorter', "false"), colspan=len(list(item))):
                                 doc.text(system)
 
-                        if ',' in alignments or len(hypothesiss) > 1:
+                        if len(alignments) > 1 or len(hypothesiss) > 1:
                             with tag('th', ('data-sorter', "false"), colspan=2):
                                 with tag('span', klass='synced-view'):
                                     pass
@@ -159,7 +178,7 @@ def create_viz_folder(
                                 with tag('span', klass='number'):
                                     doc.text(get_wer(v))
 
-                        if ',' in alignments or len(hypothesiss) > 1:
+                        if len(alignments) > 1 or len(hypothesiss) > 1:
                             with tag('th', ('data-sorter', "false"), colspan=2):
                                 doc.text("Side-by-side views")
 
@@ -180,12 +199,9 @@ def create_viz_folder(
 
                             if len(v) > 1:
                                 with tag('td'):
-                                    with tag('a', href=f'{session_id}.html'):
-                                        doc.text('SideBySide')
-                                with tag('td'):
-                                    tags = '&'.join(f'{session_id}_{i}_{a}' for i, a in v.keys())
+                                    tags = '&'.join(f'{session_id}_{i}_{a}.html' for i, a in v.keys())
                                     with tag('a', href=f'side_by_side_sync.html?{tags}'):
-                                        doc.text('SydeBySide Synced')
+                                        doc.text('SydeBySide')
             doc.asis('''
 <script>
     $(document).ready(function() {
@@ -232,7 +248,23 @@ def html(
         normalizer=None,
         out='viz',
         js_debug=False,
+        per_reco_file=None,
 ):
+    """
+    Creates a visualization of the alignment between reference and hypothesis for the specified WER algorithm.
+
+    The visualization is created in two steps.
+    
+    First, compute the WER and assignment, i.e. the mapping of utterances/segments to streams. Any WER algorithm 
+    from meeteval can be used for this. Depending on the algorithm, the labels of the reference or 
+    hypothesis utterances or streams are modified.
+
+    
+    
+    Second, compute the alignment, i.e. the matching of words between reference and hypothesis (insertion, 
+    deletion, substitution). This is done with a time-constrained algorithm if the assignment was 
+    time-constrained, otherwise with a "classical" unconstrained algorithm.
+    """
     def prepare(i: int, h: str):
         if ':' in h and not Path(h).exists():
             # inspired by tensorboard from the --logdir_spec argument.
@@ -259,6 +291,7 @@ def html(
         regex=regex,
         normalizer=normalizer,
         js_debug=js_debug,
+        per_reco_file=per_reco_file,
     )
 
 
@@ -271,10 +304,11 @@ def cli():
             if name == 'alignment':
                 command_parser.add_argument(
                     '--alignment',
-                    choices=['tcp', 'cp', 'tcp,cp', 'cp,tcp', 'tcorc', 'orc'],
-                    help='Specifies which alignment is used.\n'
-                         '- cp: Find the permutation that minimizes the cpWER and use the "classical" alignment.\n'
-                         '- tcp: Find the permutation that minimizes the tcpWER and use a time constraint alignment.'
+                    choices=['tcp', 'cp', 'orc', 'greedy_orc', 'tcorc', 'greedy_tcorc', 'greedy_dicp', 'greedy_ditcp'],
+                    nargs='+',
+                    help='Specifies the algorithm used to obtain the alignment. \n'
+                         'Multiple alignments can be specified to generate multiple visualizations with a single '
+                         'merged overview table and side-by-side views.'
                 )
             elif name == 'hypothesis':
                 command_parser.add_argument(
@@ -290,6 +324,16 @@ def cli():
                     '--js-debug',
                     action='store_true',
                     help='Add a debug flag to the HTML output to enable debugging in the browser.'
+                )
+            elif name == 'per_reco_file':
+                command_parser.add_argument(
+                    '--per-reco-file',
+                    help='A precomputed per-reco file. Loads the WER and (stream) '
+                         'assignment information from this file instead of computing it. '
+                         'If supplied, the number of files must match the number of alignments specified '
+                         'with --alignment.',
+                    default=None,
+                    nargs='+',
                 )
             else:
                 return super().add_argument(command_parser, name, p)

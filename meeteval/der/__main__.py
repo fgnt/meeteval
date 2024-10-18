@@ -11,6 +11,9 @@ def md_eval_22(
         regex=None,
         uem=None,
 ):
+    """
+    Computes the Diarization Error Rate (DER) using md-eval-22.pl.
+    """
     from meeteval.der.api import md_eval_22
     results = md_eval_22(
         reference,
