@@ -26,6 +26,34 @@ def md_eval_22(
     _save_results(results, hypothesis, per_reco_out, average_out, wer_name='DER')
 
 
+def dscore(
+        reference,
+        hypothesis,
+        average_out='{parent}/{stem}_dscore.json',
+        per_reco_out='{parent}/{stem}_dscore_per_reco.json',
+        collar=0,
+        regions='all',
+        regex=None,
+        uem=None,
+):
+    """
+    Computes the Diarization Error Rate (DER) using md-eval-22.pl,
+    but create a uem if uem is None, as it is done in dscore [1].
+
+    [1] https://github.com/nryant/dscore
+    """
+    from meeteval.der.api import dscore
+    results = dscore(
+        reference,
+        hypothesis,
+        collar=collar,
+        regex=regex,
+        regions=regions,
+        uem=uem,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out, wer_name='DER')
+
+
 def cli():
     from meeteval.wer.__main__ import CLI
 
@@ -58,6 +86,7 @@ def cli():
     cli = DerCLI()
 
     cli.add_command(md_eval_22)
+    cli.add_command(dscore)
 
     cli.run()
 
