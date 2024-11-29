@@ -26,6 +26,8 @@ MeetEval supports the following metrics for meeting transcription evaluation:
   `meeteval-wer greedy_tcorcwer -r ref.stm -h hyp.stm --collar 5`
 - **Diarization-Invariant cpWER (DI-cpWER)**<br>
   `meeteval-wer greedy_dicpwer -r ref.stm -h hyp.stm`
+- **Diarization Error Rate (DER)** by wrapping [mdeval](https://github.com/nryant/dscore/raw/master/scorelib/md-eval-22.pl) like dscore<br>
+  `meeteval-der dscore -r ref.stm -h hyp.stm --collar .25`
 - **Diarization Error Rate (DER)** by wrapping [mdeval](https://github.com/nryant/dscore/raw/master/scorelib/md-eval-22.pl)<br>
   `meeteval-der md_eval_22 -r ref.stm -h hyp.stm --collar .25`
 
