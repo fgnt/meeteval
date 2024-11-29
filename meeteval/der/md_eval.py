@@ -77,6 +77,101 @@ class DiaErrorRate:
         )
 
 
+class _FilenameEscaper:
+    """
+    >>> import pprint
+    >>> reference = meeteval.io.RTTM.parse('''
+    ... SPEAKER rec.a 1 5.00 5.00 <NA> <NA> spk01 <NA>
+    ... SPEAKER rec.a 1 10.00 10.00 <NA> <NA> spk00 <NA>
+    ... ''')
+    >>> hypothesis = meeteval.io.RTTM.parse('''
+    ... SPEAKER rec.a 1 0.00 10.00 <NA> <NA> spk01 <NA>
+    ... SPEAKER rec.a 1 10.00 10.00 <NA> <NA> spk00 <NA>
+    ... ''')
+    >>> uem = meeteval.io.UEM.parse('''
+    ... rec.a 1 0.00 15.00
+    ... ''')
+
+    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis, uem=uem))
+    {'rec.a': DiaErrorRate(error_rate=Decimal('0.50'),
+                           scored_speaker_time=Decimal('10.000000'),
+                           missed_speaker_time=Decimal('0.000000'),
+                           falarm_speaker_time=Decimal('5.000000'),
+                           speaker_error_time=Decimal('0.000000'))}
+
+    >>> _FilenameEscaper._DISABLED = True
+    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis, uem=uem))
+    {'rec.a': DiaErrorRate(error_rate=Decimal('0.00'),
+                           scored_speaker_time=Decimal('15.000000'),
+                           missed_speaker_time=Decimal('0.000000'),
+                           falarm_speaker_time=Decimal('0.000000'),
+                           speaker_error_time=Decimal('0.000000'))}
+    >>> _FilenameEscaper._DISABLED = False
+    """
+    _DISABLED = False
+    def __init__(self):
+        self.warned = False
+        self.cache = {}
+
+    def __call__(self, filename):
+        if self._DISABLED:
+            return filename
+        if filename in self.cache:
+            return self.cache[filename]
+        elif '.' in filename:
+            blocked = set(self.cache.values())
+            for replacement in [
+                '_', '__', '___', '____', '_____',
+            ]:
+                new = filename.replace('.', replacement)
+                if new not in blocked:
+                    break
+            else:
+                raise RuntimeError(f'Cannot find a replacement for {filename}.')
+
+            if not self.warned:
+                self.warned = True
+                logging.warning(
+                    f'Warning: Replace UEM filename "{filename}" by "{new}".\n'
+                    f'         md-eval-22 removes the first suffix for uem filenames/session_ids but not in rttm files\n'
+                    f'             (e.g., uem: some.audio.wav -> some.wav).\n'
+                    f'             (e.g., rttm: some.audio.wav -> some.audio.wav).\n'
+                    f"         dcores doesn't support dots in uem\n"
+                    f'             (e.g., without uem file, rttm filenames/session_ids can have dots).\n'
+                    f'             (e.g., with uem file, rttm cannot have dots).\n'
+                    f"          -> dcores has no proper support of dots, because they use md-eval-22\n"
+                    f'         In meeteval, we assume, that the uem file has the same filenames/session_ids as reference and hypothesis.\n'
+                    f'          -> remove dots from filename and restore them later'
+                )
+            self.cache[filename] = new
+            return new
+        else:
+            self.cache[filename] = filename
+        return filename
+
+    def escape_rttm(self, rttm):
+        return rttm.__class__(
+            [line.replace(filename=self(line.filename)) for line in rttm]
+        )
+
+    def escape_uem(self, uem):
+        return uem.__class__(
+            [line.replace(filename=self(line.filename)) for line in uem]
+        )
+
+    def restore(self, filename):
+        if self._DISABLED:
+            return filename
+        if filename in self.cache:
+            assert self.cache[filename] == filename, (self.cache[filename], filename)
+            return filename
+        for k, v in self.cache.items():
+            if v == filename:
+                return k
+        raise ValueError(f'Cannot find {filename} as value in {self.cache}')
+
+
+
 def md_eval_22_multifile(
         reference, hypothesis, collar=0, regions='all',
         uem=None
@@ -103,6 +198,10 @@ def md_eval_22_multifile(
     from meeteval.io.rttm import RTTM
     reference = RTTM.new(reference)
     hypothesis = RTTM.new(hypothesis)
+
+    escaper = _FilenameEscaper()
+    reference = escaper.escape_rttm(reference)
+    hypothesis = escaper.escape_rttm(hypothesis)
 
     reference = _fix_channel(reference)
     hypothesis = _fix_channel(hypothesis)
@@ -146,11 +245,13 @@ def md_eval_22_multifile(
 
         if uem:
             uem_file = tmpdir / f'{key}.uem'
+            uem = escaper.escape_uem(uem)
             uem.dump(uem_file)
             cmd.extend(['-u', f'{uem_file}'])
 
         cp = subprocess.run(cmd, stdout=subprocess.PIPE,
                             check=True, universal_newlines=True)
+
         # SCORED SPEAKER TIME =4309.340250 secs
         # MISSED SPEAKER TIME =4309.340250 secs
         # FALARM SPEAKER TIME =0.000000 secs
@@ -179,7 +280,7 @@ def md_eval_22_multifile(
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         for key in keys:
-            per_reco[key] = get_details(r[key], h[key], key, tmpdir, uem)
+            per_reco[escaper.restore(key)] = get_details(r[key], h[key], key, tmpdir, uem)
 
         md_eval = get_details(
             meeteval.io.RTTM([line for key in keys for line in r[key]]),
@@ -197,6 +298,7 @@ def md_eval_22_multifile(
                 f'does not match the average error rate of md-eval-22.pl '
                 f'applied to each recording ({md_eval.error_rate}).'
             )
+
     return per_reco
 
 
@@ -214,4 +316,4 @@ def md_eval_22(reference, hypothesis, collar=0, regions='all', uem=None):
 
     return md_eval_22_multifile(
         reference, hypothesis, collar, regions=regions, uem=uem
-    )[reference.filenames()[0]]
+    )[list(reference.filenames())[0]]
