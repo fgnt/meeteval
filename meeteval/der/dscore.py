@@ -183,12 +183,25 @@ def dscore_multifile(
     return result
 
 
-def dscore(reference, hypothesis, collar=0, regions='all', uem=None):
+def dscore(reference, hypothesis, collar=0, regions='all', uem=None, sanity_check=False):
     """
     Computes the Diarization Error Rate (DER) using md-eval-22.pl
     but create a uem if uem is None, as it is done in dscore [1].
 
-    Additionally, compare the error rate with dscore [1].
+    Additionally, compare the error rate with dscore [1], if sanity_check is True.
+
+    Args:
+        reference:
+        hypothesis:
+        collar:
+        regions: 'all' or 'nooverlap'
+        uem: If None, generate a uem from the reference and hypothesis.
+             This is the default behavior of dscore, while md-eval-22,
+             uses only the reference.
+        sanity_check: Compare the result with dscore to ensure
+                      the correctness of the implementation.
+                      Requires the numpy < 1.24 (e.g. np.int),
+                      because dscore fails with recent numpy versions.
 
     [1] https://github.com/nryant/dscore
 
@@ -238,7 +251,9 @@ def dscore(reference, hypothesis, collar=0, regions='all', uem=None):
     uem_md_eval, uem_dscore = _maybe_gen_uem(uem, reference, hypothesis)
 
     result = md_eval_22(reference, hypothesis, collar=collar, regions=regions, uem=uem_md_eval)
-    dscore_der = _dscore_multifile(reference, hypothesis, collar=collar, regions=regions, uem=uem_dscore)
 
-    assert list(dscore_der.values()) == [result.error_rate], (dscore_der, result.error_rate)
+    if sanity_check:
+        dscore_der = _dscore_multifile(reference, hypothesis, collar=collar, regions=regions, uem=uem_dscore)
+        assert list(dscore_der.values()) == [result.error_rate], (dscore_der, result.error_rate)
+
     return result
