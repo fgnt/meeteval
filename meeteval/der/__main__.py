@@ -39,6 +39,7 @@ def dscore(
     """
     Computes the Diarization Error Rate (DER) using md-eval-22.pl,
     but create a uem if uem is None, as it is done in dscore [1].
+    Commonly used in challenge evaluations, e.g., DIHARD II, CHiME.
 
     [1] https://github.com/nryant/dscore
     """
@@ -85,8 +86,8 @@ def cli():
 
     cli = DerCLI()
 
-    cli.add_command(md_eval_22)
     cli.add_command(dscore)
+    cli.add_command(md_eval_22)
 
     cli.run()
 
