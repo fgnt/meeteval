@@ -15,6 +15,11 @@ def _dscore_multifile(
     the details. Hence, call dscore only to compare the error rate
     with md_eval_22_multifile.
 
+    >>> import numpy as np
+    >>> if (int(np.__version__.split('.')[0]), int(np.__version__.split('.')[0])) >= (1, 24):
+    ...     import pytest
+    ...     pytest.skip(f'dscore fails with numpy >= 1.24. Current version: {np.__version__}')
+
     >>> from meeteval.io.rttm import RTTM
     >>> from meeteval.io.uem import UEM
     >>> reference = RTTM.parse('''
@@ -31,12 +36,8 @@ def _dscore_multifile(
     ... S1 1 0.0 1.5
     ... ''')
     >>> import pprint
-    >>> pprint.pprint(dscore_multifile(reference, hypothesis, uem=uem))
-    {'S1': DiaErrorRate(error_rate=Decimal('0.3333'),
-                        scored_speaker_time=Decimal('1.500000'),
-                        missed_speaker_time=Decimal('0.000000'),
-                        falarm_speaker_time=Decimal('0.000000'),
-                        speaker_error_time=Decimal('0.500000'))}
+    >>> pprint.pprint(_dscore_multifile(reference, hypothesis, uem=uem))
+    {'S1': Decimal('0.3333')}
     """
     from meeteval.der.md_eval import _FilenameEscaper
     escaper = _FilenameEscaper()
@@ -131,13 +132,26 @@ def _maybe_gen_uem(uem, reference, hypothesis):
 
 def dscore_multifile(
         reference, hypothesis, collar=0, regions='all',
-        uem=None
+        uem=None, sanity_check=False,
 ):
     """
     Computes the Diarization Error Rate (DER) using md-eval-22.pl
     but create a uem if uem is None, as it is done in dscore [1].
 
-    Additionally, compare the error rate with dscore [1].
+    Additionally, compare the error rate with dscore [1], if sanity_check is True.
+
+    Args:
+        reference:
+        hypothesis:
+        collar:
+        regions: 'all' or 'nooverlap'
+        uem: If None, generate a uem from the reference and hypothesis.
+             This is the default behavior of dscore, while md-eval-22,
+             uses only the reference.
+        sanity_check: Compare the result with dscore to ensure
+                      the correctness of the implementation.
+                      Requires the numpy < 1.24 (e.g. np.int),
+                      because dscore fails with recent numpy versions.
 
     [1] https://github.com/nryant/dscore
 
@@ -175,10 +189,11 @@ def dscore_multifile(
     result = md_eval_22_multifile(
         reference, hypothesis, collar=collar, regions=regions, uem=uem_md_eval
     )
-    dscore_der = _dscore_multifile(reference, hypothesis, collar=collar, regions=regions, uem=uem_dscore)
-    for key in result:
-        assert key in dscore_der, (key, result, dscore_der)
-        assert abs(dscore_der[key] - result[key].error_rate) <= decimal.Decimal('0.0001'), (key, dscore_der[key], result[key])
+    if sanity_check:
+        dscore_der = _dscore_multifile(reference, hypothesis, collar=collar, regions=regions, uem=uem_dscore)
+        for key in result:
+            assert key in dscore_der, (key, result, dscore_der)
+            assert abs(dscore_der[key] - result[key].error_rate) <= decimal.Decimal('0.0001'), (key, dscore_der[key], result[key])
 
     return result
 
