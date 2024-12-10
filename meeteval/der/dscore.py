@@ -15,8 +15,9 @@ def _dscore_multifile(
     the details. Hence, call dscore only to compare the error rate
     with md_eval_22_multifile.
 
+    >>> import packaging.version
     >>> import numpy as np
-    >>> if (int(np.__version__.split('.')[0]), int(np.__version__.split('.')[0])) >= (1, 24):
+    >>> if packaging.version.parse(np.__version__) >= packaging.version.parse('1.24'):
     ...     import pytest
     ...     pytest.skip(f'dscore fails with numpy >= 1.24. Current version: {np.__version__}')
 
