@@ -227,7 +227,11 @@ def md_eval_22_multifile(
             urllib.request.urlretrieve(url, md_eval_22)
             logging.info(f'Wrote {md_eval_22}')
 
+    warned = False
+
     def get_details(r, h, key, tmpdir, uem):
+        nonlocal warned
+
         r_file = tmpdir / f'{key}.ref.rttm'
         h_file = tmpdir / f'{key}.hyp.rttm'
         r.dump(r_file)
@@ -248,7 +252,9 @@ def md_eval_22_multifile(
             uem = escaper.escape_uem(uem)
             uem.dump(uem_file)
             cmd.extend(['-u', f'{uem_file}'])
-
+        elif not warned:
+            warned = True
+            logging.warning(f'No UEM file provided. See https://github.com/fgnt/meeteval/issues/97#issuecomment-2508140402 for details.')
         cp = subprocess.run(cmd, stdout=subprocess.PIPE,
                             check=True, universal_newlines=True)
 
