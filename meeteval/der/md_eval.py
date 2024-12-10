@@ -92,7 +92,7 @@ class _FilenameEscaper:
     ... rec.a 1 0.00 15.00
     ... ''')
 
-    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis, uem=uem))
+    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis, uem=uem))  # doctest: +NORMALIZE_WHITESPACE
     {'rec.a': DiaErrorRate(error_rate=Decimal('0.50'),
                            scored_speaker_time=Decimal('10.000000'),
                            missed_speaker_time=Decimal('0.000000'),
@@ -100,7 +100,7 @@ class _FilenameEscaper:
                            speaker_error_time=Decimal('0.000000'))}
 
     >>> _FilenameEscaper._DISABLED = True
-    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis, uem=uem))
+    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis, uem=uem))  # doctest: +NORMALIZE_WHITESPACE
     {'rec.a': DiaErrorRate(error_rate=Decimal('0.00'),
                            scored_speaker_time=Decimal('15.000000'),
                            missed_speaker_time=Decimal('0.000000'),

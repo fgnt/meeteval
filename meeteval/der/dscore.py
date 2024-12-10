@@ -166,7 +166,7 @@ def dscore_multifile(
     ... SPEAKER rec 1 10.00 10.00 <NA> <NA> spk00 <NA>
     ... ''')
     >>> import pprint
-    >>> pprint.pprint(dscore_multifile(reference, hypothesis))
+    >>> pprint.pprint(dscore_multifile(reference, hypothesis))  # doctest: +NORMALIZE_WHITESPACE
     {'rec': DiaErrorRate(error_rate=Decimal('0.3333'),
                          scored_speaker_time=Decimal('15.000000'),
                          missed_speaker_time=Decimal('0.000000'),
@@ -174,7 +174,7 @@ def dscore_multifile(
                          speaker_error_time=Decimal('0.000000'))}
 
     >>> from meeteval.der.md_eval import md_eval_22_multifile
-    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis))
+    >>> pprint.pprint(md_eval_22_multifile(reference, hypothesis))  # doctest: +NORMALIZE_WHITESPACE
     {'rec': DiaErrorRate(error_rate=Decimal('0.00'),
                          scored_speaker_time=Decimal('15.000000'),
                          missed_speaker_time=Decimal('0.000000'),
@@ -235,13 +235,13 @@ def dscore(reference, hypothesis, collar=0, regions='all', uem=None, sanity_chec
     ... ''')
     >>> import pprint
 
-    >>> pprint.pprint(dscore(reference, hypothesis))
+    >>> pprint.pprint(dscore(reference, hypothesis))  # doctest: +NORMALIZE_WHITESPACE
     DiaErrorRate(error_rate=Decimal('0.3333'),
                  scored_speaker_time=Decimal('15.000000'),
                  missed_speaker_time=Decimal('0.000000'),
                  falarm_speaker_time=Decimal('5.000000'),
                  speaker_error_time=Decimal('0.000000'))
-    >>> pprint.pprint(dscore(reference, hypothesis, uem=uem))
+    >>> pprint.pprint(dscore(reference, hypothesis, uem=uem))  # doctest: +NORMALIZE_WHITESPACE
     DiaErrorRate(error_rate=Decimal('0.50'),
                  scored_speaker_time=Decimal('10.000000'),
                  missed_speaker_time=Decimal('0.000000'),
@@ -250,7 +250,7 @@ def dscore(reference, hypothesis, collar=0, regions='all', uem=None, sanity_chec
 
     # md_eval_22 ignores hyps before the first ref and after the last ref
     >>> from meeteval.der.md_eval import md_eval_22
-    >>> pprint.pprint(md_eval_22(reference, hypothesis))  # doctest: +ELLIPSIS
+    >>> pprint.pprint(md_eval_22(reference, hypothesis))  # doctest: +ELLIPSIS +NORMALIZE_WHITESPACE
     DiaErrorRate(error_rate=Decimal('0.00'),
                  scored_speaker_time=Decimal('15.000000'),
                  missed_speaker_time=Decimal('0.000000'),
