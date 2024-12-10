@@ -156,6 +156,15 @@ def test_burn_md_eval_22():
     # ToDo: Table 2 of https://arxiv.org/pdf/2312.04324.pdf lists collars for
     #       datsets. Add them here.
 
+def test_burn_dscore():
+    run(f'python -m meeteval.der dscore -h hyp.stm -r ref.stm')
+    run(f'meeteval-der dscore -h hyp.stm -r ref.stm')
+    run(f'python -m meeteval.der dscore -h hyp.stm -r ref.stm --collar 0.25')
+    run(f'python -m meeteval.der dscore -h hyp.rttm -r ref.rttm')
+    run(f'python -m meeteval.der dscore -h hyp.rttm -r ref.rttm --regions all')
+    run(f'python -m meeteval.der dscore -h hyp.rttm -r ref.rttm --regions nooverlap')
+    run(f'python -m meeteval.der dscore -h hyp.rttm -r ref.rttm --regex ".*A"')
+    run(f'python -m meeteval.der dscore -h hyp.seglst.json -r ref.seglst.json')
 
 def test_burn_merge():
     run(f'python -m meeteval.wer cpwer -h hypA.stm -r refA.stm')  # create hypA_cpwer_per_reco.json and hypA_cpwer.json

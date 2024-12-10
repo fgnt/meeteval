@@ -128,7 +128,8 @@ setup(
         'scipy',  # scipy.optimize.linear_sum_assignment
         "typing_extensions; python_version<'3.8'",  # Missing Literal in py37
         "cached_property; python_version<'3.8'",  # Missing functools.cached_property in py37
-        'Cython'
+        'Cython',
+        'packaging',  # commonly used to compare python versions, e.g., used by jupyter, matplotlib, pytest, ...
     ],
     extras_require=extras_require,
     package_data={'meeteval': ['**/*.pyx', '**/*.h', '**/*.js', '**/*.css', '**/*.html']},  # https://stackoverflow.com/a/60751886
