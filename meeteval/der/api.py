@@ -38,7 +38,7 @@ def dscore(
         uem=None,
 ):
     r, h = _load_texts(reference, hypothesis, regex)
-    from meeteval.der.dscore import dscore_multifile
+    from meeteval.der.nryant_dscore import dscore_multifile
     if uem is not None:
         from meeteval.io.uem import UEM
         if isinstance(uem, (str, Path, list, tuple)):
