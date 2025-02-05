@@ -286,37 +286,12 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 
 ### Command-line interface
 
-<ul>
-  <li>
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-      <span><strong>Standard call</strong><br>
-      <code>meeteval-viz html --alignment tcp -r ref.stm -h hyp.stm</code><br>
-      Replace <code>tcp</code> with <code>cp</code>, <code>orc</code>, <code>greedy_orc</code>, <code>tcorc</code>, <code>greedy_tcorc</code>, <code>greedy_dicp</code> or <code>greedy_ditcp</code> to use another WER for the alignment.</span>
-      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/libricss.png" alt="Standard call" width="200">
-    </div>
-  </li>
-  <li>
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-      <span><strong>Synced side-by-side system comparison</strong><br>
-      Same reference, but different hypothesis<br>
-      <code>meeteval-viz html --alignment tcp -r ref.stm -h hyp1.stm -h hyp2.stm</code></span>
-      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/side-by-side.png" alt="Side-by-side system comparison" width="200">
-    </div>
-  </li>
-  <li>
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-      <span><strong>Synced side-by-side alignment comparison</strong><br>
-      <code>meeteval-viz html --alignment tcp cp -r ref.stm -h hyp.stm</code></span>
-      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/side-by-side-tcp-cp.png" alt="Side-by-side alignment comparison" width="200">
-    </div>
-  </li>
-  <li>
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-      <span><strong>Session browser</strong> will be created with each call</span>
-      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/overview-table.png" alt="Side-by-side alignment comparison" width="200">
-    </div>
-  </li>
-</ul>
+| Description | Preview |
+|------------|-------|
+| **Standard call**<br>`meeteval-viz html --alignment tcp -r ref.stm -h hyp.stm`<br>Replace `tcp` with `cp`, `orc`, `greedy_orc`, `tcorc`, `greedy_tcorc`, `greedy_dicp`, or `greedy_ditcp` to use another WER for the alignment. | <a href="https://groups.upb.de/nt/meeteval/icassp2024-demo/libricss_diarization/overlap_ratio_40.0_sil0.1_1.0_session8_actual40.5_System_tcp.html?selection=213.9-220.5" target="_blank"><img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/libricss.png" alt="Standard call" width="300"></a> |
+| **Synced side-by-side system comparison**<br>Same reference, but different hypothesis<br>`meeteval-viz html --alignment tcp -r ref.stm -h hyp1.stm -h hyp2.stm` | <a href="https://groups.upb.de/nt/meeteval/icassp2024-demo/side_by_side_sync.html?dipco_ntt/S28_System_tcp&dipco_paderborn/S28_System_tcp" target="_blank"><img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/side-by-side.png" alt="Side-by-side system comparison" width="300"></a> |
+| **Synced side-by-side alignment comparison**<br>`meeteval-viz html --alignment tcp cp -r ref.stm -h hyp.stm` | <a href="https://groups.upb.de/nt/meeteval/icassp2024-demo/side_by_side_sync.html?dipco_paderborn/S28_System_tcp&dipco_paderborn/S28_System_cp" target="_blank"><img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/side-by-side-tcp-cp.png" alt="Side-by-side alignment comparison" width="300"></a> |
+| **Session browser** will be created with each call | <a href="https://groups.upb.de/nt/meeteval/icassp2024-demo/dipco_ntt/index.html" target="_blank"><img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/overview-table.png" alt="Side-by-side alignment comparison" width="300"></a> |
 
 Each command will generate a `viz` folder (customize with `-o OUT`), that contains an `index.html` (session browser), `side_by_side_sync.html` (used by `index.html`, can be ignored) and for each session, system and alignment a standalone/shareable HTML file.
 
