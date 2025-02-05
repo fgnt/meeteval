@@ -284,6 +284,44 @@ meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_
 > [!TIP]
 > Try it in the browser! https://fgnt.github.io/meeteval_viz
 
+### Command-line interface
+
+<ul>
+  <li>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span><strong>Standard call</strong><br>
+      <code>meeteval-viz html --alignment tcp -r ref.stm -h hyp.stm</code><br>
+      Replace <code>tcp</code> with <code>cp</code>, <code>orc</code>, <code>greedy_orc</code>, <code>tcorc</code>, <code>greedy_tcorc</code>, <code>greedy_dicp</code> or <code>greedy_ditcp</code> to use another WER for the alignment.</span>
+      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/libricss.png" alt="Standard call" width="200">
+    </div>
+  </li>
+  <li>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span><strong>Synced side-by-side system comparison</strong><br>
+      Same reference, but different hypothesis<br>
+      <code>meeteval-viz html --alignment tcp -r ref.stm -h hyp1.stm -h hyp2.stm</code></span>
+      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/side-by-side.png" alt="Side-by-side system comparison" width="200">
+    </div>
+  </li>
+  <li>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span><strong>Synced side-by-side alignment comparison</strong><br>
+      <code>meeteval-viz html --alignment tcp cp -r ref.stm -h hyp.stm</code></span>
+      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/side-by-side-tcp-cp.png" alt="Side-by-side alignment comparison" width="200">
+    </div>
+  </li>
+  <li>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span><strong>Session browser</strong> will be created with each call</span>
+      <img src="https://raw.githubusercontent.com/fgnt/meeteval_viz/refs/heads/main/images/overview-table.png" alt="Side-by-side alignment comparison" width="200">
+    </div>
+  </li>
+</ul>
+
+Each command will generate a `viz` folder (customize with `-o OUT`), that contains an `index.html` (session browser), `side_by_side_sync.html` (used by `index.html`, can be ignored) and for each session, system and alignment a standalone/shareable HTML file.
+
+### Python / Jupyter interface
+
 ```python
 import meeteval
 from meeteval.viz.visualize import AlignmentVisualization
