@@ -98,8 +98,8 @@ def test_burn_greedy_dicp():
 
 def test_burn_greedy_ditcp():
     # Normal test with stm files
-    run(f'python -m meeteval.wer greedy_ditcpwer -h hyp.stm -r ref.stm')
-    run(f'meeteval-wer greedy_ditcpwer -h hyp.stm -r ref.stm')
+    run(f'python -m meeteval.wer greedy_ditcpwer -h hyp.stm -r ref.stm --collar 5')
+    run(f'meeteval-wer greedy_ditcpwer -h hyp.stm -r ref.stm --collar 5')
 
 
 def test_burn_mimo():
@@ -118,27 +118,27 @@ def test_burn_cp():
 
 
 def test_burn_tcp():
-    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
+    # run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')  # Mar 2025: Disabled, because default collar=0 is too a too special case to be default
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --collar 5')
-    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
-    run(f'python -m meeteval.wer tcpwer -h hyp.seglst.json -r ref.seglst.json')
-    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --reference-sort word --hypothesis-sort true')
+    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points --collar 5')
+    run(f'python -m meeteval.wer tcpwer -h hyp.seglst.json -r ref.seglst.json --collar 5')
+    run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --reference-sort word --hypothesis-sort true --collar 5')
 
 
 def test_burn_tcorc():
-    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm')
+    # run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm')  # Mar 2025: Disabled, because default collar=0 is too a too special case to be default
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --collar 5')
-    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
-    run(f'python -m meeteval.wer tcorcwer -h hyp.seglst.json -r ref.seglst.json')
-    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --hypothesis-sort true')
+    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points --collar 5')
+    run(f'python -m meeteval.wer tcorcwer -h hyp.seglst.json -r ref.seglst.json --collar 5')
+    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --hypothesis-sort true --collar 5')
 
 
 def test_burn_greedy_tcorc():
-    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm')
+    # run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm')  # Mar 2025: Disabled, because default collar=0 is too a too special case to be default
     run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --collar 5')
-    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points')
-    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.seglst.json -r ref.seglst.json')
-    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hypothesis-sort true')
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points --collar 5')
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.seglst.json -r ref.seglst.json --collar 5')
+    run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hypothesis-sort true --collar 5')
 
 
 def test_burn_md_eval_22():
