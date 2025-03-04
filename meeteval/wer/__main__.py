@@ -568,7 +568,8 @@ class CLI:
         elif name == 'collar':
             command_parser.add_argument(
                 '--collar', type=self.positive_number,
-                help='Collar applied to the hypothesis timings'
+                help='Collar applied to the hypothesis timings (e.g., 5 for 5 seconds)',
+                required=True,
             )
         elif name == 'regex':
             command_parser.add_argument(
