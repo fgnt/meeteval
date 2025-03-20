@@ -264,7 +264,7 @@ def mimower(
     _save_results(results, hypothesis, per_reco_out, average_out, wer_name='MIMO-WER')
 
 
-def tcmimiower(
+def tcmimower(
         reference, hypothesis,
         average_out='{parent}/{stem}_tcmimower.json',
         per_reco_out='{parent}/{stem}_tcmimower_per_reco.json',
@@ -282,8 +282,8 @@ def tcmimiower(
     results = meeteval.wer.tcmimower(
         reference, hypothesis, regex=regex,
         collar=collar,
-        hyp_pseudo_word_timing=hyp_pseudo_word_timing,
-        ref_pseudo_word_timing=ref_pseudo_word_timing,
+        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
         hypothesis_sort=hypothesis_sort,
         reference_sort=reference_sort,
         uem=uem, partial=partial,
@@ -765,6 +765,7 @@ def cli():
     cli.add_command(orcwer)
     cli.add_command(greedy_orcwer)
     cli.add_command(mimower)
+    cli.add_command(tcmimower)
     cli.add_command(tcpwer)
     cli.add_command(tcorcwer)
     cli.add_command(greedy_dicpwer)
