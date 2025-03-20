@@ -16,6 +16,15 @@ def time_constrained_mimo_word_error_rate(
         reference_sort='segment',
         hypothesis_sort='segment',
 ) -> 'MimoErrorRate':
+    """
+    Computes the time-constrained mimo word error rate.
+
+    Note that the returned assignment matches the segment order in the sorted 
+    reference (according to `reference_sort`) and may not match the original 
+    segment order in `reference`. This is the case because the order in which
+    the segments are matched has an effect on the error rate and the assignment
+    format cannot represent the original order.
+    """
 
     reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
         reference, hypothesis,
@@ -25,7 +34,7 @@ def time_constrained_mimo_word_error_rate(
         reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
         hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
         segment_representation='word',
-        segment_index='segment',
+        segment_index='sorted_segment',
         remove_empty_segments=False,
         collar=collar,
     )
@@ -152,18 +161,12 @@ def _tcmimower(reference, hypothesis):
     # hypothesis_empty_segments = reference.filter(lambda x: x['words'] == '')
     hypothesis_clean = hypothesis.filter(lambda x: x['words'] != '')
 
-    # if len(reference_clean) == 0:
-    #     raise NotImplementedError('Empty reference')
-    # if len(hypothesis_clean) == 0:
-    #     raise NotImplementedError('Empty hypothesis')
-
-    er, assignment = _tcmimower_unchecked(reference_clean, hypothesis_clean, next(iter(hypothesis.unique('speaker'))))
+    dummy_key = next(iter(hypothesis.unique('speaker'))) if hypothesis else 'dummy'
+    er, assignment = _tcmimower_unchecked(reference_clean, hypothesis_clean, dummy_key)
 
     # Reconstruct the assignment with empty segments
     # and sort by original segment index
     if len(assignment) != len(reference.unique('segment_index')):
-        dummy_key = sorted(hypothesis.unique('speaker'))[0]
-
         d = {
             speaker: [(i, len(segments) == 1 and segments[0]['words'] == '') for i, segments in v.groupby('segment_index').items()]
             for speaker, v in reference.groupby('speaker').items()
@@ -173,7 +176,7 @@ def _tcmimower(reference, hypothesis):
         while assignment:
             r = assignment[0][0]
             while d[r]:
-                i, empty = d[r].pop(0)
+                _, empty = d[r].pop(0)
                 if empty:
                     new_assignment.append((r, dummy_key))
                 else:
@@ -185,44 +188,7 @@ def _tcmimower(reference, hypothesis):
                     new_assignment.append((speaker, dummy_key))
                 else:
                     raise RuntimeError('Unassigned segment')
-
-            # Pick the one with the smallest segment_index from:
-            # - the 0-th entry in the assignment from reference_clean_grouped
-            # - one from reference_empty_segments_grouped
-            # missing_speaker, missing_indices = min(
-            #     reference_empty_segments_grouped.items(), 
-            #     key=lambda x: x[1][0]
-            # ) if reference_empty_segments_grouped else (None, [None])
-            # missing_index = missing_indices[0]
-
-            # clean_index = reference_clean_grouped[assignment[0][0]][0] if assignment else None
-
-            # if clean_index is None and missing_index is None:
-            #     break
-
-            # if (
-            #     clean_index is not None and (missing_index is None or clean_index <= missing_index)
-            #     or reference_clean_grouped.get(missing_speaker, [missing_index])[0] < missing_index
-            # ):
-            #     reference_clean_grouped[assignment[0][0]].pop(0)
-            #     if not reference_clean_grouped[assignment[0][0]]:
-            #         reference_clean_grouped.pop(assignment[0][0])
-            #     new_assignment.append(assignment.pop(0))
-            # else:
-            #     new_assignment.append((missing_speaker, dummy_key))
-            #     reference_empty_segments_grouped[missing_speaker].pop(0)
-            #     if not reference_empty_segments_grouped[missing_speaker]:
-            #         reference_empty_segments_grouped.pop(missing_speaker)
         assignment = new_assignment
-        # for segment_index, segment in reference.groupby('segment_index').items():
-        #     assert len(new_assignment) == segment_index, (len(new_assignment), segment_index)
-        #     segment = segment[0]
-        #     if assignment and assignment[0][0] == segment['speaker']:
-        #         new_assignment.append(assignment.pop(0))
-        #     else:
-        #         new_assignment.append((segment['speaker'], dummy_key))
-        # assert len(assignment) == 0, assignment
-        # assignment = new_assignment
 
     assert len(assignment) == len(reference.unique('segment_index')), (len(assignment), len(reference.unique('segment_index')))
 
