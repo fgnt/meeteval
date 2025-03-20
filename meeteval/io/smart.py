@@ -140,9 +140,9 @@ def load(path: 'Path | list[Path]', parse_float=decimal.Decimal, format: 'str | 
     return loader.load(path, parse_float=parse_float)
 
 
-def dump(obj, path, format: 'str | None'=None):
+def dump(obj, path, format: 'str | None'=None, force=True):
     """
-    Dump a `meeteval.io` object to a file.
+    Dump a `meeteval.io` object to a file. Converts `obj` to the specified format.
 
     Guesses the file format from the files suffix by default. The format to use can be specified by the user by
     supplying `file_format`. This is especially useful when the files do not have a (correct) suffix, e.g., reading
@@ -158,7 +158,12 @@ def dump(obj, path, format: 'str | None'=None):
     
     Args:
         obj: Object to dump.
+        path: File path to dump the object to. Also used to guess the file format if `format` is None, 'none' or 'auto'.
+        force: Overwrite the file if it already exists.
     """
+    if not force:
+        if os.path.exists(path):
+            raise FileExistsError(f'Output file "{path}" already exists.')
     
     if format in (None, 'none', 'auto'):
         format = _guess_format(Path(path))
