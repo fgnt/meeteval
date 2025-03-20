@@ -1,8 +1,48 @@
+import os
 import decimal
 import io
 from pathlib import Path
 
-__all__ = ['load']
+
+__all__ = ['load', 'dump']
+
+
+def _get_format(format, path): 
+    import meeteval
+    format = {
+        'stm': meeteval.io.STM,
+        'rttm': meeteval.io.RTTM,
+        'uem': meeteval.io.UEM,
+        'ctm': meeteval.io.CTM,
+        'seglst': meeteval.io.SegLST,
+        'keyed_text': meeteval.io.KeyedText,
+        'json': meeteval.io.SegLST,
+    }.get(format)
+
+    if format is None:
+        raise ValueError(f'Unknown file type: {path}')
+    
+    return format
+
+
+def _open(f, mode='r'):
+    import contextlib
+    if isinstance(f, io.TextIOBase):
+        return contextlib.nullcontext(f)
+    elif isinstance(f, str) and str(f).startswith('http'):
+        # Web request
+        import urllib.request, urllib.error
+        try:
+            resource = urllib.request.urlopen(str(f))
+        except urllib.error.URLError as e:
+            raise FileNotFoundError(f) from e
+        # https://stackoverflow.com/a/19156107/5766934
+        return contextlib.nullcontext(io.TextIOWrapper(
+            resource, resource.headers.get_content_charset()))
+    elif isinstance(f, (str, os.PathLike)):
+        return open(f, mode)
+    else:
+        raise TypeError(type(f), f)
 
 
 def _guess_format(path: 'Path | io.TextIOBase'):
@@ -63,7 +103,7 @@ def load(path: 'Path | list[Path]', parse_float=decimal.Decimal, format: 'str | 
     - 'rttm': NIST RTTM format
     - 'uem': NIST UEM format
     - 'ctm': NIST CTM format
-    - 'seglst': Chime7 JSON format (SegLST)
+    - 'seglst': SegLST (Chime7 JSON format)
     - 'keyed_text': Kaldi KeyedText format
 
     Args:
@@ -84,33 +124,45 @@ def load(path: 'Path | list[Path]', parse_float=decimal.Decimal, format: 'str | 
             raise ValueError(
                 f'All files must have the same format, but found {types} for {path}.'
             )
-        return loaded[0].__class__.merge(*loaded)
+        
+        import meeteval
 
-    import meeteval
+        if isinstance(loaded[0], meeteval.io.CTM):
+            return meeteval.io.CTMGroup({p.stem: l for p, l in zip(path, loaded)})
+
+        return loaded[0].__class__.merge(*loaded)
 
     if format in (None, 'none', 'auto'):
         format = _guess_format(Path(path))
 
-    if format == 'stm':
-        load_fn = meeteval.io.STM.load
-    elif format == 'rttm':
-        load_fn = meeteval.io.RTTM.load
-    elif format == 'uem':
-        load_fn = meeteval.io.UEM.load
-    elif format == 'ctm':
-        load_fn = meeteval.io.CTMGroup.load
-    elif format == 'seglst':
-        load_fn = meeteval.io.SegLST.load
-    elif format == 'keyed_text':
-        load_fn = meeteval.io.KeyedText.load
-    elif format == 'json':
-        # Guess the type from the file content. Only support Chime7 JSON / SegLST format.
-        try:
-            return meeteval.io.SegLST.load(path, parse_float=parse_float)
-        except ValueError as e:
-            # Catches simplejson's JSONDecodeError and our own ValueErrors
-            raise ValueError(f'Unknown JSON format: {path}. Only SegLST format is supported.') from e
-    else:
-        raise ValueError(f'Unknown file type: {path}')
+    loader = _get_format(format, path)
+  
+    return loader.load(path, parse_float=parse_float)
 
-    return load_fn(path, parse_float=parse_float)
+
+def dump(obj, path, format: 'str | None'=None):
+    """
+    Dump a `meeteval.io` object to a file.
+
+    Guesses the file format from the files suffix by default. The format to use can be specified by the user by
+    supplying `file_format`. This is especially useful when the files do not have a (correct) suffix, e.g., reading
+    from STDIN.
+    Available options are:
+    - 'stm': NIST STM format
+    - 'rttm': NIST RTTM format
+    - 'uem': NIST UEM format
+    - 'ctm': NIST CTM format
+    - 'seglst': SegLST (Chime7 JSON format)
+    - 'keyed_text': Kaldi KeyedText format
+
+    
+    Args:
+        obj: Object to dump.
+    """
+    
+    if format in (None, 'none', 'auto'):
+        format = _guess_format(Path(path))
+
+    dumper = _get_format(format, path)
+
+    return dumper.new(obj).dump(path)

@@ -10,6 +10,7 @@ import dataclasses
 from dataclasses import dataclass
 from itertools import groupby
 import decimal
+from meeteval.io.smart import _open
 
 if typing.TYPE_CHECKING:
     from typing import Self
@@ -353,29 +354,14 @@ class Base(BaseABC):
     def to_seglst(self) -> 'SegLST':
         from meeteval.io.seglst import SegLST
         return SegLST([l.to_seglst_segment() for l in self.lines])
+    
+    def map(self, fn):
+        return self.__class__([fn(line) for line in self.lines])
 
     @classmethod
     def new(cls, s, **defaults) -> 'Self':
         from meeteval.io.seglst import asseglst
         return cls([cls.line_cls.from_dict({**defaults, **segment}) for segment in asseglst(s)])
-
-
-def _open(f, mode='r'):
-    if isinstance(f, io.TextIOBase):
-        return contextlib.nullcontext(f)
-    elif isinstance(f, str) and str(f).startswith('http'):
-        import urllib.request, urllib.error
-        try:
-            resource = urllib.request.urlopen(str(f))
-        except urllib.error.URLError as e:
-            raise FileNotFoundError(f) from e
-        # https://stackoverflow.com/a/19156107/5766934
-        return contextlib.nullcontext(io.TextIOWrapper(
-            resource, resource.headers.get_content_charset()))
-    elif isinstance(f, (str, os.PathLike)):
-        return open(f, mode)
-    else:
-        raise TypeError(type(f), f)
 
 
 class _VerboseKeyError(KeyError):
