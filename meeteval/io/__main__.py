@@ -5,18 +5,6 @@ from pathlib import Path
 import argparse
 import meeteval
 
-# formats = {
-#     'ctm': meeteval.io.ctm.CTM,
-#     'stm': meeteval.io.stm.STM,
-#     'seglst': meeteval.io.seglst.SegLST,
-#     'rttm': meeteval.io.rttm.RTTM,
-# }
-
-# d = meeteval.io.load('').to_seglst()
-# for s in d:
-#     s['words'] = '<NA>'
-# meeteval.io.STM.new(d).dump('.stm')
-
 
 def is_piping_in():
     """
