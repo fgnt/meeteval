@@ -117,7 +117,7 @@ def cli():
     args = dict(vars(parser.parse_args()))
     if not args['force']:
         if os.path.exists(args['output_file']):
-            raise FileExistsError(
+            args['arser'].error(
                 f'Output file "{args["output_file"]}" already exists. '
                 'Use --force / -f to overwrite.'
             )
@@ -129,4 +129,5 @@ def cli():
     if args['output_file'] == '-':
         args['output_file'] = sys.stdout
     args.pop('parser')
+    args.pop('force')
     convert(**args)
