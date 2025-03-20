@@ -264,6 +264,36 @@ def mimower(
     _save_results(results, hypothesis, per_reco_out, average_out, wer_name='MIMO-WER')
 
 
+def tcmimiower(
+        reference, hypothesis,
+        average_out='{parent}/{stem}_tcmimower.json',
+        per_reco_out='{parent}/{stem}_tcmimower_per_reco.json',
+        regex=None,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        hypothesis_sort='segment',
+        reference_sort='segment',
+        uem=None,
+        normalizer=None,
+        partial=False,
+):
+    """Computes the time-constrained MIMO WER (tcMIMO WER)"""
+    results = meeteval.wer.tcmimower(
+        reference, hypothesis, regex=regex,
+        collar=collar,
+        hyp_pseudo_word_timing=hyp_pseudo_word_timing,
+        ref_pseudo_word_timing=ref_pseudo_word_timing,
+        hypothesis_sort=hypothesis_sort,
+        reference_sort=reference_sort,
+        uem=uem, partial=partial,
+        normalizer=normalizer,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out, wer_name='tcMIMO-WER')
+
+
+
+
 def tcpwer(
         reference, hypothesis,
         average_out='{parent}/{stem}_tcpwer.json',

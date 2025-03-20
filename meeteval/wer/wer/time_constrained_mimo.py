@@ -208,6 +208,8 @@ def time_constrained_mimo_word_error_rate_multifile(
         hypothesis,
         partial=False,
         collar=0,
+        reference_pseudo_word_level_timing='character_based',
+        hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
 ) -> 'dict[str, MimoErrorRate]':
@@ -223,6 +225,8 @@ def time_constrained_mimo_word_error_rate_multifile(
         functools.partial(
             time_constrained_mimo_word_error_rate,
             collar=collar,
+            reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+            hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
             reference_sort=reference_sort,
             hypothesis_sort=hypothesis_sort,
         ),

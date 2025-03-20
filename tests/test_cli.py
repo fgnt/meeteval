@@ -109,6 +109,13 @@ def test_burn_mimo():
     run('python -m meeteval.wer mimower -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
 
+def test_burn_tcorc():
+    run(f'python -m meeteval.wer tcmimower -h hyp.stm -r ref.stm --collar 5')
+    run(f'python -m meeteval.wer tcmimower -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points --collar 5')
+    run(f'python -m meeteval.wer tcmimower -h hyp.seglst.json -r ref.seglst.json --collar 5')
+    run(f'python -m meeteval.wer tcmimower -h hyp.stm -r ref.stm --hypothesis-sort true --collar 5')
+
+
 def test_burn_cp():
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm')
     run(f"python -m meeteval.wer cpwer -h 'hyp?.stm' -r 'ref?.stm'")
