@@ -138,29 +138,32 @@ def test_tcmimo_burn(reference, hypothesis):
         reference, hypothesis, collar=5, reference_sort=False, hypothesis_sort=False,
 
     )
-    assert len(tcmimo.assignment) == len(reference)
     assert isinstance(tcmimo.errors, int)
     assert tcmimo.errors >= 0
-    assigned_reference, assigned_hypothesis = tcmimo.apply_assignment(reference, hypothesis)
-    assigned_reference = assigned_reference.groupby('speaker')
-    assigned_hypothesis = assigned_hypothesis.groupby('speaker')
-    er = combine_error_rates(
-        *[
-            time_constrained_siso_word_error_rate(
-                assigned_reference.get(k, meeteval.io.SegLST([])),
-                assigned_hypothesis.get(k, meeteval.io.SegLST([])),
-                reference_sort=False,
-                hypothesis_sort=False,
-                collar=5,
-            )
-            for k in set(assigned_reference.keys()) | set(assigned_hypothesis.keys())
-        ]
-    )
-    assert er.errors == tcmimo.errors, (er.errors, tcmimo.errors)
-    assert er.length == tcmimo.length
-    assert er.insertions == tcmimo.insertions
-    assert er.deletions == tcmimo.deletions
-    assert er.substitutions == tcmimo.substitutions
+    # Deactivated because we removed the assignment from the return value because it is not 
+    # guaranteed to match the original order of segments in the reference
+    # assert len(tcmimo.assignment) == len(reference)
+    # 
+    # assigned_reference, assigned_hypothesis = tcmimo.apply_assignment(reference, hypothesis)
+    # assigned_reference = assigned_reference.groupby('speaker')
+    # assigned_hypothesis = assigned_hypothesis.groupby('speaker')
+    # er = combine_error_rates(
+    #     *[
+    #         time_constrained_siso_word_error_rate(
+    #             assigned_reference.get(k, meeteval.io.SegLST([])),
+    #             assigned_hypothesis.get(k, meeteval.io.SegLST([])),
+    #             reference_sort=False,
+    #             hypothesis_sort=False,
+    #             collar=5,
+    #         )
+    #         for k in set(assigned_reference.keys()) | set(assigned_hypothesis.keys())
+    #     ]
+    # )
+    # assert er.errors == tcmimo.errors, (er.errors, tcmimo.errors)
+    # assert er.length == tcmimo.length
+    # assert er.insertions == tcmimo.insertions
+    # assert er.deletions == tcmimo.deletions
+    # assert er.substitutions == tcmimo.substitutions
 
 
 @given(

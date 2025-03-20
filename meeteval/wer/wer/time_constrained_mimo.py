@@ -19,11 +19,10 @@ def time_constrained_mimo_word_error_rate(
     """
     Computes the time-constrained mimo word error rate.
 
-    Note that the returned assignment matches the segment order in the sorted 
-    reference (according to `reference_sort`) and may not match the original 
-    segment order in `reference`. This is the case because the order in which
-    the segments are matched has an effect on the error rate and the assignment
-    format cannot represent the original order.
+    Note that the assignment is not returned because its representation doesn't
+    match the original order of the segments. This is a limitation of the
+    data structure used for the assignment. Since the assginment is usually unused,
+    and empty assignment is preferred over a new data representation for now.
     """
 
     reference, hypothesis, ref_self_overlap, hyp_self_overlap = preprocess(
@@ -149,7 +148,6 @@ def _tcmimower_unchecked(reference: SegLST, hypothesis: SegLST, dummy_key: str):
 def _tcmimower(reference, hypothesis):
     """
     The core function for the time-constrained MIMO-WER.
-
     """
     # Remove empty segments from the reference because they can increase
     # the computational complexity of the ORC algorithm, but they do not 
@@ -164,40 +162,45 @@ def _tcmimower(reference, hypothesis):
     dummy_key = next(iter(hypothesis.unique('speaker'))) if hypothesis else 'dummy'
     er, assignment = _tcmimower_unchecked(reference_clean, hypothesis_clean, dummy_key)
 
-    # Reconstruct the assignment with empty segments
-    # and sort by original segment index
-    if len(assignment) != len(reference.unique('segment_index')):
-        d = {
-            speaker: [(i, len(segments) == 1 and segments[0]['words'] == '') for i, segments in v.groupby('segment_index').items()]
-            for speaker, v in reference.groupby('speaker').items()
-        }
+    # The following code reconstructs the assignment in the order of the original segments
+    # including ones removed because they were empty. This is deactivated for now because
+    # the assignment doesn't represent the original order and is thus useless outside of 
+    # this function.
+    #
+    # # Reconstruct the assignment with empty segments
+    # # and sort by original segment index
+    # if len(assignment) != len(reference.unique('segment_index')):
+    #     d = {
+    #         speaker: [(i, len(segments) == 1 and segments[0]['words'] == '') for i, segments in v.groupby('segment_index').items()]
+    #         for speaker, v in reference.groupby('speaker').items()
+    #     }
 
-        new_assignment = []
-        while assignment:
-            r = assignment[0][0]
-            while d[r]:
-                _, empty = d[r].pop(0)
-                if empty:
-                    new_assignment.append((r, dummy_key))
-                else:
-                    new_assignment.append(assignment.pop(0))
+    #     new_assignment = []
+    #     while assignment:
+    #         r = assignment[0][0]
+    #         while d[r]:
+    #             _, empty = d[r].pop(0)
+    #             if empty:
+    #                 new_assignment.append((r, dummy_key))
+    #             else:
+    #                 new_assignment.append(assignment.pop(0))
         
-        for speaker, segments in d.items():
-            for i, empty in segments:
-                if empty:
-                    new_assignment.append((speaker, dummy_key))
-                else:
-                    raise RuntimeError('Unassigned segment')
-        assignment = new_assignment
+    #     for speaker, segments in d.items():
+    #         for i, empty in segments:
+    #             if empty:
+    #                 new_assignment.append((speaker, dummy_key))
+    #             else:
+    #                 raise RuntimeError('Unassigned segment')
+    #     assignment = new_assignment
 
-    assert len(assignment) == len(reference.unique('segment_index')), (len(assignment), len(reference.unique('segment_index')))
+    # assert len(assignment) == len(reference.unique('segment_index')), (len(assignment), len(reference.unique('segment_index')))
 
     return MimoErrorRate(
         er.errors, er.length,
         insertions=er.insertions,
         deletions=er.deletions,
         substitutions=er.substitutions,
-        assignment=assignment,
+        assignment=None,    # The assignment doesn't represent the original order, deactivate for now
         reference_self_overlap=None,
         hypothesis_self_overlap=None,
     )
