@@ -36,6 +36,12 @@ ext_modules = cythonize(
             extra_compile_args=['-std=c++11', '-O3'],
             extra_link_args=['-std=c++11'],
         ),
+        Extension(
+            'meeteval.wer.matching.cy_time_constrained_mimo_matching',
+            ['meeteval/wer/matching/cy_time_constrained_mimo_matching.pyx'],
+            extra_compile_args=['-std=c++11'],
+            extra_link_args=['-std=c++11'],
+        ),
      ]
 )
 
