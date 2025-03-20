@@ -160,6 +160,8 @@ Layout inline make_layout(
 struct Utterance {
     double begin_time;
     double end_time;
+    double overlapping_hyp_begin_time;
+    double overlapping_hyp_end_time;
 };
 
 /*
@@ -394,11 +396,28 @@ void update_levenshtein_row(
 }
 
 
-std::vector<Utterance> make_utterances(std::vector<std::vector<std::pair<double, double>>> & timings) {
-    double end_time = 0;
+std::vector<Utterance> make_utterances(
+    std::vector<std::vector<std::pair<double, double>>> & timings,
+    std::vector<std::vector<std::pair<double, double>>> & hypothesis_timings
+) {
     std::vector<Utterance> utterances(timings.size());
     if (timings.size() == 0) return utterances;
-
+    
+    // Flatten and sort timings
+    std::vector<std::pair<double, double>> flat_hyp_timings;
+    for (auto &v : hypothesis_timings) {
+        flat_hyp_timings.insert(flat_hyp_timings.end(), v.begin(), v.end());
+    }
+    auto flat_hyp_timings_sorted_begin = flat_hyp_timings;
+    std::sort(flat_hyp_timings_sorted_begin.begin(), flat_hyp_timings_sorted_begin.end(), [](std::pair<double, double> a, std::pair<double, double> b) {
+        return a.first < b.first;
+    });
+    auto flat_hyp_timings_sorted_end = flat_hyp_timings;
+    std::sort(flat_hyp_timings_sorted_end.begin(), flat_hyp_timings_sorted_end.end(), [](std::pair<double, double> a, std::pair<double, double> b) {
+        return a.second < b.second;
+    });
+    
+    double end_time = 0;
     for (size_t i = 0; i < timings.size(); i++) {
         // Handle case where words are not sorted by time
          double begin = std::min_element(
@@ -415,11 +434,12 @@ std::vector<Utterance> make_utterances(std::vector<std::vector<std::pair<double,
                 return a.second < b.second;
             })->second, end_time
         );
+
         utterances[i] = {
             .begin_time=begin,
             .end_time=end_time,
-//            .timings=timings[i],
-//            .words=reference[d][i],
+            .overlapping_hyp_begin_time=std::numeric_limits<double>::max(),
+            .overlapping_hyp_end_time=std::numeric_limits<double>::min()
         };
     }
 
@@ -427,6 +447,24 @@ std::vector<Utterance> make_utterances(std::vector<std::vector<std::pair<double,
     for (size_t i = utterances.size() - 1;; --i) {
         begin_time = std::min(begin_time, utterances[i].begin_time);
         utterances[i].begin_time = begin_time;
+
+        // Find the earliest begin time of the overlapping hypothesis words in flat_hyp_timings
+        auto it = std::lower_bound(flat_hyp_timings_sorted_begin.begin(), flat_hyp_timings_sorted_begin.end(), begin_time, [](std::pair<double, double> a, double b) {
+            return a.second < b;
+        });
+        if (it != flat_hyp_timings_sorted_begin.end()) {
+            utterances[i].overlapping_hyp_begin_time = it->first;
+        }
+
+        // Find the latest end time fo the overlapping hypothesis words in flat_hyp_timings
+        it = std::lower_bound(flat_hyp_timings_sorted_end.begin(), flat_hyp_timings_sorted_end.end(), end_time, [](std::pair<double, double> a, double b) {
+            return b < a.first;
+        });
+        if (it != flat_hyp_timings_sorted_end.begin()) {
+            it--;
+            utterances[i].overlapping_hyp_end_time = it->second;
+        }
+
         if (i == 0) break;
     }
     assert(utterances.size() == timings.size());
@@ -458,17 +496,17 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
         num_utterances += reference[d].size();
     }
 
-    // Convert reference utterances into `Utterance` structs
-    std::vector<std::vector<Utterance>> reference_utterances(num_reference_speakers);
-    for (size_t d = 0; d < num_reference_speakers; d++) {
-        reference_utterances.at(d) = make_utterances(reference_timings.at(d));
-    }
-
     // Compute for every word in the hypothesis the earliest seen end time and the latest seen begin time
     // This is required when the words are not sorted by begin time.
     std::vector<std::vector<Timing>> extended_hypothesis_timings(num_hypothesis_streams);
     for (size_t s = 0; s < hypothesis.size(); s++) {
         extended_hypothesis_timings.at(s) = make_extended_timing(hypothesis_timings.at(s));
+    }
+
+    // Convert reference utterances into `Utterance` structs
+    std::vector<std::vector<Utterance>> reference_utterances(num_reference_speakers);
+    for (size_t d = 0; d < num_reference_speakers; d++) {
+        reference_utterances.at(d) = make_utterances(reference_timings.at(d), hypothesis_timings);
     }
 
     // Compute extended timings for the reference utterances
@@ -551,9 +589,11 @@ std::pair<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> time
                 begin_pointer.at(d) < end_pointer.at(d) 
                 // We are not at the end of the stream
                 && begin_pointer.at(d) < reference_utterances.at(d).size()
-                // And the current utterance ends before the current utterance on the earliest stream
+                // And both utterances do not overlap with a common hypothesis word
+                && reference_utterances.at(d).at(begin_pointer.at(d)).overlapping_hyp_end_time
+                < current_speaker.at(end_pointer.at(current_speaker_index)).begin_time
                 && reference_utterances.at(d).at(begin_pointer.at(d)).end_time
-                <= current_speaker.at(end_pointer.at(current_speaker_index)).begin_time
+                < current_speaker.at(end_pointer.at(current_speaker_index)).overlapping_hyp_begin_time
             ) {
                 // Prune state: remove anything that is no longer needed (outside of current block of overlapping
                 // reference utterances)
