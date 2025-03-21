@@ -21,8 +21,18 @@ def convert(input_files, output_file, input_format, output_format, **kwargs):
         
         extra = {}
 
-        if isinstance(f, (str, Path)):
+        import stat
+        print(f, type(f))
+        if isinstance(f, (str, Path)) and stat.S_ISREG(os.stat(f).st_mode):
             extra['filestem'] = Path(f).stem
+        else:
+            for k, v in kwargs.items():
+                if '{filestem}' in v:
+                    raise ValueError(
+                        f'filestem not available for key {k}="{v}" ' 
+                        f'and file {f}: not a regular file. filestem '
+                        f'is only meaningful for regular files.'
+                    )
 
         if kwargs:
             for segment in d:

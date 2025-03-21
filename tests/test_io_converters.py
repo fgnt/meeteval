@@ -106,4 +106,5 @@ def test_ctm_piping():
     run(f'cat {example_files / "hyp1.ctm"} | meeteval-io ctm2stm --speaker spk-A - > /dev/null')
     with pytest.raises(Exception, match='.*the following arguments are required: --speaker.*'):
         run(f'cat {example_files / "hyp1.ctm"} | meeteval-io ctm2stm - > /dev/null')
-    run(f'meeteval-io ctm2stm <(cat {example_files / "hyp1.ctm"}) - > /dev/null')
+    with pytest.raises(Exception, match='.*not a regular file.*'):
+        run(f'meeteval-io ctm2stm <(cat {example_files / "hyp1.ctm"}) - > /dev/null')
