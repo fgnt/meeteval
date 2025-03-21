@@ -39,16 +39,6 @@ def run(cmd):
         )
 
 
-@pytest.fixture
-def output_folder():
-    output_folder = Path('converted').absolute()
-    output_folder.mkdir(exist_ok=True)
-    yield output_folder
-    for f in output_folder.glob('*'):
-        f.unlink()
-    output_folder.rmdir()
-
-
 @pytest.mark.parametrize(
     'from_format, to_format',
     list(itertools.product(
@@ -56,51 +46,51 @@ def output_folder():
         ['stm', 'rttm', 'seglst'],
     ))
 )
-def test_converter(from_format, to_format, output_folder):
-    run(f'meeteval-io {from_format}2{to_format} {example_files / test_files[from_format]} {output_folder / test_files[to_format]}')
-    assert (output_folder / test_files[to_format]).exists()
+def test_converter(from_format, to_format, tmp_path):
+    run(f'meeteval-io {from_format}2{to_format} {example_files / test_files[from_format]} {tmp_path / test_files[to_format]}')
+    assert (tmp_path / test_files[to_format]).exists()
 
 
-def test_merge_ctm_filename(output_folder):
-    run(f'meeteval-io ctm2stm {example_files / "hyp1.ctm"} {example_files / "hyp2.ctm"} {output_folder / "hyp.stm"}')
-    assert (output_folder / "hyp.stm").exists()
-    meeteval.io.load(output_folder / "hyp.stm").to_seglst().unique('speaker') == {'hyp1', 'hyp2'}
+def test_merge_ctm_filename(tmp_path):
+    run(f'meeteval-io ctm2stm {example_files / "hyp1.ctm"} {example_files / "hyp2.ctm"} {tmp_path / "hyp.stm"}')
+    assert (tmp_path / "hyp.stm").exists()
+    meeteval.io.load(tmp_path / "hyp.stm").to_seglst().unique('speaker') == {'hyp1', 'hyp2'}
 
 
-def test_merge_ctm_speaker_arg(output_folder):
-    run(f'meeteval-io ctm2stm --speaker spk-A {example_files / "hyp1.ctm"} {example_files / "hyp2.ctm"} {output_folder / "hyp.stm"}')
-    assert (output_folder / "hyp.stm").exists()
-    meeteval.io.load(output_folder / "hyp.stm").to_seglst().unique('speaker') == {'spk-A'}
+def test_merge_ctm_speaker_arg(tmp_path):
+    run(f'meeteval-io ctm2stm --speaker spk-A {example_files / "hyp1.ctm"} {example_files / "hyp2.ctm"} {tmp_path / "hyp.stm"}')
+    assert (tmp_path / "hyp.stm").exists()
+    meeteval.io.load(tmp_path / "hyp.stm").to_seglst().unique('speaker') == {'spk-A'}
 
-def test_piping(output_folder):
-    run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm {output_folder / "hyp.rttm"}')
+def test_piping(tmp_path):
+    run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm {tmp_path / "hyp.rttm"}')
     run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm -')
     run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm - | echo')
-    run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm - > {output_folder / "hyp.rttm"}')
+    run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm - > {tmp_path / "hyp.rttm"}')
     run(f'meeteval-io stm2rttm <(cat {example_files / "hyp.stm"}) -')
 
-def test_convert_correct(output_folder):
-    run(f'meeteval-io stm2rttm {example_files / "hyp.stm"} {output_folder / "hyp.rttm"}')
-    assert (output_folder / "hyp.rttm").read_text() == (example_files / "hyp.rttm").read_text()
+def test_convert_correct(tmp_path):
+    run(f'meeteval-io stm2rttm {example_files / "hyp.stm"} {tmp_path / "hyp.rttm"}')
+    assert (tmp_path / "hyp.rttm").read_text() == (example_files / "hyp.rttm").read_text()
 
     # TODO: dump timestamps as str or int / float?
-    # run(f'meeteval-io stm2seglst {example_files / "hyp.stm"} {output_folder / "hyp.seglst.json"}')
-    # assert (output_folder / "hyp.seglst.json").read_text() == (example_files / "hyp.seglst.json").read_text()
+    # run(f'meeteval-io stm2seglst {example_files / "hyp.stm"} {tmp_path / "hyp.seglst.json"}')
+    # assert (tmp_path / "hyp.seglst.json").read_text() == (example_files / "hyp.seglst.json").read_text()
 
-    run(f'meeteval-io rttm2stm {example_files / "hyp.rttm"} {output_folder / "hyp.stm"}')
-    assert meeteval.io.load(output_folder / "hyp.stm") == meeteval.io.load(example_files / "hyp.stm").map(lambda l: l.replace(transcript='<NA>'))
+    run(f'meeteval-io rttm2stm {example_files / "hyp.rttm"} {tmp_path / "hyp.stm"}')
+    assert meeteval.io.load(tmp_path / "hyp.stm") == meeteval.io.load(example_files / "hyp.stm").map(lambda l: l.replace(transcript='<NA>'))
 
-    run(f'meeteval-io seglst2stm {example_files / "hyp.seglst.json"} {output_folder / "hyp.stm"} -f')
-    assert meeteval.io.load(output_folder / "hyp.stm") == meeteval.io.load(example_files / "hyp.stm")
+    run(f'meeteval-io seglst2stm {example_files / "hyp.seglst.json"} {tmp_path / "hyp.stm"} -f')
+    assert meeteval.io.load(tmp_path / "hyp.stm") == meeteval.io.load(example_files / "hyp.stm")
 
-def test_convert_file_exists(output_folder):
-    run(f'meeteval-io stm2rttm {example_files / "hyp.stm"} {output_folder / "hyp.rttm"}')
+def test_convert_file_exists(tmp_path):
+    run(f'meeteval-io stm2rttm {example_files / "hyp.stm"} {tmp_path / "hyp.rttm"}')
 
     with pytest.raises(Exception, match='.*Output file .* already exists.* Use --force / -f to overwrite.'):
-        run(f'meeteval-io stm2rttm {example_files / "hyp.stm"} {output_folder / "hyp.rttm"}')
+        run(f'meeteval-io stm2rttm {example_files / "hyp.stm"} {tmp_path / "hyp.rttm"}')
 
-    run(f'meeteval-io stm2rttm --force {example_files / "hyp.stm"} {output_folder / "hyp.rttm"}')
-    run(f'meeteval-io stm2rttm -f {example_files / "hyp.stm"} {output_folder / "hyp.rttm"}')
+    run(f'meeteval-io stm2rttm --force {example_files / "hyp.stm"} {tmp_path / "hyp.rttm"}')
+    run(f'meeteval-io stm2rttm -f {example_files / "hyp.stm"} {tmp_path / "hyp.rttm"}')
 
 def test_ctm_piping():
     run(f'cat {example_files / "hyp1.ctm"} | meeteval-io ctm2stm --speaker spk-A - > /dev/null')
