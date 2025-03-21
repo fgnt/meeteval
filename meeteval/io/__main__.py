@@ -6,7 +6,7 @@ import argparse
 import meeteval
 
 
-def is_piping_in():
+def _is_piping_in():
     """
     Checks whether input is being piped into the command.
     """
@@ -41,7 +41,7 @@ def convert(input_files, output_file, input_format, output_format, **kwargs):
 def cli():
     from meeteval.wer.__main__ import SmartFormatter
 
-    piping_in = is_piping_in()
+    piping_in = _is_piping_in()
 
     parser = argparse.ArgumentParser(
         formatter_class=SmartFormatter,
@@ -70,8 +70,6 @@ def cli():
                 action='store_true',
                 default=False,
             )
-            # When piping into the command, we do not want to allow 
-            # additional input files
             command_parser.add_argument(
                 'input_files', 
                 nargs='+' if not piping_in else '*',
