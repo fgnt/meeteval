@@ -98,3 +98,17 @@ def test_ctm_piping():
         run(f'cat {example_files / "hyp1.ctm"} | meeteval-io ctm2stm - > /dev/null')
     with pytest.raises(Exception, match='.*not a regular file.*'):
         run(f'meeteval-io ctm2stm <(cat {example_files / "hyp1.ctm"}) - > /dev/null')
+
+def test_placeholder_replacement():
+    """Tests that placeholders are replaced with information from the segments or the file stem."""
+    out = run(f'meeteval-io rttm2stm {example_files / "hyp.rttm"} --words "<NA>" -').stdout
+    assert all(l.transcript == '<NA>' for l in meeteval.io.STM.parse(out))
+
+    out = run(f'meeteval-io rttm2stm {example_files / "hyp.rttm"} --words "{{filestem}}-{{session_id}}" -').stdout
+    assert all(l.transcript == f'hyp-{l.filename}' for l in meeteval.io.STM.parse(out))
+
+    out = run(f'meeteval-io ctm2seglst {example_files / "hyp1.ctm"} -').stdout
+    assert all(l['speaker'] == 'hyp1' for l in meeteval.io.SegLST.parse(out))
+
+    out = run(f'meeteval-io ctm2seglst {example_files / "hyp1.ctm"} --speaker "{{filestem}}-{{session_id}}-{{start_time}}-{{end_time}}-{{words}}" -').stdout
+    assert all(l['speaker'] == f'hyp1-{l["session_id"]}-{l["start_time"]}-{l["end_time"]}-{l["words"]}' for l in meeteval.io.SegLST.parse(out))
