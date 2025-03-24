@@ -68,12 +68,14 @@ class SegLST(BaseABC):
     ) -> 'Self':
         from meeteval.io.base import _open
         files = file if isinstance(file, (tuple, list)) else [file]
-
         parsed = []
         for f in files:
             with _open(f, 'r') as fd:
-                parsed.append(cls.parse(fd.read(), parse_float=parse_float))
-
+                try:
+                    parsed.append(cls.parse(fd.read(), parse_float=parse_float))
+                except ValueError as e:
+                    # Catches simplejson's JSONDecodeError and our own ValueErrors
+                    raise ValueError(f'Unknown JSON format: {f}. Only SegLST format is supported.') from e
         return cls.merge(*parsed)
 
     @classmethod

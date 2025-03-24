@@ -5,7 +5,7 @@ from . import rttm
 from . import uem
 from . import seglst
 from . import keyed_text
-from .load_wrapper import load
+from .smart import load, dump
 from .stm import STM, STMLine
 from .rttm import RTTM, RTTMLine
 from .uem import UEM, UEMLine
