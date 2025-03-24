@@ -22,7 +22,6 @@ def convert(input_files, output_file, input_format, output_format, **kwargs):
         extra = {}
 
         import stat
-        print(f, type(f))
         if isinstance(f, (str, Path)) and stat.S_ISREG(os.stat(f).st_mode):
             extra['filestem'] = Path(f).stem
         else:
