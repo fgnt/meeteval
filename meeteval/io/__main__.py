@@ -1,6 +1,6 @@
 import os
 import sys
-from stat import S_ISFIFO
+import stat
 from pathlib import Path
 import argparse
 import meeteval
@@ -10,15 +10,19 @@ def _is_piping_in():
     """
     Checks whether input is being piped into the command.
     """
-    return S_ISFIFO(os.fstat(0).st_mode)
+    return stat.S_ISFIFO(os.fstat(0).st_mode)
 
 
 def convert(input_files, output_file, input_format, output_format, parser, **kwargs):
     """
-    Converts one or multiple `input_files` from `input_format` to 
-    `output_format` and writes the result to `output_file`. All input files must 
-    have the same format. The `kwargs` are used to fill missing keys in the 
-    destination format. If a value in `kwargs` is a string, it is formatted with
+    Converts one or multiple `input_files` from `input_format` ('.rttm', '.stm', 
+    '.ctm', '.seglst') to `output_format` ('.rttm', '.stm', '.seglst') and writes
+    the result to `output_file`.
+
+    The main purpose of `kwargs` is to add missing keys from the
+    format conversion, e.g. '.stm' has speaker, while '.ctm' has not.
+    In case of '.seglst', `kwargs` is used to update every segment.
+    If a value in `kwargs` is a string, it is formatted with
     the segment information and the file stem of the input file in the key 
     `'filestem'`.
     """
@@ -29,7 +33,6 @@ def convert(input_files, output_file, input_format, output_format, parser, **kwa
         
         extra = {}
 
-        import stat
         if isinstance(f, (str, Path)) and stat.S_ISREG(os.stat(f).st_mode):
             extra['filestem'] = Path(f).stem
         else:
@@ -105,7 +108,8 @@ def cli():
             command_parser.add_argument(
                 'input_files', 
                 nargs='+' if not piping_in else '*',
-                help='The input files.',
+                help='The input files. "-" means stdio and is only allowed '
+                     'when piping into the command.',
             )
             command_parser.add_argument(
                 'output_file', type=str,
@@ -146,7 +150,7 @@ def cli():
                 'Use --force / -f to overwrite.'
             )
     if piping_in:
-        if args['input_files']:
+        if args['input_files'] and args['input_files'] != ['-']:
             import subprocess
             args['parser'].error(
                 f'Input files ({subprocess.list2cmdline(args["input_files"])}) '
