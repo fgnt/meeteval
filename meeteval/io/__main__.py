@@ -14,6 +14,14 @@ def _is_piping_in():
 
 
 def convert(input_files, output_file, input_format, output_format, **kwargs):
+    """
+    Converts one or multiple `input_files` from `input_format` to 
+    `output_format` and writes the result to `output_file`. All input files must 
+    have the same format. The `kwargs` are used to fill missing keys in the 
+    destination format. If a value in `kwargs` is a string, it is formatted with
+    the segment information and the file stem of the input file in the key 
+    `'filestem'`.
+    """
     data = []
 
     for f in input_files:
@@ -54,6 +62,8 @@ def cli():
 
     parser = argparse.ArgumentParser(
         formatter_class=SmartFormatter,
+        description='Convert between different file formats supported by meeteval.\n\n'
+                    'Use "meeteval-io SUBCOMMAND --help" for further usage details.'
     )
     commands = parser.add_subparsers(
         title='Subcommands',
@@ -64,12 +74,17 @@ def cli():
             command_parser = commands.add_parser(
                 f'{reader}2{writer}',
                 help=f'Converts from {reader.upper()} to {writer.upper()}.',
+                description=f'Converts from {reader.upper()} to {writer.upper()}. '
+                            f'Merges multiple input files.\n\n'
+                            f'Piping into the command is supported for a single '
+                            f'input file and "-" is required to pipe out: '
+                            f'"cat file.stm | meeteval-io stm2rtm - | ..."',
                 formatter_class=SmartFormatter,
                 add_help=False,
             )
             command_parser.add_argument(
                 '--help', 
-                help='show this help message and exit',
+                help='Show this help message and exit',
                 action='help',
                 default=argparse.SUPPRESS,
             )
@@ -99,13 +114,19 @@ def cli():
                 command_parser.add_argument(
                     '--speaker',
                     type=str,
-                    help='The speaker name to use for the CTM. Defaults to the file stem.',
+                    help='The speaker name to use for the CTM. Anything in '
+                         'curly braces is replaced by the segment information, '
+                         'for example "--speaker \'{session_id}\'". '
+                         'Defaults to the file stem.',
                     required=piping_in,
                     default=None if piping_in else '{filestem}',
                 )
             if reader == 'rttm' and writer in ('stm', 'seglst'):
                 command_parser.add_argument(
                     '--words',
+                    help='Placeholder for missing words. Anything in curly '
+                         'braces is replaced by the segment information, '
+                         'for example "{session_id}-{speaker}".',
                     default='<NA>',
                 )
 
@@ -119,7 +140,10 @@ def cli():
     if piping_in:
         if args['input_files']:
             import subprocess
-            args['parser'].error(f'Input files ({subprocess.list2cmdline(args["input_files"])}) are not allowed when piping into the command.')
+            args['parser'].error(
+                f'Input files ({subprocess.list2cmdline(args["input_files"])}) '
+                f'are not allowed when piping into the command.'
+            )
         args['input_files'] = [sys.stdin]
     if args['output_file'] == '-':
         args['output_file'] = sys.stdout
