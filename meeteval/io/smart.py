@@ -39,6 +39,16 @@ def _open(f, mode='r'):
         # https://stackoverflow.com/a/19156107/5766934
         return contextlib.nullcontext(io.TextIOWrapper(
             resource, resource.headers.get_content_charset()))
+    elif str(f) == '-':
+        import sys
+        if mode == 'r':
+            return contextlib.nullcontext(sys.stdin)
+        elif mode == 'w':
+            return contextlib.nullcontext(sys.stdout)
+        else:
+            raise ValueError(
+                f'Mode "{mode}" is not supported for "-" (stdin/stdout).'
+            )
     elif isinstance(f, (str, os.PathLike)):
         return open(f, mode)
     else:

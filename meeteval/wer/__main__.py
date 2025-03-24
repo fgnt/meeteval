@@ -9,6 +9,7 @@ import textwrap
 from pathlib import Path
 
 import meeteval.io
+from meeteval.io.smart import _open
 from meeteval.wer.wer import combine_error_rates, ErrorRate
 import sys
 import meeteval.wer
@@ -48,19 +49,7 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
 
     """
     path = Path(path)
-    if path.stem == '-':
-        from contextlib import nullcontext
-        p = nullcontext(sys.stdout)
-    else:
-        try:
-            p = path.open('w')
-        except FileNotFoundError as e:
-            raise FileNotFoundError(
-                f'Couldn\'t open the output file ({path}).\n'
-                f'Consider explicitly setting the output files,'
-                f'especially when piping into this tool.'
-            ) from e
-    with p as fd:
+    with _open(path, 'w') as fd:
         suffix = path.suffix
         if suffix == '':
             suffix = default_suffix
@@ -76,12 +65,12 @@ def _dump(obj, path: 'Path | str', default_suffix='.json'):
         else:
             raise NotImplementedError(f'Unknown file ext: {suffix}')
 
-    if path.stem != '-':
+    if str(path) != '-':
         logging.info(f'Wrote: {path}')
 
 
 def _load(path: Path):
-    with path.open('r') as fd:
+    with _open(path, 'r') as fd:
         if path.suffix == '.json':
             return json.load(fd)
         elif path.suffix == '.yaml':

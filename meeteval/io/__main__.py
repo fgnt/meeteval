@@ -33,7 +33,7 @@ def convert(input_files, output_file, input_format, output_format, parser, **kwa
         
         extra = {}
 
-        if isinstance(f, (str, Path)) and stat.S_ISREG(os.stat(f).st_mode):
+        if isinstance(f, (str, Path)) and os.path.exists(f) and stat.S_ISREG(os.stat(f).st_mode):
             extra['filestem'] = Path(f).stem
         else:
             for k, v in kwargs.items():
@@ -156,8 +156,7 @@ def cli():
                 f'Input files ({subprocess.list2cmdline(args["input_files"])}) '
                 f'are not allowed when piping into the command.'
             )
-        args['input_files'] = [sys.stdin]
-    if args['output_file'] == '-':
-        args['output_file'] = sys.stdout
+        else:
+            args['input_files'] = ['-']
     args.pop('force')
     convert(**args)
