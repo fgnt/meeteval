@@ -295,7 +295,7 @@ def _preprocess_single(
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
     """
     # Check if arguments are valid
-    if segment_index not in ('segment', 'word', False):
+    if segment_index not in ('segment', 'sorted_segment', 'word', False):
         raise ValueError(segment_index)
 
     contains_timestamps = (
@@ -371,6 +371,9 @@ def _preprocess_single(
     # Sort, if requested and timestamps are available
     if sort in (True, 'segment', 'word') and contains_timestamps:
         segments = segments.sorted('start_time')
+
+    if segment_index == 'sorted_segment':
+        segments = add_segment_index(segments)
 
     # Remove keys that are not needed before duplicating them in the splitting
     # process

@@ -11,6 +11,7 @@ __all__ = [
     'orcwer',
     'greedy_orcwer',
     'mimower',
+    'tcmimower',
     'tcpwer',
     'tcorcwer',
     'greedy_tcorcwer',
@@ -270,6 +271,37 @@ def mimower(
         hypothesis_sort=hypothesis_sort
     )
     return results
+
+
+def tcmimower(
+        reference, hypothesis,
+        collar=0,
+        hyp_pseudo_word_timing='character_based_points',
+        ref_pseudo_word_timing='character_based',
+        regex=None,
+        hypothesis_sort='segment',
+        reference_sort='segment',
+        uem=None,
+        normalizer=None,
+        partial=False,
+):
+    """Computes the time-constrained MIMO WER"""
+    from meeteval.wer.wer.time_constrained_mimo import time_constrained_mimo_word_error_rate_multifile
+    reference, hypothesis = _load_texts(
+        reference, hypothesis, regex=regex,
+        uem=uem, normalizer=normalizer
+    )
+    results = time_constrained_mimo_word_error_rate_multifile(
+        reference, hypothesis,
+        collar=collar,
+        reference_pseudo_word_level_timing=ref_pseudo_word_timing,
+        hypothesis_pseudo_word_level_timing=hyp_pseudo_word_timing,
+        reference_sort=reference_sort,
+        hypothesis_sort=hypothesis_sort,
+        partial=partial,
+    )
+    return results
+
 
 
 def tcpwer(

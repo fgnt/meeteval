@@ -2,8 +2,8 @@ import dataclasses
 import functools
 from typing import Iterable, Any
 
-from meeteval.io.seglst import asseglistconvertible
-from meeteval.wer.preprocess import preprocess
+from meeteval.io.seglst import asseglistconvertible, SegLST
+from meeteval.wer.preprocess import add_segment_index, preprocess
 from meeteval.wer.wer.error_rate import ErrorRate
 from meeteval.wer.wer.siso import _siso_error_rate
 from meeteval.wer.utils import _keys, _items, _values
@@ -172,6 +172,13 @@ def apply_mimo_assignment(
         hypothesis: 'list[Any] | dict[Any, Any]',
 ):
     """
+    Apply the assignment to the reference and hypothesis.
+    Only the reference is modifed.
+
+    The labels and the segment order is modifed in reference according 
+    to the assignment. The order change is important when segments 
+    overlap!
+
     >>> assignment = [('A', 'O2'), ('B', 'O2'), ('A', 'O1')]
     >>> reference = {'A': ['a b', 'c d'], 'B': ['e f']}
     >>> hypothesis = {'O1': 'c d', 'O2': 'a b e f'}
@@ -208,18 +215,27 @@ def apply_mimo_assignment(
     except Exception:
         pass
     else:
-        reference = r_conv.to_seglst().sorted('start_time')
+        reference = r_conv.to_seglst()
+        
+        # Order is given by segment_index, or the order in which the 
+        # segments were added to the list, if segment_index is not 
+        # available
+        if 'segment_index' in reference.T.keys():
+            reference = reference.sorted('segment_index')
+        else:
+            reference = add_segment_index(reference)
+
         reference = {
-            k: list(v)
+            k: list(v.groupby('segment_index').values())
             for k, v in reference.groupby('speaker').items()
         }
+        new_reference = []
+        for r, h in assignment:
+            segments = reference[r].pop(0)
+            for s in segments:
+                new_reference.append({**s, 'speaker': h})
 
-        reference_new = [
-            {**reference[r].pop(0), 'speaker': h}
-            for r, h in assignment
-        ]
-
-        return r_conv.new(reference_new), hypothesis
+        return r_conv.new(new_reference), hypothesis
 
     reference_new = {k: [] for k in _keys(hypothesis)}
     # convert to list and copy
