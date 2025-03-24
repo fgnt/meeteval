@@ -355,7 +355,11 @@ class Base(BaseABC):
         from meeteval.io.seglst import SegLST
         return SegLST([l.to_seglst_segment() for l in self.lines])
     
-    def map(self, fn):
+    def map(self, fn) -> 'Self':
+        """
+        Applies `fn` to all segments and returns a new object with
+        the results.
+        """
         return self.__class__([fn(line) for line in self.lines])
 
     @classmethod
