@@ -13,7 +13,7 @@ def _is_piping_in():
     return S_ISFIFO(os.fstat(0).st_mode)
 
 
-def convert(input_files, output_file, input_format, output_format, **kwargs):
+def convert(input_files, output_file, input_format, output_format, parser, **kwargs):
     """
     Converts one or multiple `input_files` from `input_format` to 
     `output_format` and writes the result to `output_file`. All input files must 
@@ -35,8 +35,8 @@ def convert(input_files, output_file, input_format, output_format, **kwargs):
         else:
             for k, v in kwargs.items():
                 if '{filestem}' in v:
-                    raise ValueError(
-                        f'filestem not available for key {k}="{v}" ' 
+                    parser.error(
+                        f'"{{filestem}}" not available for key {k}="{v}" ' 
                         f'and file {f}: not a regular file. filestem '
                         f'is only meaningful for regular files.'
                     )
@@ -45,7 +45,15 @@ def convert(input_files, output_file, input_format, output_format, **kwargs):
             for segment in d:
                 for k, v in kwargs.items():
                     if isinstance(v, str):
-                        v = v.format(**segment, **extra)
+                        try:
+                            v = v.format(**segment, **extra)
+                        except KeyError as e:
+                            parser.error(
+                                f'Key "{e.args[0]}" not found in segment '
+                                f'({list(segment.keys())}) or extra keys '
+                                f'({list(extra.keys())}) '
+                                f'for file "{f}" and key "{k}"="{v}".'
+                            )
                     segment[k] = v
                     
         data.append(d)
@@ -147,6 +155,5 @@ def cli():
         args['input_files'] = [sys.stdin]
     if args['output_file'] == '-':
         args['output_file'] = sys.stdout
-    args.pop('parser')
     args.pop('force')
     convert(**args)

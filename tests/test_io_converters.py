@@ -112,3 +112,6 @@ def test_placeholder_replacement():
 
     out = run(f'meeteval-io ctm2seglst {example_files / "hyp1.ctm"} --speaker "{{filestem}}-{{session_id}}-{{start_time}}-{{end_time}}-{{words}}" -').stdout
     assert all(l['speaker'] == f'hyp1-{l["session_id"]}-{l["start_time"]}-{l["end_time"]}-{l["words"]}' for l in meeteval.io.SegLST.parse(out))
+
+    with pytest.raises(Exception, match='.*Key "argh" not found in segment.*'):
+        run(f'meeteval-io ctm2seglst {example_files / "hyp1.ctm"} --speaker "{{argh}}" -')
