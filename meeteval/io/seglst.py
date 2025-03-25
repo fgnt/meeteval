@@ -60,6 +60,12 @@ class SegLST(BaseABC):
     """
     segments: 'list[SegLstSegment]'
 
+    def __post_init__(self):
+        if not isinstance(self.segments, list):
+            raise TypeError(
+                f'Expected a list of segments, but found {type(self.segments)}'
+            )
+
     @classmethod
     def load(
             cls,
