@@ -174,7 +174,8 @@ Copy what you need into your `.bashrc` or `.zshrc`.
 In Python code, you can modify the data however you like and convert to a different file format in a few lines:
 
 ```python
-data = meeteval.io.load('example_files/hyp.stm').as_seglst()
+import meeteval
+data = meeteval.io.load('example_files/hyp.stm').to_seglst()
 
 for s in data:
   # Add or modify the data in-placee
