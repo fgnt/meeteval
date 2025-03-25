@@ -1,0 +1,13 @@
+# File format conversions
+alias ctm2stm='meeteval-io ctm2stm'
+alias ctm2seglst='meeteval-io ctm2seglst'
+alias ctm2rttm='meeteval-io ctm2rttm'
+alias stm2stm='meeteval-io stm2stm'
+alias stm2seglst='meeteval-io stm2seglst'
+alias stm2rttm='meeteval-io stm2rttm'
+alias seglst2stm='meeteval-io seglst2stm'
+alias seglst2seglst='meeteval-io seglst2seglst'
+alias seglst2rttm='meeteval-io seglst2rttm'
+alias rttm2stm='meeteval-io rttm2stm'
+alias rttm2seglst='meeteval-io rttm2seglst'
+alias rttm2rttm='meeteval-io rttm2rttm'
