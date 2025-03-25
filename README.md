@@ -39,14 +39,7 @@ An alignment visualization tool for system analysis. Supports most WER definitio
 
 ### File format conversion
 
-MeetEval's `meeteval-io` command converts between all supported file types, for example:
-
-- `meeteval-io seglst2stm example_files/hyp.seglst.json -`
-- `meeteval-io stm2rttm example_files/hyp.stm -` (words are omitted)
-- `meeteval-io ctm2stm example_files/hyp*.ctm -` (caution: one segment is created for every word!)
-
-`meeteval-io --help` lists all supported conversions. [shell_aliases](./shell_aliases) contains a set of aliases for faster access to these commands. 
-Copy what you need into your `.bashrc` or `.zshrc`.
+MeetEval's `meeteval-io` command converts between all supported file types. [See docs below](#file-format-conversion-1).
 
 ## Installation
 
@@ -167,6 +160,29 @@ meeteval-wer orcwer -h hyp1.ctm -h hyp2.ctm -r reference.stm
 > [!NOTE]
 > Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away. We recommend to use `STM` or `SegLST` files.
 
+### File format conversion
+
+MeetEval's `meeteval-io` command converts between all supported file types, for example:
+
+- `meeteval-io seglst2stm example_files/hyp.seglst.json -`
+- `meeteval-io stm2rttm example_files/hyp.stm -` (words are omitted)
+- `meeteval-io ctm2stm example_files/hyp*.ctm -` (caution: one segment is created for every word!)
+
+`meeteval-io --help` lists all supported conversions. [shell_aliases](./shell_aliases) contains a set of aliases for faster access to these commands. 
+Copy what you need into your `.bashrc` or `.zshrc`.
+
+In Python code, you can modify the data however you like and convert to a different file format in a few lines:
+
+```python
+data = meeteval.io.load('example_files/hyp.stm').as_seglst()
+
+for s in data:
+  # Add or modify the data in-placee
+  s['speaker'] = ...
+
+# Dump in any format
+meeteval.io.dump(data, 'hyp.rttm')
+```
 
 ## Python interface
 
