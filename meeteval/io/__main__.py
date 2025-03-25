@@ -76,6 +76,12 @@ def cli():
         description='Convert between different file formats supported by meeteval.\n\n'
                     'Use "meeteval-io SUBCOMMAND --help" for further usage details.'
     )
+    parser.add_argument(
+        '--print-shell-aliases', 
+        action='store_true', 
+        help='Print shell aliases for faster access to '
+             'the conversion commands.'
+    )
     commands = parser.add_subparsers(
         title='Subcommands',
     )
@@ -143,6 +149,16 @@ def cli():
                 )
 
     args = dict(vars(parser.parse_args()))
+
+    if args.pop('print_shell_aliases'):
+        for parser in commands._name_parser_map.values():
+            reader = parser.get_default('input_format')
+            writer = parser.get_default('output_format')
+            print(
+                f'alias {reader}2{writer}=\'meeteval-io {reader}2{writer}\''
+            )
+        return
+
     if not args['force']:
         if os.path.exists(args['output_file']):
             args['parser'].error(
