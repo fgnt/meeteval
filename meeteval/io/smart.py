@@ -175,9 +175,19 @@ def dump(obj, path, format: 'str | None'=None, force=True):
         if os.path.exists(path):
             raise FileExistsError(f'Output file "{path}" already exists.')
     
-    if format in (None, 'none', 'auto'):
+    format_guessed = format in (None, 'none', 'auto')
+    if format_guessed:
         format = _guess_format(Path(path))
 
     dumper = _get_format(format, path)
 
-    return dumper.new(obj).dump(path)
+    import meeteval
+    obj = meeteval.io.asseglst(obj, py_convert=meeteval.io.SegLST)
+    try:
+        obj = dumper.new(obj)
+    except Exception as e:
+        raise ValueError(
+            f'Failed to convert object to {format}' +
+            (f' (format was guessed from path suffix {path}) ' if format_guessed else '')
+        ) from e
+    return obj.dump(path)

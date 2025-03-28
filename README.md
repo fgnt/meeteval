@@ -6,7 +6,8 @@
 <a href="https://pypi.org/project/meeteval/"><img src="https://img.shields.io/pypi/v/meeteval"/></a>
 
 ## Features
-MeetEval supports the following metrics for meeting transcription evaluation:
+
+### Metrics for meeting transcription evaluation
 
 - **Standard WER** for single utterances (Called SISO WER in MeetEval)<br>
   `meeteval-wer wer -r ref -h hyp`
@@ -18,6 +19,8 @@ MeetEval supports the following metrics for meeting transcription evaluation:
   `meeteval-wer greedy_orcwer -r ref.stm -h hyp.stm`
 - **Multi-speaker-input multi-stream-output Word Error Rate (MIMO WER)**<br>
   `meeteval-wer mimower -r ref.stm -h hyp.stm`
+- **Time-Constrained Multi-speaker-input multi-stream-output Word Error Rate (tcMIMO WER)**<br>
+  `meeteval-wer tcmimower -r ref.stm -h hyp.stm --collar 5`
 - **Time-Constrained minimum-Permutation Word Error Rate (tcpWER)**<br>
   `meeteval-wer tcpwer -r ref.stm -h hyp.stm --collar 5`
 - **Time-Constrained Optimal Reference Combination Word Error Rate (tcORC WER)**<br>
@@ -31,7 +34,12 @@ MeetEval supports the following metrics for meeting transcription evaluation:
 - **Diarization Error Rate (DER)** by wrapping [mdeval](https://github.com/nryant/dscore/raw/master/scorelib/md-eval-22.pl)<br>
   `meeteval-der md_eval_22 -r ref.stm -h hyp.stm --collar .25`
 
-Additionally, MeetEval contains a [visualization](#visualization) tool for cpWER and tcpWER alignments that helps to spot errors in system outputs.
+### Error visualization
+An alignment visualization tool for system analysis. Supports most WER definitions from above. Helpful for spotting errors. [View examples!](#visualization)
+
+### File format conversion
+
+MeetEval's `meeteval-io` command converts between all supported file types. [See docs below](#file-format-conversion-1).
 
 ## Installation
 
@@ -50,11 +58,17 @@ pip install -e ./meeteval
 
 ## Command-line interface
 
+> [!TIP]
+> Useful shell aliases are defined in [shell_aliases](./shell_aliases).
+
+
 `MeetEval` supports the following file formats as input:
  - [Segmental Time Mark](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L75) (`STM`)
  - [Time Marked Conversation](https://github.com/usnistgov/SCTK/blob/master/doc/infmts.htm#L286) (`CTM`)
  - [SEGment-wise Long-form Speech Transcription annotation](#segment-wise-long-form-speech-transcription-annotation-seglst) (`SegLST`), the file format used in the [CHiME challenges](https://www.chimechallenge.org)
  - [Rich Transcription Time Marked](https://github.com/nryant/dscore?tab=readme-ov-file#rttm) (`RTTM`) files (only for Diarization Error Rate)
+
+ Conversion between formats is supported via the `meeteval-io` command.
 
 
 > [!NOTE]
@@ -146,6 +160,30 @@ meeteval-wer orcwer -h hyp1.ctm -h hyp2.ctm -r reference.stm
 > [!NOTE]
 > Note that the `LibriCSS` baseline recipe produces one `CTM` file which merges the speakers, so that it cannot be applied straight away. We recommend to use `STM` or `SegLST` files.
 
+### File format conversion
+
+MeetEval's `meeteval-io` command converts between all supported file types, for example:
+
+- `meeteval-io seglst2stm example_files/hyp.seglst.json -`
+- `meeteval-io stm2rttm example_files/hyp.stm -` (words are omitted)
+- `meeteval-io ctm2stm example_files/hyp*.ctm -` (caution: one segment is created for every word!)
+
+`meeteval-io --help` lists all supported conversions. [shell_aliases](./shell_aliases) contains a set of aliases for faster access to these commands. 
+Copy what you need into your `.bashrc` or `.zshrc`.
+
+In Python code, you can modify the data however you like and convert to a different file format in a few lines:
+
+```python
+import meeteval
+data = meeteval.io.load('example_files/hyp.stm').to_seglst()
+
+for s in data:
+  # Add or modify the data in-placee
+  s['speaker'] = ...
+
+# Dump in any format
+meeteval.io.dump(data, 'hyp.rttm')
+```
 
 ## Python interface
 

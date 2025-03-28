@@ -49,17 +49,17 @@ def hypothesis(draw, max_channels, max_channel_length=None):
 
 # Limit alphabet to ensure a few correct matches
 @st.composite
-def string(draw, max_length=100):
-    return ' '.join(draw(st.text(alphabet='abcdefg', min_size=0, max_size=max_length)))
+def string(draw, min_length=0, max_length=100):
+    return ' '.join(draw(st.text(alphabet='abcdefg', min_size=min_length, max_size=max_length)))
 
 
 # Generate a random SegLST object
 @st.composite
-def seglst_segment(draw, max_speakers):
+def seglst_segment(draw, max_speakers, min_string_length=0):
     start_time = draw(st.floats(min_value=0, max_value=90))
     end_time = draw(st.floats(min_value=start_time, max_value=100))
     return {
-        'words': draw(string()),
+        'words': draw(string(min_length=min_string_length)),
         'session_id': 'test-session',
         'speaker': f'spk-{draw(st.integers(min_value=1, max_value=max_speakers))}',
         'start_time': start_time,
@@ -68,7 +68,7 @@ def seglst_segment(draw, max_speakers):
 
 
 @st.composite
-def seglst(draw, min_segments=0, max_segments=10, max_speakers=2):
+def seglst(draw, min_segments=0, max_segments=10, max_speakers=2, min_string_length=0):
     """
     Constraints:
         - end >= start
@@ -76,7 +76,7 @@ def seglst(draw, min_segments=0, max_segments=10, max_speakers=2):
     """
     return SegLST(
         draw(st.lists(
-            seglst_segment(max_speakers),
+            seglst_segment(max_speakers, min_string_length=min_string_length),
             min_size=min_segments,
             max_size=max_segments
         ))
@@ -103,11 +103,16 @@ def test_tmimo_vs_tcsiso(reference, hypothesis, collar):
 
 
 @given(
-    seglst(max_speakers=2, min_segments=1, max_segments=3),
-    seglst(max_speakers=2, min_segments=1, max_segments=3),
+    seglst(max_speakers=2, min_segments=1, max_segments=3, min_string_length=1),
+    seglst(max_speakers=2, min_segments=1, max_segments=3, min_string_length=1),
 )
 @settings(deadline=None)
 def test_tcmimo_against_mimo(reference, hypothesis):
+    """
+    We only test with non-empty segments because tcMIMO removes empty segments 
+    to reduce the search space while MIMO does not. This has an impact on the 
+    assignment, the alignment, and thus the detailed statistics.
+    """
     from meeteval.wer.wer.mimo import mimo_word_error_rate
     from meeteval.wer.wer.time_constrained_mimo import time_constrained_mimo_word_error_rate
 
