@@ -123,9 +123,11 @@ def test_tcmimo_against_mimo(reference, hypothesis):
 
     assert mimo.errors == tcmimo.errors, (mimo.errors, tcmimo.errors)
     assert mimo.length == tcmimo.length
-    assert mimo.insertions == tcmimo.insertions
-    assert mimo.deletions == tcmimo.deletions
-    assert mimo.substitutions == tcmimo.substitutions
+    # Deactivated because we removed the assignment from the return value because it is not 
+    # guaranteed to match the original order of segments in the reference
+    # assert mimo.insertions == tcmimo.insertions
+    # assert mimo.deletions == tcmimo.deletions
+    # assert mimo.substitutions == tcmimo.substitutions
     # assert mimo.assignment == tcmimo.assignment   # The assignment is occasionally different for ambiguous edge-cases
 
 # This example is intentionally kept small because the runtime can explode in unlucky cases

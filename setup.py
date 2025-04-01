@@ -88,7 +88,7 @@ setup(
     name="meeteval",
 
     # Versions should comply with PEP440.
-    version='0.4.0',
+    version='0.4.1',
 
     # The project's main homepage.
     url='https://github.com/fgnt/meeteval/',
