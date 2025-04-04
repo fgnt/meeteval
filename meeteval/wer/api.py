@@ -381,3 +381,14 @@ def greedy_tcorcwer(
     if average.reference_self_overlap is not None:
         average.reference_self_overlap.warn('reference')
     return results
+
+
+def normalize(input, normalizer):
+    """
+    Normalizes input and returns the result.
+    """
+    from meeteval.wer.normalizer import normalize
+    if isinstance(input, (str, Path)):
+        input = meeteval.io.load(input)
+    normalized = normalize(input, normalizer=normalizer)
+    return normalized
