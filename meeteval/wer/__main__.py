@@ -467,6 +467,17 @@ def average(files, out='-', regex=None):
     return _merge(files, out, average=True, regex=regex)
 
 
+def normalize(
+        file,
+        out,
+        normalizer,
+):
+    """
+    Normalize the words in the transcript with the normalizer `normalizer`.
+    """
+    from meeteval.wer.api import normalize
+    meeteval.io.dump(normalize(file, normalizer=normalizer), out)
+
 class SmartFormatter(argparse.ArgumentDefaultsHelpFormatter):
     """
     https://stackoverflow.com/a/22157136/5766934
@@ -669,7 +680,7 @@ class CLI:
                 nargs='+', action=self.extend_action,
             )
         elif name == 'normalizer':
-            from meeteval.wer.api import normalizers
+            from meeteval.wer.normalizer import normalizers
             command_parser.add_argument(
                 '--normalizer',
                 help=textwrap.dedent(normalizers.__doc__),
@@ -684,6 +695,8 @@ class CLI:
             )
         elif name == 'files':
             command_parser.add_argument('files', nargs='+')
+        elif name == 'file':
+            command_parser.add_argument('file')
         else:
             raise AssertionError("Error in command definition", name)
 
@@ -762,6 +775,7 @@ def cli():
     cli.add_command(greedy_tcorcwer)
     cli.add_command(merge)
     cli.add_command(average)
+    cli.add_command(normalize)
 
     cli.run()
 
