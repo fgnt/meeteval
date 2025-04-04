@@ -177,17 +177,30 @@ def dump(obj, path, format: 'str | None'=None, force=True):
     
     format_guessed = format in (None, 'none', 'auto')
     if format_guessed:
-        format = _guess_format(Path(path))
+        if str(path) == '-':
+            format = None
+        else:
+            format = _guess_format(Path(path))
 
-    dumper = _get_format(format, path)
+    if format is None:
+        import meeteval
+        dumper = obj.__class__
+        assert issubclass(dumper, meeteval.io.base.BaseABC), dumper
+        assert hasattr(dumper, 'dump'), dumper
+    else:
+        dumper = _get_format(format, path)
 
-    import meeteval
-    obj = meeteval.io.asseglst(obj, py_convert=meeteval.io.SegLST)
-    try:
-        obj = dumper.new(obj)
-    except Exception as e:
-        raise ValueError(
-            f'Failed to convert object to {format}' +
-            (f' (format was guessed from path suffix {path}) ' if format_guessed else '')
-        ) from e
+    # Convert if the dumper is not the same as the object class
+    # Skip (idempotent) conversion if the object is already of the correct type
+    # to save computation time
+    if obj.__class__ != dumper:
+        import meeteval
+        obj = meeteval.io.asseglst(obj, py_convert=meeteval.io.SegLST)
+        try:
+            obj = dumper.new(obj)
+        except Exception as e:
+            raise ValueError(
+                f'Failed to convert object to {format}' +
+                (f' (format was guessed from path suffix {path}) ' if format_guessed else '')
+            ) from e
     return obj.dump(path)
