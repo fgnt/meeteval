@@ -383,7 +383,7 @@ def greedy_tcorcwer(
     return results
 
 
-def normalize(input, normalizer):
+def normalize(input, normalizer='chime8'):
     """
     Normalizes input and returns the result.
     """
