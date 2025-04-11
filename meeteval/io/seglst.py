@@ -625,7 +625,8 @@ def apply_multi_file(
     # Check session keys. Print a warning if they differ and raise an exception
     # when they differ too much
     if reference.keys() != hypothesis.keys():
-        h_minus_r = list(set(hypothesis.keys()) - set(reference.keys()))
+        h_minus_r_set = set(hypothesis.keys()) - set(reference.keys())
+        h_minus_r = list(h_minus_r_set)
         r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
 
         if h_minus_r:
@@ -653,7 +654,7 @@ def apply_multi_file(
             hypothesis = {
                 k: v
                 for k, v in hypothesis.items()
-                if k not in h_minus_r
+                if k not in h_minus_r_set
             }
 
         # The following if statement is active when keys are missing in the
