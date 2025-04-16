@@ -216,3 +216,17 @@ def test_viz_html():
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --per-reco-out hyp_cpwer_per_reco.json')
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --per-reco-out hyp_tcorcwer_per_reco.json --collar 5')
     run(f'meeteval-viz html -h hyp.stm -r ref.stm --alignment cp tcorc --per-reco-file hyp_cpwer_per_reco.json hyp_tcorcwer_per_reco.json')
+
+
+def test_normalize():
+    run(f'python -m meeteval.wer normalize hyp.stm -o - --normalizer="lower,rm(.?!,)"')
+    run(f'python -m meeteval.wer normalize hyp.stm -o hyp_normalized.stm --normalizer="lower,rm([^a-z0-9 ])"')
+
+    # Test that chaining normalizer and wer scripts is equal to using the normalizer option on the script
+    chained = run('python -m meeteval.wer cpwer -r <(python -m meeteval.wer normalize ref.stm -o - --normalizer "lower,rm(.?!,)") -h <(python -m meeteval.wer normalize hyp.stm -o - --normalizer "lower,rm(.?!,)") --average-out - --per-reco-out -')
+    option = run('python -m meeteval.wer cpwer -r ref.stm -h hyp.stm --average-out - --per-reco-out - --normalizer "lower,rm(.?!,)"')
+    assert chained.stdout == option.stdout
+    assert chained.stderr == option.stderr
+
+def test_pipe_cli_commands():
+    run('cat hyp.stm | python -m meeteval.wer normalize - -o - | python -m meeteval.io stm2seglst -o -')
