@@ -470,7 +470,7 @@ def average(files, out='-', regex=None):
 def normalize(
         file,
         out,
-        normalizer='chime8',
+        normalizer='lower,rm(.?!,)',
 ):
     """
     Normalize the words in the transcript with the normalizer `normalizer`.
