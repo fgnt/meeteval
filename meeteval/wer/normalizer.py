@@ -114,7 +114,7 @@ def normalize(input, *, normalizer: str):
     ...     normalizer='chime8'
     ... ).dumps())
     recordingA 1 Alice 1 1 hello world aeア wifi word word 1.1 eleven mister then said
-
+    <BLANKLINE>
     """
     if normalizer is None:
         return input
