@@ -650,11 +650,8 @@ def apply_multi_file(
                 f'assumption that only the sub-set of sessions present in the '
                 f'reference should be evaluated.',
             )
-            hypothesis = {
-                k: v
-                for k, v in hypothesis.items()
-                if k not in h_minus_r
-            }
+            
+            # No need to filter hypothesis; only reference keys are accessed later.
 
         # The following if statement is active when keys are missing in the
         # hypothesis. We assume that the system didn't produce any output for
