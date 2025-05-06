@@ -119,7 +119,7 @@ def create_viz_folder(
     create_index_html(avs, out)
 
 def create_index_html(
-    data: list[dict],
+    data: 'list[dict]',
     out,
     generate_side_by_side='auto',
     system_names=None,
@@ -355,7 +355,7 @@ def create_index_html(
 
 
 def index_html(
-        folders: list[Path],
+        folders: 'list[Path]',
         out: Path,
         copy_files: bool = True,
 ):
