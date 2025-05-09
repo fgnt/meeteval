@@ -7,7 +7,7 @@ import meeteval.io
 from meeteval.wer.wer import ErrorRate
 
 __all__ = [
-    'wer',
+    'sisower',
     'cpwer',
     'orcwer',
     'greedy_orcwer',
@@ -99,7 +99,7 @@ def _load_texts(
     return reference, hypothesis
 
 
-def wer(
+def sisower(
     reference, hypothesis,
     regex=None,
     normalizer=None,

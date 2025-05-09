@@ -141,7 +141,7 @@ def _save_results(
     return average
 
 
-def wer(
+def sisower(
         reference, hypothesis,
         regex=None,
         normalizer=None,
@@ -149,7 +149,7 @@ def wer(
         per_reco_out='{parent}/{stem}_wer_per_reco.json',
 ):
     """Computes the "standard" WER (SISO WER). Only support kaldi-style text files"""
-    results = meeteval.wer.wer(
+    results = meeteval.wer.sisower(
         reference, hypothesis,
         regex=regex,
         normalizer=normalizer,
@@ -752,7 +752,7 @@ class CLI:
 def cli():
     cli = CLI()
 
-    cli.add_command(wer)
+    cli.add_command(sisower, 'wer')
     cli.add_command(cpwer)
     cli.add_command(orcwer)
     cli.add_command(greedy_orcwer)
