@@ -756,7 +756,8 @@ class CLI:
 def cli():
     cli = CLI()
 
-    cli.add_command(sisower, 'wer')
+    cli.add_command(sisower)
+    cli.add_command(sisower, 'wer') # Alias for backwards compatibility
     cli.add_command(cpwer)
     cli.add_command(orcwer)
     cli.add_command(greedy_orcwer)
