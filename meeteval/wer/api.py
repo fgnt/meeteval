@@ -7,6 +7,7 @@ import meeteval.io
 from meeteval.wer.wer import ErrorRate
 
 __all__ = [
+    'wer',
     'cpwer',
     'orcwer',
     'greedy_orcwer',
@@ -96,6 +97,21 @@ def _load_texts(
         hypothesis = normalize(hypothesis, normalizer=normalizer)
 
     return reference, hypothesis
+
+
+def wer(
+    reference, hypothesis,
+    regex=None,
+    normalizer=None,
+):
+    """Computes the (standard) Word Error Rate (WER)"""
+    from meeteval.wer.wer import siso_word_error_rate_multifile
+    reference, hypothesis = _load_texts(
+        reference, hypothesis, regex=regex,
+        normalizer=normalizer,
+    )
+    results = siso_word_error_rate_multifile(reference, hypothesis)
+    return results
 
 
 def orcwer(

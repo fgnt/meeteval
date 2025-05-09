@@ -143,28 +143,18 @@ def _save_results(
 
 def wer(
         reference, hypothesis,
+        regex=None,
+        normalizer=None,
         average_out='{parent}/{stem}_wer.json',
         per_reco_out='{parent}/{stem}_wer_per_reco.json',
 ):
     """Computes the "standard" WER (SISO WER). Only support kaldi-style text files"""
-    reference_paths = [Path(r) for r in reference]
-    hypothesis_paths = [Path(h) for h in hypothesis]
-    if (
-            any(r.suffix != '' for r in reference_paths) or
-            any(h.suffix != '' for h in hypothesis_paths)
-    ):
-        raise ValueError(
-            f'Only (kaldi-style) text files are supported, i.e., files without '
-            f'an extension (not dot allowed in the file name).\n'
-            f'Got: {reference_paths} for reference and {hypothesis_paths} for '
-            f'hypothesis.'
-        )
-    from meeteval.io.keyed_text import KeyedText
-    reference = KeyedText.load(reference)
-    hypothesis = KeyedText.load(hypothesis)
-    from meeteval.wer.wer.siso import siso_word_error_rate_multifile
-    results = siso_word_error_rate_multifile(reference, hypothesis)
-    _save_results(results, hypothesis_paths, per_reco_out, average_out, wer_name='WER')
+    results = meeteval.wer.wer(
+        reference, hypothesis,
+        regex=regex,
+        normalizer=normalizer,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out, wer_name='SISO-WER')
 
 
 def orcwer(
