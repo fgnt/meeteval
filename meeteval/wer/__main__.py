@@ -148,7 +148,11 @@ def sisower(
         average_out='{parent}/{stem}_wer.json',
         per_reco_out='{parent}/{stem}_wer_per_reco.json',
 ):
-    """Computes the "standard" WER (SISO WER). Only support kaldi-style text files"""
+    """Computes the "standard" WER (SISO WER).
+    
+    Filenames / session_ids must be unique and there must be exactly one 
+    hypothesis per reference.
+    """
     results = meeteval.wer.sisower(
         reference, hypothesis,
         regex=regex,
