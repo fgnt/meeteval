@@ -141,6 +141,12 @@ def siso_word_error_rate_multifile(
     from meeteval.io.seglst import apply_multi_file
 
     def groupby(r, h):
+        """
+        Checks whether the session IDs or (session ID, speaker) tuples are 
+        unique in the reference and hypothesis and then groups by the 
+        respective keys. `apply_multi_file` will then check whether the grouped
+        keys match between reference and hypothesis.
+        """
         if (
             len(r.unique('session_id')) == len(r)
             and len(h.unique('session_id')) == len(h)
