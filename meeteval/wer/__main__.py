@@ -153,6 +153,7 @@ def sisower(
         reference, hypothesis,
         regex=None,
         normalizer=None,
+        partial=False,
         average_out='{parent}/{stem}_wer.json',
         per_reco_out='{parent}/{stem}_wer_per_reco.json',
 ):
@@ -164,6 +165,7 @@ def sisower(
     results = meeteval.wer.sisower(
         reference, hypothesis,
         regex=regex,
+        partial=partial,
         normalizer=normalizer,
     )
     _save_results(results, hypothesis, per_reco_out, average_out, wer_name='SISO-WER')

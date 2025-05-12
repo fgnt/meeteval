@@ -129,6 +129,7 @@ def siso_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate
 def siso_word_error_rate_multifile(
         reference,
         hypothesis,
+        partial=False,
 ) -> 'dict[str, ErrorRate]':
     """
     Computes the standard WER for each example in the reference and hypothesis
@@ -167,6 +168,7 @@ def siso_word_error_rate_multifile(
     return apply_multi_file(
         siso_word_error_rate, reference, hypothesis,
         allowed_empty_examples_ratio=0,
+        partial=partial,
         _groupby=groupby,
     )
 

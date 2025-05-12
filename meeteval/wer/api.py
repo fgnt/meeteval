@@ -103,6 +103,7 @@ def sisower(
     reference, hypothesis,
     regex=None,
     normalizer=None,
+    partial=False,
 ):
     """Computes the (standard) Word Error Rate (WER)"""
     from meeteval.wer.wer import siso_word_error_rate_multifile
@@ -110,7 +111,7 @@ def sisower(
         reference, hypothesis, regex=regex,
         normalizer=normalizer,
     )
-    results = siso_word_error_rate_multifile(reference, hypothesis)
+    results = siso_word_error_rate_multifile(reference, hypothesis, partial=partial)
     return results
 
 
