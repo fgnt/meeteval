@@ -109,9 +109,17 @@ def _save_results(
     """
     parent, stem = _get_parent_stem(hypothesis_paths)
 
+    def to_str(example_id):
+        if isinstance(example_id, str):
+            return example_id
+        elif isinstance(example_id, tuple):
+            return '___'.join(example_id)
+        else:
+            raise TypeError(type(example_id), example_id)
+        
     # Save details
     _dump({
-        example_id: dataclasses.asdict(error_rate)
+        to_str(example_id): dataclasses.asdict(error_rate)
         for example_id, error_rate in per_reco.items()
     }, per_reco_out.format(parent=parent, stem=stem))
 
