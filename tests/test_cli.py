@@ -202,6 +202,9 @@ def test_burn_average():
 
 def test_burn_siso():
     run(f'python -m meeteval.wer wer -h text_hyp -r text_ref')
+    run(f'python -m meeteval.wer sisower -h text_hyp -r text_ref')
+    run(f'python -m meeteval.wer wer -h hyp_siso.stm -r ref_siso.stm')
+    run(f'python -m meeteval.wer wer -h text_hyp -r text_ref --normalizer "lower,rm(.?!,)"')
 
 
 def test_viz_html():
