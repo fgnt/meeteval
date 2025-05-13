@@ -221,7 +221,7 @@ class SegLST(BaseABC):
         """
         Returns the unique values for `key` among all segments.
         """
-        return set([s[key] for s in self.segments])
+        return set(self.T[key])
 
     def __iter__(self):
         return iter(self.segments)
@@ -567,7 +567,8 @@ def apply_multi_file(
         reference, hypothesis,
         *,
         allowed_empty_examples_ratio=0.1,
-        partial=False
+        partial=False,
+        _groupby=None,
 ):
     """
     Applies a function individually to all sessions / files.
@@ -605,12 +606,17 @@ def apply_multi_file(
      1: CPErrorRate(error_rate=1.0, errors=3, length=3, insertions=3, deletions=0, substitutions=0, missed_speaker=0, falarm_speaker=1, scored_speaker=1, assignment=((0, 1), (None, 0)))}
     """
     import logging
+
+    if _groupby is None:
+        def _groupby(r, h):
+            return r.groupby('session_id'), h.groupby('session_id')
+
     reference = asseglst(
         reference, required_keys=('session_id',),
         py_convert=lambda p: NestedStructure(
             p, ('session_id', 'speaker', 'segment_id')
         )
-    ).groupby('session_id')
+    )
 
     if len(reference) == 0:
         raise RuntimeError(f'Empty reference.')
@@ -620,7 +626,8 @@ def apply_multi_file(
         py_convert=lambda p: NestedStructure(
             p, ('session_id', 'speaker', 'segment_id')
         )
-    ).groupby('session_id')
+    )
+    reference, hypothesis = _groupby(reference, hypothesis)
 
     # Check session keys. Print a warning if they differ and raise an exception
     # when they differ too much
@@ -629,13 +636,19 @@ def apply_multi_file(
         r_minus_h = list(set(reference.keys()) - set(hypothesis.keys()))
 
         if h_minus_r:
+            message = (
+                f'{len(h_minus_r)} of {len(hypothesis)} session IDs are '
+                f'present in the hypothesis but missing in the reference.\n'
+                f'Missing'
+                f'{" (showing first 5)" if len(h_minus_r) > 5 else ""}: '
+                f'{h_minus_r[:5]}\n'
+            )
+
             # Keys are missing in the reference.
             if not partial:
                 raise RuntimeError(
-                    f'{len(h_minus_r)} of {len(hypothesis)} session IDs are '
-                    f'present in the hypothesis but missing in the reference.\n'
-                    f'Missing (showing first 5): {h_minus_r[:5]}\n'
-                    f'If this is intentional, consider setting `partial=True`.'
+                    message +
+                    'If this is intentional, consider setting `partial=True`.'
                 )
 
             # The user set partial=True.
@@ -643,9 +656,7 @@ def apply_multi_file(
             # the keys present in the reference. Still inform the user about
             # the missing keys.
             logging.warning(
-                f'{len(h_minus_r)} of {len(hypothesis)} keys are present in '
-                f'the hypothesis but missing in the reference. \n'
-                f'Missing (showing first 5): {h_minus_r[:5]}\n'
+                message +
                 f'`partial=True`, so the computation continues with the '
                 f'assumption that only the sub-set of sessions present in the '
                 f'reference should be evaluated.',

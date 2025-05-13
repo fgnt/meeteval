@@ -109,9 +109,17 @@ def _save_results(
     """
     parent, stem = _get_parent_stem(hypothesis_paths)
 
+    def to_str(example_id):
+        if isinstance(example_id, str):
+            return example_id
+        elif isinstance(example_id, tuple):
+            return '___'.join(example_id)
+        else:
+            raise TypeError(type(example_id), example_id)
+        
     # Save details
     _dump({
-        example_id: dataclasses.asdict(error_rate)
+        to_str(example_id): dataclasses.asdict(error_rate)
         for example_id, error_rate in per_reco.items()
     }, per_reco_out.format(parent=parent, stem=stem))
 
@@ -141,30 +149,26 @@ def _save_results(
     return average
 
 
-def wer(
+def sisower(
         reference, hypothesis,
+        regex=None,
+        normalizer=None,
+        partial=False,
         average_out='{parent}/{stem}_wer.json',
         per_reco_out='{parent}/{stem}_wer_per_reco.json',
 ):
-    """Computes the "standard" WER (SISO WER). Only support kaldi-style text files"""
-    reference_paths = [Path(r) for r in reference]
-    hypothesis_paths = [Path(h) for h in hypothesis]
-    if (
-            any(r.suffix != '' for r in reference_paths) or
-            any(h.suffix != '' for h in hypothesis_paths)
-    ):
-        raise ValueError(
-            f'Only (kaldi-style) text files are supported, i.e., files without '
-            f'an extension (not dot allowed in the file name).\n'
-            f'Got: {reference_paths} for reference and {hypothesis_paths} for '
-            f'hypothesis.'
-        )
-    from meeteval.io.keyed_text import KeyedText
-    reference = KeyedText.load(reference)
-    hypothesis = KeyedText.load(hypothesis)
-    from meeteval.wer.wer.siso import siso_word_error_rate_multifile
-    results = siso_word_error_rate_multifile(reference, hypothesis)
-    _save_results(results, hypothesis_paths, per_reco_out, average_out, wer_name='WER')
+    """Computes the "standard" WER (SISO WER).
+    
+    Filenames / session_ids must be unique and there must be exactly one 
+    hypothesis per reference.
+    """
+    results = meeteval.wer.sisower(
+        reference, hypothesis,
+        regex=regex,
+        partial=partial,
+        normalizer=normalizer,
+    )
+    _save_results(results, hypothesis, per_reco_out, average_out, wer_name='SISO-WER')
 
 
 def orcwer(
@@ -762,7 +766,8 @@ class CLI:
 def cli():
     cli = CLI()
 
-    cli.add_command(wer)
+    cli.add_command(sisower)
+    cli.add_command(sisower, 'wer') # Alias for backwards compatibility
     cli.add_command(cpwer)
     cli.add_command(orcwer)
     cli.add_command(greedy_orcwer)
