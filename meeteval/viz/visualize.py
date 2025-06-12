@@ -136,7 +136,16 @@ def get_alignment(data, alignment_type, collar=5):
     hyp = hyp.sorted('start_time').groupby('speaker')
 
     for k in set(ref.keys()) | set(hyp.keys()):
-        a = align(ref.get(k, SegLST([])), hyp.get(k, SegLST([])))
+        a = align(
+            ref.get(k, SegLST([])),
+            hyp.get(k, SegLST([])).map(
+                lambda s: {
+                    **s,
+                    'start_time': (s['end_time'] + s['start_time']) / 2,
+                    'end_time': (s['end_time'] + s['start_time']) / 2,
+                }
+            )
+        )
 
         # Add a list of matches to each word. This assumes that `align` keeps the
         # identity of the segments
