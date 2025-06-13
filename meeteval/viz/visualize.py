@@ -134,8 +134,8 @@ def get_alignment(data, alignment_type, collar=5):
         raise NotImplementedError(alignment_type)
 
     # Compute alignment and extract words
-    ref = ref.sorted('start_time').groupby('speaker')
-    hyp = hyp.sorted('start_time').groupby('speaker')
+    ref = ref.groupby('speaker')
+    hyp = hyp.groupby('speaker')
 
     for k in set(ref.keys()) | set(hyp.keys()):
         a = align(
