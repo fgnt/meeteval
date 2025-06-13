@@ -436,7 +436,7 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
 
     data['info']['wer_by_speakers'] = {
         speaker: wer_by_speaker(speaker)
-        for speaker in list(ref.unique('speaker'))
+        for speaker in list((ref + hyp).unique('speaker'))
     }
     for k in [
         'errors', 'length', 'insertions', 'deletions', 'substitutions'
