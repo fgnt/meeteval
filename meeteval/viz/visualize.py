@@ -1,4 +1,6 @@
 import os
+import pprint
+
 from meeteval.wer.wer.utils import check_single_filename
 import urllib.request
 import meeteval
@@ -436,6 +438,27 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
         speaker: wer_by_speaker(speaker)
         for speaker in list(ref.unique('speaker'))
     }
+    for k in [
+        'errors', 'length', 'insertions', 'deletions', 'substitutions'
+    ]:
+        stats_of_by_speaker = sum(
+            [wer_of_speaker[k] for _, wer_of_speaker in data['info']['wer_by_speakers'].items()],
+            0
+        )
+        if stats_of_by_speaker != data['info']['wer'][k]:
+            def indent(s, prefix):
+                indent = ' ' * len(prefix)
+                return prefix + s.replace('\n', '\n' + indent)
+            wer_details = indent(pprint.pformat(data['info']['wer']), '  WER details: ')
+            alignments_details = indent(pprint.pformat(data['info']['wer_by_speakers']), '  Alignment details: ')
+            raise RuntimeError(
+                f'Inconsistent WER statistics between WER and alignment calculation for {k!r}:\n'
+                f'  {k} from WER: {data["info"]["wer"][k]}\n'
+                f'  {k} from alignment calculation: {stats_of_by_speaker}\n'
+                f'{wer_details}\n'
+                f'{alignments_details}'
+            )
+
     return data
 
 
@@ -718,7 +741,9 @@ class AlignmentVisualization:
         # For standalone HTML, we have to
         #   - disable zooming for mobile devices (viewport setting)
         #   - Scale the visualization to the full window size
-        Path(filename).write_text(
+        filename = Path(filename)
+        filename.parent.mkdir(parents=True, exist_ok=True)
+        filename.write_text(
             f'''
             <!DOCTYPE html>
             <html lang="en">
