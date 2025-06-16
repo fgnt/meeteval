@@ -610,7 +610,7 @@ def time_constrained_siso_word_error_rate(
 
     >>> time_constrained_siso_word_error_rate(
     ... [{'words': 'a b', 'start_time': 0, 'end_time': 2},  {'words': 'c d', 'start_time': 0, 'end_time': 2}],
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}])
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}], collar=5)
     ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=1.0, overlap_time=2, total_time=2), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1))
     """
     # Convert to SegLST. Disallow Python conversions since there is currently
