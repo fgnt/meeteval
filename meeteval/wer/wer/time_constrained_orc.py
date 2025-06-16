@@ -22,7 +22,7 @@ __all__ = [
 def time_constrained_orc_wer(
         reference,
         hypothesis,
-        collar=0,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         hypothesis_sort='segment',

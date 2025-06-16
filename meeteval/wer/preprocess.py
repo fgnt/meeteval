@@ -254,43 +254,44 @@ def _select_keys(d: 'SegLST', keys=(), strict=True):
 
 def _preprocess_single(
         segments: 'SegLST',
+        *,
+        collar,
         keep_keys=None,
         sort='segment',
         remove_empty_segments=True,
         word_level_timing_strategy=None,
         name=None,
-        collar=0,
         segment_index=False,  # 'segment', 'word', False
         segment_representation='word',  # 'segment', 'word', 'speaker'
 ):
     """
     >>> from paderbox.utils.pretty import pprint
     >>> segments = SegLST([{'words': 'c d', 'start_time': 1, 'end_time': 3}, {'words': 'a b', 'start_time': 0, 'end_time': 3}])
-    >>> _preprocess_single(segments, sort=True, word_level_timing_strategy='character_based', name='test')
+    >>> _preprocess_single(segments, sort=True, word_level_timing_strategy='character_based', name='test', collar=0)
     Traceback (most recent call last):
         ...
     ValueError: The order of word-level timings contradicts the segment-level order in test: 2 of 4 times.
     Consider setting sort to False or "segment" or "word".
-    >>> pprint(_preprocess_single(segments, sort=False, word_level_timing_strategy='character_based'))
+    >>> pprint(_preprocess_single(segments, sort=False, word_level_timing_strategy='character_based', collar=0))
     (SegLST([{'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
              {'words': 'd', 'start_time': 2.0, 'end_time': 3.0},
              {'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
              {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
-    >>> pprint(_preprocess_single(segments, sort='segment', word_level_timing_strategy='character_based'))
+    >>> pprint(_preprocess_single(segments, sort='segment', word_level_timing_strategy='character_based', collar=0))
     (SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
              {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
              {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
              {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
-    >>> pprint(_preprocess_single(segments, sort='word', word_level_timing_strategy='character_based'))
+    >>> pprint(_preprocess_single(segments, sort='word', word_level_timing_strategy='character_based', collar=0))
     (SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
              {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
              {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
              {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
 
-    >>> pprint(_preprocess_single(segments, sort='word', keep_keys=('words',)))
+    >>> pprint(_preprocess_single(segments, sort='word', keep_keys=('words',), collar=0))
     (SegLST([{'words': 'a'}, {'words': 'b'}, {'words': 'c'}, {'words': 'd'}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
     """
@@ -501,6 +502,7 @@ def preprocess(
         remove_empty_segments=remove_empty_segments,
         sort=reference_sort,
         name='reference',
+        collar=None,   # collar is not applied to the reference
         word_level_timing_strategy=reference_pseudo_word_level_timing,
         segment_representation=segment_representation,
     )

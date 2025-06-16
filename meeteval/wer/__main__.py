@@ -259,9 +259,10 @@ def mimower(
 
 def tcmimower(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_tcmimower.json',
         per_reco_out='{parent}/{stem}_tcmimower_per_reco.json',
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -289,9 +290,10 @@ def tcmimower(
 
 def tcpwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_tcpwer.json',
         per_reco_out='{parent}/{stem}_tcpwer_per_reco.json',
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -316,10 +318,11 @@ def tcpwer(
 
 def tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_tcorcwer.json',
         per_reco_out='{parent}/{stem}_tcorcwer_per_reco.json',
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -344,10 +347,11 @@ def tcorcwer(
 
 def greedy_tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_greedy_tcorcwer.json',
         per_reco_out='{parent}/{stem}_greedy_tcorcwer_per_reco.json',
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -394,10 +398,11 @@ def greedy_dicpwer(
 
 def greedy_ditcpwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_greedy_ditcpwer.json',
         per_reco_out='{parent}/{stem}_greedy_ditcpwer_per_reco.json',
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',

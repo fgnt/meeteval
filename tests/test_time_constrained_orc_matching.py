@@ -194,6 +194,7 @@ def test_assignment_keeps_order():
             {'words': 'a2', 'session_id': 'a', 'speaker': 'A2', 'start_time': 0, 'end_time': 1}
         ]),
         reference_sort='segment',
+        collar=5,
     )
     assert tcorc.assignment == ('A1', 'A1', 'A2'), tcorc.assignment
 
