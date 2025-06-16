@@ -132,13 +132,13 @@ def greedy_di_tcp_word_error_rate(
     ...     {'segment_index': 2, 'speaker': 'B', 'words': 'c', 'start_time': 2.0, 'end_time': 3.0},
     ...     {'segment_index': 3, 'speaker': 'B', 'words': 'd', 'start_time': 3.0, 'end_time': 4.0},
     ... ])
-    >>> greedy_di_tcp_word_error_rate(reference, reference)
+    >>> greedy_di_tcp_word_error_rate(reference, reference, collar=0)
     DICPErrorRate(error_rate=0.0, errors=0, length=4, insertions=0, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=6.0), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=6.0), assignment=('A', 'A', 'B', 'B'))
     >>> hypothesis = SegLST([
     ...     {'segment_index': 0, 'speaker': 'A', 'words': 'a b', 'start_time': 0.0, 'end_time': 2.0},
     ...     {'segment_index': 2, 'speaker': 'A', 'words': 'b c d', 'start_time': 1.0, 'end_time': 4.0},
     ... ])
-    >>> greedy_di_tcp_word_error_rate(reference, hypothesis)
+    >>> greedy_di_tcp_word_error_rate(reference, hypothesis, collar=0)
     DICPErrorRate(error_rate=0.25, errors=1, length=4, insertions=1, deletions=0, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=6.0), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.25, overlap_time=1.0, total_time=4.0), assignment=('A', 'B'))
     """
 
