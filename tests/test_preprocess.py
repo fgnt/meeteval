@@ -145,3 +145,24 @@ def test_preprocess_remove_empty_segments(example_seglst):
     )
     # No empty segments in example
     assert len(example_seglst_empty) == len(processed)
+
+def test_preprocess_zero_collar_warn(example_seglst, caplog):
+    import logging
+    with caplog.at_level(logging.WARNING):
+        _preprocess_single(
+            example_seglst, sort='segment',
+            segment_representation='word',
+            collar=0,
+        )
+    assert 'Collar is set to 0' in caplog.text
+
+
+def test_preprocess_small_collar_warn(example_seglst, caplog):
+    import logging
+    with caplog.at_level(logging.WARNING):
+        _preprocess_single(
+            example_seglst, sort='segment',
+            segment_representation='word',
+            collar=1,
+        )
+    assert 'The mean word length is 3.10 seconds, which is more than the collar length of 1 seconds.' in caplog.text
