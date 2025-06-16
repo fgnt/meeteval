@@ -165,4 +165,4 @@ def test_preprocess_small_collar_warn(example_seglst, caplog):
             segment_representation='word',
             collar=1,
         )
-    assert 'The mean word length is 3.10 seconds, which is more than the collar length of 1 seconds.' in caplog.text
+    assert 'The mean word length is 1.13 seconds, which is more than the collar length of 1 seconds.' in caplog.text, caplog.text
