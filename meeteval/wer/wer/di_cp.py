@@ -116,9 +116,10 @@ def greedy_di_cp_word_error_rate_multifile(
 def greedy_di_tcp_word_error_rate(
         reference,
         hypothesis,
+        *,
+        collar: int,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
 ):
@@ -166,10 +167,11 @@ def greedy_di_tcp_word_error_rate(
 def greedy_di_tcp_word_error_rate_multifile(
         reference,
         hypothesis,
+        *,
+        collar: int,
         partial=False,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
 ) -> 'dict[str, DICPErrorRate]':

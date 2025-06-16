@@ -578,9 +578,10 @@ def time_constrained_siso_levenshtein_distance(
 def time_constrained_siso_word_error_rate(
         reference: 'SegLST',
         hypothesis: 'SegLST',
+        *,
+        collar: int,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
 ):
@@ -663,9 +664,9 @@ def time_constrained_minimum_permutation_word_error_rate(
         reference: 'SegLST',
         hypothesis: 'SegLST',
         *,
+        collar: int,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
 ) -> CPErrorRate:
@@ -726,9 +727,10 @@ tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
 
 def tcp_word_error_rate_multifile(
         reference, hypothesis,
+        *,
+        collar: int,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
         partial=False,
@@ -762,9 +764,9 @@ def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'
 def align(
         reference: SegLST, hypothesis: SegLST,
         *,
+        collar: int,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         style='words',
         reference_sort='segment',
         hypothesis_sort='segment',
