@@ -137,6 +137,7 @@ def test_tcpwer_vs_cpwer(a, b):
             {'words': word, 'start_time': 0, 'end_time': 1, 'speaker': speaker_id}
             for speaker_id, speaker in enumerate(b) for word in speaker
         ]),
+        collar=0,  # use 5 for real data, but 0 for testing
     )
     from dataclasses import replace
     tcp_statistics = replace(tcp_statistics, reference_self_overlap=None, hypothesis_self_overlap=None)
@@ -156,14 +157,17 @@ def test_tcpwer_input_formats():
             {'words': 'a b', 'start_time': 0, 'end_time': 1, 'speaker': 'A'},
             {'words': 'c', 'start_time': 1, 'end_time': 2, 'speaker': 'B'}
         ]),
+        collar=0,  # use 5 for real data, but 0 for testing
     )
     r2 = time_constrained_minimum_permutation_word_error_rate(
         STM.parse('dummy 1 A 0 1 a\ndummy 1 A 1 2 b c'),
         STM.parse('dummy 1 A 0 1 a b\ndummy 1 A 1 2 c'),
+        collar=0,  # use 5 for real data, but 0 for testing
     )
     r3 = time_constrained_minimum_permutation_word_error_rate(
         CTMGroup({'A': CTM.parse("dummy 1 0 1 a\ndummy 1 1 0.5 b\ndummy 1 1.5 0.5 c")}),
-        CTMGroup({0: CTM.parse("dummy 1 0 0.5 a\ndummy 1 0.5 0.5 b\ndummy 1 1 1 c")})
+        CTMGroup({0: CTM.parse("dummy 1 0 0.5 a\ndummy 1 0.5 0.5 b\ndummy 1 1 1 c")}),
+        collar=0,  # use 5 for real data, but 0 for testing
     )
     assert r1.error_rate == r2.error_rate
     assert r1.error_rate == r3.error_rate
@@ -181,11 +185,13 @@ def test_time_constrained_sorting_options():
     # Here, it doesn't match, so ValueError is raised.
     with pytest.raises(ValueError):
         time_constrained_minimum_permutation_word_error_rate(
-            r1, r1, reference_sort=True, hypothesis_sort=True
+            r1, r1, reference_sort=True, hypothesis_sort=True,
+            collar=0,
         )
 
     er = time_constrained_minimum_permutation_word_error_rate(
-        r1, r1, reference_sort='word', hypothesis_sort='word'
+        r1, r1, reference_sort='word', hypothesis_sort='word',
+        collar=0,
     )
     assert er.error_rate == 0
 
@@ -197,12 +203,14 @@ def test_time_constrained_sorting_options():
         {'words': 'a b c d e f g h', 'start_time': 0, 'end_time': 6, 'speaker': 'A'},
     ])
     er = time_constrained_minimum_permutation_word_error_rate(
-        r1, r2, reference_sort='word'
+        r1, r2, reference_sort='word',
+        collar=0,
     )
     assert er.error_rate == 0.75
 
     er = time_constrained_minimum_permutation_word_error_rate(
-        r1, r2, reference_sort='segment'
+        r1, r2, reference_sort='segment',
+        collar=0,
     )
     assert er.error_rate == 0.75
 
@@ -228,11 +236,13 @@ def test_time_constrained_sorting_options():
     ])
     er = time_constrained_minimum_permutation_word_error_rate(
         r1, r2, reference_sort='segment',
+        collar=0,
     )
     assert er.error_rate == 0
 
     er = time_constrained_minimum_permutation_word_error_rate(
         r1, r2, reference_sort=False, hypothesis_sort=False,
+        collar=0,
     )
     assert er.error_rate == 1
 
