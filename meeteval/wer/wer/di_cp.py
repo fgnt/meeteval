@@ -146,9 +146,10 @@ def greedy_di_tcp_word_error_rate(
     # with swapped arguments (reference <-> hypothesis)
     er = meeteval.wer.wer.time_constrained_orc.greedy_time_constrained_orc_wer(
         hypothesis, reference,
-        hypothesis_pseudo_word_level_timing, reference_pseudo_word_level_timing,
-        collar,
-        hypothesis_sort, reference_sort
+        reference_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
+        hypothesis_pseudo_word_level_timing=reference_pseudo_word_level_timing,
+        collar=collar,
+        reference_sort=hypothesis_sort, hypothesis_sort=reference_sort
     )
 
     # The error rate object can be constructed just from the ORC-WER error rate
