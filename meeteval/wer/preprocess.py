@@ -465,6 +465,31 @@ def _preprocess_single(
         from meeteval.wer.wer.time_constrained import apply_collar
         words = apply_collar(words, collar)
 
+    if collar is not None:
+        if collar == 0:
+            logger.warning(
+                'Collar is set to 0, which means that no collar is applied.\n'
+                'This is probably not what you want.\n' \
+                'You may want to set it collar to 5 seconds.'
+            )
+        else:
+            # words may be a list of words.
+            # In that case, the start and end times are also lists.
+            word_lengths = words.flatmap(
+                lambda s: (
+                    [end - start for start, end in zip(
+                        s['start_time'], s['end_time']
+                    )] if isinstance(s['start_time'], (tuple, list)) else
+                    [s['end_time'] - s['start_time']]
+                )
+            )
+            if word_lengths:
+                mean_word_lengths = sum(word_lengths) / len(word_lengths)
+                if mean_word_lengths > collar:
+                    logger.warning(
+                        f'The mean word length is {mean_word_lengths:.2f} seconds, '
+                        f'which is more than the collar length of {collar} seconds.'
+                    )
     if keep_keys is not None and keep_keys1 != keep_keys2:
         words = _select_keys(words, keep_keys2)
 
