@@ -813,7 +813,8 @@ def align(
     >>> from pprint import pprint
     >>> align(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}])
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
+    ... collar=0)
     [('a', 'a'), ('b', 'b'), ('c', '*'), ('*', 'c')]
     >>> align(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
@@ -831,7 +832,8 @@ def align(
     [(0, 0), (1, 1), (2, 2), (3, None), (4, 3), (None, 4)]
     >>> pprint(align(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}], style='seglst'))
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
+    ... style='seglst', collar=0))
     [({'end_time': 1, 'start_time': 0, 'words': 'a'},
       {'end_time': 0.5, 'start_time': 0.5, 'words': 'a'}),
      ({'end_time': 2, 'start_time': 1, 'words': 'b'},
@@ -842,20 +844,22 @@ def align(
     Empty segments / words are ignored
      >>> pprint(align(
      ... [{'words': '', 'start_time': 0, 'end_time': 1}, {'words': 'a', 'start_time': 1, 'end_time': 2}],
-     ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}]
+     ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}],
+     ... collar=0,
      ... ))
      [('a', 'a')]
     >>> pprint(align(
     ... [{'words': '', 'start_time': 0, 'end_time': 1}, {'words': 'a', 'start_time': 1, 'end_time': 2}],
     ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}],
+    ... collar=0,
     ... style='index'))
     [(1, 0)]
 
     Any additional attributes are passed through when style='seglst'
-    >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='seglst')
+    >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='seglst', collar=0)
     [({'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}, None)]
     >>> from meeteval.io.stm import STM, STMLine
-    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a', parse_float=float)]), STM([STMLine.parse('ex 1 B 0 1 a', parse_float=float)]), style='seglst'))
+    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a', parse_float=float)]), STM([STMLine.parse('ex 1 B 0 1 a', parse_float=float)]), style='seglst',  collar=0))
     [({'channel': 1,
        'end_time': 1,
        'session_id': 'ex',
