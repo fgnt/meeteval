@@ -983,13 +983,13 @@ def print_alignment(alignment):
     """
     lines = [
         (
-            f'{left['start_time']:.2f}' if left is not None else '',
-            f'{left['end_time']:.2f}' if left is not None else '',
-            f'{left['words']}' if left is not None else '*',
-            "-" if left is not None and right is not None and left['words'] == right['words'] else '+',
-            f'{right['words']}' if right is not None else '*',
-            f'{right['start_time']:.2f}' if right is not None else '',
-            f'{right['end_time']:.2f}' if right is not None else ''
+            f'{left["start_time"]:.2f}' if left is not None else '',
+            f'{left["end_time"]:.2f}' if left is not None else '',
+            f'{left["words"]}' if left is not None else '*',
+            "-" if left is not None and right is not None and left["words"] == right["words"] else '+',
+            f'{right["words"]}' if right is not None else '*',
+            f'{right["start_time"]:.2f}' if right is not None else '',
+            f'{right["end_time"]:.2f}' if right is not None else ''
         )
         for left, right in alignment
     ]
