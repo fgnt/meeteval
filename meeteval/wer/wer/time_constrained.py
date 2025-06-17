@@ -967,9 +967,20 @@ def align(
 
     return alignment
 
-def format_alignment(alignment) -> str:
+def print_alignment(alignment, *, file=None):
     """
-    Formats a seglst-style alignment as a human-readable string.
+    Prints a seglst-style alignment (as produced by `align` with 
+    `style='seglst'`) in a human-readable format. Correct matches are marked 
+    with "-" and mismatches with "+".
+
+    >>> print_alignment(align(
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'x', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
+    ... style='seglst')) # doctest: +NORMALIZE_WHITESPACE
+    0.00 1.00 a - a 0.50 0.50
+    1.00 2.00 b + x 1.50 1.50
+    2.00 3.00 c + *
+              * + c 3.50 3.50
     """
     lines = [
         (
@@ -990,28 +1001,21 @@ def format_alignment(alignment) -> str:
         for i, item in enumerate(line):
             widths[i] = max(widths[i], len(item))
 
-    return '\n'.join([
-        ' '.join([
-            f'{cell:{j}{w}}' 
-            for cell, j, w in zip(line, justify, widths)
-        ])
-        for line in lines
-    ])
+    for line in lines:
+        print(*[
+                f'{cell:{j}{w}}' 
+                for cell, j, w in zip(line, justify, widths)
+            ],
+            sep=' ',
+            file=file,
+        )
 
 
-def print_alignment(alignment, *, file=None):
+def format_alignment(alignment):
     """
-    Prints a seglst-style alignment (as produced by `align` with 
-    `style='seglst'`) in a human-readable format. Correct matches are marked 
-    with "-" and mismatches with "+".
-
-    >>> print_alignment(align(
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'x', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
-    ... style='seglst')) # doctest: +NORMALIZE_WHITESPACE
-    0.00 1.00 a - a 0.50 0.50
-    1.00 2.00 b + x 1.50 1.50
-    2.00 3.00 c + *
-              * + c 3.50 3.50
+    Formats a seglst-style alignment as a human-readable string.
     """
-    print(format_alignment(alignment), file=file)
+    from io import StringIO
+    file = StringIO()
+    print_alignment(alignment, file=file)
+    return file.getvalue()
