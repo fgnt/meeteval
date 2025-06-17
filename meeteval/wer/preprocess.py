@@ -395,7 +395,7 @@ def _preprocess_single(
             logger.warning(
                 'Collar is set to 0, which means that no collar is applied.\n'
                 'This is probably not what you want.\n' \
-                'You may want to set it collar to 5 seconds.'
+                'You may want to set the collar to 5 seconds.'
             )
         else:
             # words may be a list of words.
