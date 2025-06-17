@@ -70,13 +70,12 @@ def split_code_block_comment_output(code):
         if l > s.end_lineno:
             continue
 
-        # If we parsed a print statement at the root level
-        if isinstance(s, ast.Expr) and isinstance(s.value, ast.Call) and isinstance(s.value.func, ast.Name) and s.value.func.id == 'print':
+        l = s.end_lineno
+
+        if l < len(lines) and lines[l].startswith('#'):
             # Collect any lines that follow directly and start with a #
             output = []
-            l = s.end_lineno
-            if not lines[l].startswith('#'):
-                continue
+            
             while l < len(lines) and lines[l].startswith('#'):
                 output.append(lines[l][1:])
                 l += 1
@@ -139,7 +138,11 @@ def test_docs(filename, codeblock, global_state, monkeypatch):
                     # sufficient for most cases.
                     output_ = output.replace(' ', '').replace('\n', '')
                     expected_output_ = expected_output.replace(' ', '').replace('\n', '')
-                    assert output_ == expected_output_, f'Output mismatch: {output} != {expected_output}'
+                    if output_ != expected_output_:
+                        raise AssertionError(
+                            f'Output mismatch in {filename} at line {lineno + line_offset}:\n'
+                            f'Output: {output}\nExpected: {expected_output}'
+                        )
         elif lang == 'STM':
             # Test if the STM code block is valid.
             import meeteval

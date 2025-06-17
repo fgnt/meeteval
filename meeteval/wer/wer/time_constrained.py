@@ -34,6 +34,8 @@ __all__ = [
     'apply_collar',
     'get_pseudo_word_level_timings',
     'align',
+    'format_alignment',
+    'print_alignment',
 ]
 
 
@@ -964,3 +966,56 @@ def align(
         raise ValueError(f'Unknown alignment style: {style}')
 
     return alignment
+
+def print_alignment(alignment, *, file=None):
+    """
+    Prints a seglst-style alignment (as produced by `align` with 
+    `style='seglst'`) in a human-readable format. Correct matches are marked 
+    with "-" and mismatches with "+".
+
+    >>> print_alignment(align(
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'x', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
+    ... style='seglst', collar=0)) # doctest: +NORMALIZE_WHITESPACE
+    0.00 1.00 a - a 0.50 0.50
+    1.00 2.00 b + x 1.50 1.50
+    2.00 3.00 c + *
+              * + c 3.50 3.50
+    """
+    lines = [
+        (
+            f'{left["start_time"]:.2f}' if left is not None else '',
+            f'{left["end_time"]:.2f}' if left is not None else '',
+            f'{left["words"]}' if left is not None else '*',
+            "-" if left is not None and right is not None and left["words"] == right["words"] else '+',
+            f'{right["words"]}' if right is not None else '*',
+            f'{right["start_time"]:.2f}' if right is not None else '',
+            f'{right["end_time"]:.2f}' if right is not None else ''
+        )
+        for left, right in alignment
+    ]
+
+    widths = [0] * len(lines[0])
+    justify = '>>>^<>>>>>'
+    for line in lines:
+        for i, item in enumerate(line):
+            widths[i] = max(widths[i], len(item))
+
+    for line in lines:
+        print(*[
+                f'{cell:{j}{w}}' 
+                for cell, j, w in zip(line, justify, widths)
+            ],
+            sep=' ',
+            file=file,
+        )
+
+
+def format_alignment(alignment):
+    """
+    Formats a seglst-style alignment as a human-readable string.
+    """
+    from io import StringIO
+    file = StringIO()
+    print_alignment(alignment, file=file)
+    return file.getvalue()
