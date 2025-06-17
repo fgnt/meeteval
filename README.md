@@ -314,8 +314,52 @@ Sequences can be aligned, similar to `kaldialign.align`, using the tcpWER matchi
 ```python
 import meeteval
 meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_time': 1}], [{'words': 'a c', 'start_time': 0, 'end_time': 1}, {'words': 'd', 'start_time': 2, 'end_time': 3}], collar=5)
+alignment = meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_time': 1}], [{'words': 'a c', 'start_time': 0, 'end_time': 1}, {'words': 'd', 'start_time': 2, 'end_time': 3}], collar=5)
+print(alignment)
 # [('a', 'a'), ('b', 'c'), ('*', 'd')]
 ```
+
+`meeteval.wer.wer.time_constrained.print_alignment` pretty prints an an alignment with timestmaps:
+
+```python
+import meeteval
+alignment = meeteval.wer.wer.time_constrained.align(
+  [
+    {"words": "hi", "start_time": 0.93, "end_time": 2.03},
+    {"words": "good how are you", "start_time": 3.15, "end_time": 5.36},
+    {"words": "i'm leigh adams", "start_time": 7.24, "end_time": 8.36},
+    {"words": "pretty good now and you", "start_time": 9.44, "end_time": 12.27},
+    {"words": "yeah", "start_time": 15.49, "end_time": 16.95},
+  ],
+  [
+    {"words": "hi", "start_time": 0.93, "end_time": 2.03},
+    {"words": "are you", "start_time": 3.15, "end_time": 5.36},
+    {"words": "leigh adams", "start_time": 7.24, "end_time": 8.36},
+    {"words": "good now and", "start_time": 9.44, "end_time": 12.27},
+    {"words": "yep", "start_time": 15.49, "end_time": 16.95},
+  ], 
+  style='seglst',
+  collar=5,
+)
+
+meeteval.wer.wer.time_constrained.print_alignment(alignment)
+#  0.93  2.03     hi - hi     1.48  1.48
+#  3.15  3.83   good + *
+#  3.83  4.34    how + *
+#  4.34  4.85    are - are    3.70  3.70
+#  4.85  5.36    you - you    4.81  4.81
+#  7.24  7.50    i'm + *
+#  7.50  7.93  leigh - leigh  7.52  7.52
+#  7.93  8.36  adams - adams  8.08  8.08
+#  9.44 10.33 pretty + *
+# 10.33 10.93   good - good  10.01 10.01
+# 10.93 11.38    now - now   11.00 11.00
+# 11.38 11.82    and - and   11.85 11.85
+# 11.82 12.27    you + yep   16.22 16.22
+# 15.49 16.95   yeah + *
+```
+
+You can use `meeteval.wer.wer.time_constrained.format_alignment` to obtain a formatted string without printing.
 
 ## Visualization
 
@@ -344,6 +388,7 @@ av = AlignmentVisualization(
     meeteval.io.load(folder + 'example_files/ref.stm').groupby('filename')['recordingA'],
     meeteval.io.load(folder + 'example_files/hyp.stm').groupby('filename')['recordingA']
 )
+
 # display(av)  # Jupyter
 # av.dump('viz.html')  # Create standalone HTML file
 ```
