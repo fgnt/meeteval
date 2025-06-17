@@ -976,7 +976,7 @@ def print_alignment(alignment, *, file=None):
     >>> print_alignment(align(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'x', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
-    ... style='seglst')) # doctest: +NORMALIZE_WHITESPACE
+    ... style='seglst', collar=0)) # doctest: +NORMALIZE_WHITESPACE
     0.00 1.00 a - a 0.50 0.50
     1.00 2.00 b + x 1.50 1.50
     2.00 3.00 c + *
