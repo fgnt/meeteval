@@ -211,7 +211,8 @@ def mimower(
 
 def tcmimower(
         reference, hypothesis,
-        collar=0,
+        *,
+        collar,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -242,7 +243,8 @@ def tcmimower(
 
 def tcpwer(
         reference, hypothesis,
-        collar=0,
+        *,
+        collar,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -275,8 +277,9 @@ def tcpwer(
 
 def tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -332,8 +335,9 @@ def greedy_dicpwer(
 
 def greedy_ditcpwer(
         reference, hypothesis,
+        *,
+        collar,
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -369,8 +373,9 @@ def greedy_ditcpwer(
 
 def greedy_tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',

@@ -335,7 +335,7 @@ TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | list[Segment]'
 
 
 @seglst_map()
-def apply_collar(s: SegLST, collar: float):
+def apply_collar(s: SegLST, collar):
     """
     Adds a collar to begin and end times.
 
@@ -578,9 +578,10 @@ def time_constrained_siso_levenshtein_distance(
 def time_constrained_siso_word_error_rate(
         reference: 'SegLST',
         hypothesis: 'SegLST',
+        *,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
 ):
@@ -609,7 +610,7 @@ def time_constrained_siso_word_error_rate(
 
     >>> time_constrained_siso_word_error_rate(
     ... [{'words': 'a b', 'start_time': 0, 'end_time': 2},  {'words': 'c d', 'start_time': 0, 'end_time': 2}],
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}])
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}], collar=5)
     ErrorRate(error_rate=0.75, errors=3, length=4, insertions=0, deletions=3, substitutions=0, reference_self_overlap=SelfOverlap(overlap_rate=1.0, overlap_time=2, total_time=2), hypothesis_self_overlap=SelfOverlap(overlap_rate=0.0, overlap_time=0, total_time=1))
     """
     # Convert to SegLST. Disallow Python conversions since there is currently
@@ -663,9 +664,9 @@ def time_constrained_minimum_permutation_word_error_rate(
         reference: 'SegLST',
         hypothesis: 'SegLST',
         *,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
 ) -> CPErrorRate:
@@ -726,9 +727,10 @@ tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
 
 def tcp_word_error_rate_multifile(
         reference, hypothesis,
+        *,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         reference_sort='segment',
         hypothesis_sort='segment',
         partial=False,
@@ -762,9 +764,9 @@ def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'
 def align(
         reference: SegLST, hypothesis: SegLST,
         *,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
-        collar: int = 0,
         style='words',
         reference_sort='segment',
         hypothesis_sort='segment',
@@ -811,7 +813,8 @@ def align(
     >>> from pprint import pprint
     >>> align(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}])
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
+    ... collar=0)
     [('a', 'a'), ('b', 'b'), ('c', '*'), ('*', 'c')]
     >>> align(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
@@ -829,7 +832,8 @@ def align(
     [(0, 0), (1, 1), (2, 2), (3, None), (4, 3), (None, 4)]
     >>> pprint(align(
     ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 2, 'end_time': 3}],
-    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}], style='seglst'))
+    ... [{'words': 'a', 'start_time': 0, 'end_time': 1}, {'words': 'b', 'start_time': 1, 'end_time': 2}, {'words': 'c', 'start_time': 3, 'end_time': 4}],
+    ... style='seglst', collar=0))
     [({'end_time': 1, 'start_time': 0, 'words': 'a'},
       {'end_time': 0.5, 'start_time': 0.5, 'words': 'a'}),
      ({'end_time': 2, 'start_time': 1, 'words': 'b'},
@@ -840,20 +844,22 @@ def align(
     Empty segments / words are ignored
      >>> pprint(align(
      ... [{'words': '', 'start_time': 0, 'end_time': 1}, {'words': 'a', 'start_time': 1, 'end_time': 2}],
-     ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}]
+     ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}],
+     ... collar=0,
      ... ))
      [('a', 'a')]
     >>> pprint(align(
     ... [{'words': '', 'start_time': 0, 'end_time': 1}, {'words': 'a', 'start_time': 1, 'end_time': 2}],
     ... [{'words': 'a', 'start_time': 1, 'end_time': 2}, {'words': '', 'start_time': 2, 'end_time': 3}],
+    ... collar=0,
     ... style='index'))
     [(1, 0)]
 
     Any additional attributes are passed through when style='seglst'
-    >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='seglst')
+    >>> align([{'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}], [], style='seglst', collar=0)
     [({'words': 'a', 'start_time': 0, 'end_time': 1, 'custom_data': [1, 2, 3]}, None)]
     >>> from meeteval.io.stm import STM, STMLine
-    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a', parse_float=float)]), STM([STMLine.parse('ex 1 B 0 1 a', parse_float=float)]), style='seglst'))
+    >>> pprint(align(STM([STMLine.parse('ex 1 A 0 1 a', parse_float=float)]), STM([STMLine.parse('ex 1 B 0 1 a', parse_float=float)]), style='seglst',  collar=0))
     [({'channel': 1,
        'end_time': 1,
        'session_id': 'ex',

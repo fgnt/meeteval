@@ -5,13 +5,13 @@ import pytest
 example_files = (Path(__file__).parent.parent / 'example_files').absolute()
 
 
-@pytest.mark.parametrize(
-    'alignment',
-    [
-        'cp', 'tcp', 'orc', 'tcorc', 'greedy_tcorc',
-        'greedy_orc', 'greedy_dicp', 'greedy_ditcp'
-    ]
-)
+alignments = [
+    'cp', 'tcp', 'orc', 'tcorc', 'greedy_tcorc',
+    'greedy_orc', 'greedy_dicp', 'greedy_ditcp'
+]
+
+
+@pytest.mark.parametrize('alignment', alignments)
 def test_viz_burn(alignment):
     """
     Tests if the code that generated the visualization produces an html file.
@@ -29,13 +29,7 @@ def test_viz_burn(alignment):
         assert (example_files / f'viz/test-{k}-{alignment}.html').exists()
 
 
-@pytest.mark.parametrize(
-    'alignment',
-    [
-        'cp', 'tcp', 'orc', 'tcorc', 'greedy_tcorc',
-        'greedy_orc', 'greedy_dicp', 'greedy_ditcp'
-    ]
-)
+@pytest.mark.parametrize('alignment', alignments)
 def test_viz_precompute_wer(alignment):
     """
     Tests if the code that generated the visualization produces an html file
@@ -79,13 +73,7 @@ def test_viz_precompute_wer(alignment):
         assert text == precomputed_text
 
 
-@pytest.mark.parametrize(
-    'alignment',
-    [
-        'cp', 'tcp', 'orc', 'tcorc', 'greedy_tcorc',
-        'greedy_orc', 'greedy_dicp', 'greedy_ditcp'
-    ]
-)
+@pytest.mark.parametrize('alignment', alignments)
 def test_viz_speaker_mismatch(alignment):
     """
     Tests if the code that generated the visualization produces an html file.

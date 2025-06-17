@@ -313,7 +313,7 @@ print(avg)
 Sequences can be aligned, similar to `kaldialign.align`, using the tcpWER matching:
 ```python
 import meeteval
-meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_time': 1}], [{'words': 'a c', 'start_time': 0, 'end_time': 1}, {'words': 'd', 'start_time': 2, 'end_time': 3}])
+meeteval.wer.wer.time_constrained.align([{'words': 'a b', 'start_time': 0, 'end_time': 1}], [{'words': 'a c', 'start_time': 0, 'end_time': 1}, {'words': 'd', 'start_time': 2, 'end_time': 3}], collar=5)
 # [('a', 'a'), ('b', 'c'), ('*', 'd')]
 ```
 
