@@ -144,7 +144,8 @@ def test_tcpwer_vs_cpwer(a, b):
     assert cp_statistics == tcp_statistics, (cp_statistics, tcp_statistics)
 
 
-def test_tcpwer_input_formats():
+@pytest.mark.parametrize("collar", [0, 1, 5])
+def test_tcpwer_input_formats(collar):
     from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
     from meeteval.io.stm import STM
 
@@ -157,19 +158,27 @@ def test_tcpwer_input_formats():
             {'words': 'a b', 'start_time': 0, 'end_time': 1, 'speaker': 'A'},
             {'words': 'c', 'start_time': 1, 'end_time': 2, 'speaker': 'B'}
         ]),
-        collar=0,  # use 5 for real data, but 0 for testing
+        collar=collar,
     )
     r2 = time_constrained_minimum_permutation_word_error_rate(
-        STM.parse('dummy 1 A 0 1 a\ndummy 1 A 1 2 b c'),
-        STM.parse('dummy 1 A 0 1 a b\ndummy 1 A 1 2 c'),
-        collar=0,  # use 5 for real data, but 0 for testing
+        # STM :== <filename> <channel> <speaker_id> <begin_time> <end_time> <transcript>
+        STM.parse('dummy 1 A 0 1 a\ndummy 1 B 1 2 b c'),
+        STM.parse('dummy 1 A 0 1 a b\ndummy 1 B 1 2 c'),
+        collar=collar,
     )
     r3 = time_constrained_minimum_permutation_word_error_rate(
-        CTMGroup({'A': CTM.parse("dummy 1 0 1 a\ndummy 1 1 0.5 b\ndummy 1 1.5 0.5 c")}),
-        CTMGroup({0: CTM.parse("dummy 1 0 0.5 a\ndummy 1 0.5 0.5 b\ndummy 1 1 1 c")}),
-        collar=0,  # use 5 for real data, but 0 for testing
+        # CTM :== <filename> <channel> <begin_time> <duration> <word> [<confidence>]
+        CTMGroup({
+            'A': CTM.parse("dummy 1 0 1 a"),
+            'B': CTM.parse("dummy 1 1 0.5 b\ndummy 1 1.5 0.5 c"),
+        }),
+        CTMGroup({
+            0: CTM.parse("dummy 1 0 0.5 a\ndummy 1 0.5 0.5 b"),
+            1: CTM.parse("dummy 1 1 1 c"),
+        }),
+        collar=collar,
     )
-    assert r1.error_rate == r2.error_rate
+    assert r1.error_rate == r2.error_rate, (r1, r2)
     assert r1.error_rate == r3.error_rate
 
 
