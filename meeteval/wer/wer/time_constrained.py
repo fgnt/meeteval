@@ -335,7 +335,7 @@ TimeMarkedTranscriptLike = 'TimeMarkedTranscript | STM | list[Segment]'
 
 
 @seglst_map()
-def apply_collar(s: SegLST, collar: float):
+def apply_collar(s: SegLST, collar):
     """
     Adds a collar to begin and end times.
 
@@ -579,7 +579,7 @@ def time_constrained_siso_word_error_rate(
         reference: 'SegLST',
         hypothesis: 'SegLST',
         *,
-        collar: int,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment',
@@ -664,7 +664,7 @@ def time_constrained_minimum_permutation_word_error_rate(
         reference: 'SegLST',
         hypothesis: 'SegLST',
         *,
-        collar: int,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment',
@@ -728,7 +728,7 @@ tcp_word_error_rate = time_constrained_minimum_permutation_word_error_rate
 def tcp_word_error_rate_multifile(
         reference, hypothesis,
         *,
-        collar: int,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment',
@@ -764,7 +764,7 @@ def index_alignment_to_kaldi_alignment(alignment, reference, hypothesis, eps='*'
 def align(
         reference: SegLST, hypothesis: SegLST,
         *,
-        collar: int,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         style='words',

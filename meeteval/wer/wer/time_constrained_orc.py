@@ -92,7 +92,7 @@ def time_constrained_orc_wer(
 def time_constrained_orc_wer_multifile(
         reference: 'STM', hypothesis: 'STM',
         *,
-        collar: int,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         hypothesis_sort='segment',
@@ -115,7 +115,7 @@ def greedy_time_constrained_orc_wer(
         reference,
         hypothesis,
         *,
-        collar: int,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment',
@@ -190,7 +190,7 @@ def greedy_time_constrained_orc_wer(
 def greedy_time_constrained_orc_wer_multifile(
         reference: 'STM', hypothesis: 'STM',
         *,
-        collar: int,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         hypothesis_sort='segment',
