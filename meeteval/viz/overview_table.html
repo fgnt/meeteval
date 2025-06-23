@@ -91,7 +91,7 @@
                 data.forEach((item, index) => {
                     const cell = createTag(headerRow, "th", item.metric);
                     createTag(cell, 'br');
-                    createTag(cell, 'span', `${item.average} %`).className = 'number';
+                    createTag(cell, 'span', `${(item.average*100).toFixed(2)} %`).className = 'number';
 
                     if (data[index - 1]?.system_name !== item.system_name) {
                         cell.classList.add("pad");

@@ -36,7 +36,7 @@ def generate_overview_table(data: 'list[dict | AlignmentVisualization]') -> str:
             meeteval.wer.ErrorRate.from_dict(d['info']['wer'])
             for d in data
         ]).error_rate
-        return f'{error_rate * 100:.2f} %'
+        return error_rate
   
     html_data = []
     for system_name, alignments in avs.items():
