@@ -6,7 +6,7 @@ import meeteval
 from meeteval.viz.visualize import AlignmentVisualization, dumps_json
 
 
-def generate_overview_table(data: list[dict | AlignmentVisualization]) -> str:
+def generate_overview_table(data: 'list[dict | AlignmentVisualization]') -> str:
     """
     Generates an overview table from the provided list of alignment 
     visualizations.
