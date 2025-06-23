@@ -1,17 +1,36 @@
 from pathlib import Path
 import collections
 import itertools
+import json
 
 import meeteval
 from meeteval.viz.visualize import AlignmentVisualization
 from meeteval.wer.api import _load_texts
 import tqdm
 
+from meeteval.viz.overview_table import dump_overview_table
+
+
+def get_data_from_html(html_text: str):
+    """
+    Extracts the JSON visualization data from the html text by searching for
+    the call to the function `alignment_visualization` and extracting the 
+    first argument, which is always on a new line.
+    """
+    identifier = "if (typeof d3 !== 'undefined') alignment_visualization("
+    data_start = html_text.find(identifier) + len(identifier) + 1
+    data_end = html_text.find('\n', data_start) - 1 # Remove comma at end of line
+    data = json.loads(html_text[data_start:data_end])
+    return data
+
+
 
 def create_viz_folder(
         reference,
         hypothesiss,
         out,
+        file_format='{system_name}/{alignment}/{session_id}.html',
+        # file_format='{session_id}_{system_name}_{alignment}.html',
         alignments='tcp',
         regex=None,
         normalizer=None,
@@ -54,8 +73,8 @@ def create_viz_folder(
     else:
         per_reco = collections.defaultdict(lambda: collections.defaultdict(lambda: None))
 
-    avs = {}
-    for (i, hypothesis), alignment in tqdm.tqdm(list(itertools.product(
+    avs = []
+    for (system_name, hypothesis), alignment in tqdm.tqdm(list(itertools.product(
             hypothesiss.items(),
             alignments,
     ))):
@@ -84,160 +103,96 @@ def create_viz_folder(
                 js_debug=js_debug,
                 sync_id=1,
                 precomputed_error_rate=per_reco[alignment][session_id],
+                system_name=system_name,
             )   
-            av.dump(out / f'{session_id}_{i}_{alignment}.html')
-            avs.setdefault((i, alignment), {})[session_id] = av
+            save_name = file_format.format(
+                session_id=session_id,
+                system_name=system_name,
+                alignment=alignment,
+            )
+            save_path = out / save_name
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            av.dump(save_path)
+            # Make the save_path relative to the index.html file such that
+            # the links work when moving the folder
+            av.data['save_path'] = str(save_name)
+            avs.append(av.data)
 
-    ###########################################################################
+    create_index_html(avs, out)
 
-    from yattag import Doc
-    from yattag import indent
-
-    avs_T = collections.defaultdict(lambda: {k: None for k in avs.keys()})
-    for i, v in avs.items():
-        for session_id, av in v.items():
-            avs_T[session_id][i] = av
-    avs_T = dict(avs_T)
-
-    ###########################################################################
-
-    from yattag import Doc
-    from yattag import indent
-
-    def get_wer(v):
-        error_rate = meeteval.wer.combine_error_rates(*[
-            meeteval.wer.ErrorRate.from_dict(
-                av.data['info']['wer'])
-            for av in v.values()
-        ]).error_rate
-        return f'{error_rate * 100:.2f} %'
-
-    doc, tag, text = Doc().tagtext()
-    doc.asis('<!DOCTYPE html>')
-    with tag('html'):
-        with tag('head'):
-            # When offline, the page will still work.
-            # The sort will break and the table style rested.
-            with tag('script', src='https://code.jquery.com/jquery-3.6.4.min.js'):
-                pass
-            with tag('script', src='https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/js/jquery.tablesorter.min.js'):
-                pass
-            doc.asis('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">')
-            with tag('style'):
-                n = len(alignments)
-                doc.asis(f'''
-                    /* Center table */
-                    body {{
-                        width: fit-content;
-                        margin: 0 auto;
-                    }}
-                    /* Make numbers monospace and right-aligned (aligns the decimal point) */
-                    .number {{
-                        font-family: monospace;
-                        text-align: right;
-                    }}
-                    td {{
-                        text-align: right;
-                    }}
-                    td:nth-child(1) {{
-                        text-align: left;
-                    }}
-                    tbody tr:nth-child(odd) td {{
-                      background-color: #f2f2f2;
-                    }}
-                    tbody td:nth-child({n}n+2), 
-                    thead tr:nth-child(2) th:nth-child({n}n+2),
-                    thead tr:nth-child(1) th{{
-                        padding-left: 3em;
-                    }}
-                ''')
-        with tag('body'):
-            with tag('table', klass='tablesorter', id='myTable', style='width: auto;'):
-                with tag('thead'):
-                    with tag('tr'):
-                        with tag('th', ('data-sorter', 'false')):
-                            pass
-
-                        for system, item in itertools.groupby(avs.items(), key=lambda x: x[0][0]):
-                            with tag('th', ('data-sorter', "false"), colspan=len(list(item))):
-                                doc.text(system)
-
-                        if len(alignments) > 1 or len(hypothesiss) > 1:
-                            with tag('th', ('data-sorter', "false"), colspan=2):
-                                with tag('span', klass='synced-view'):
-                                    pass
-
-                    with tag('tr'):
-                        with tag('th'):
-                            doc.text('Session ID')
-
-                        for (k, alignment), v in avs.items():
-                            with tag('th'):
-                                doc.asis(f'{alignment}WER<br>')
-
-                                with tag('span', klass='number'):
-                                    doc.text(get_wer(v))
-
-                        if len(alignments) > 1 or len(hypothesiss) > 1:
-                            with tag('th', ('data-sorter', "false"), colspan=2):
-                                doc.text("Side-by-side views")
-
-                with tag('tbody'):
-                    for session_id, v in avs_T.items():
-                        with tag('tr'):
-                            with tag('td'):
-                                doc.text(f'{session_id}')
-                            for (i, alignment), av in v.items():
-                                with tag('td'):
-                                    with tag('span', klass='number'):
-                                        wer = av.data['info']['wer']['error_rate']
-                                        doc.text(f"{wer * 100:.2f} %")
-                                    doc.text(' (')
-                                    with tag('a', href=f'{session_id}_{i}_{alignment}.html'):
-                                        doc.text('View')
-                                    doc.text(')')
-
-                            if len(v) > 1:
-                                with tag('td'):
-                                    tags = '&'.join(f'{session_id}_{i}_{a}.html' for i, a in v.keys())
-                                    with tag('a', href=f'side_by_side_sync.html?{tags}'):
-                                        doc.text('SydeBySide')
-            doc.asis('''
-<script>
-    $(document).ready(function() {
-        // Initialize tablesorter on the table
-        $("#myTable")
-        // Read the sorting information from the URL after the tablesorter has been initialized
-        .bind("tablesorter-initialized", (e, t) => {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('sort')) {
-                const idx = urlParams.get('sort');
-                const order = urlParams.get('order', 'ascending');
-                $("#myTable").trigger('sorton', [[[idx, order]]]);
-            }
-        })
-        // Store sorting information in URL
-        .bind("sortEnd", (e, t) => {
-            const cols = $(t).find('[aria-sort][aria-sort!="none"]');
-            if (cols.length > 0) {
-                const col = cols[0];
-                const url = new URL(window.location);
-                url.searchParams.set('sort', col.cellIndex);
-                url.searchParams.set('order', col.getAttribute('aria-sort'));
-                window.history.replaceState({}, '', url);
-            }
-        })
-        .tablesorter();
-    });
-</script>
-            ''')
-
+def create_index_html(
+    data: 'list[dict]',
+    out,
+    generate_side_by_side='auto',
+    system_names=None,
+    alignment_types=None,
+    session_ids=None,
+):
+    """
+    Args:
+        data: A list of visualization data. The info must contain the keys
+            - session_id
+            - system
+            - alignment_type
+            - wer
+    """
+    dump_overview_table(data, out / 'index.html')
     import shutil
     shutil.copy(Path(__file__).parent / 'side_by_side_sync.html', out / 'side_by_side_sync.html')
 
-    with open(out / "index.html", "w") as text_file:
-        text_file.write(indent(doc.getvalue()))
-    print(f'Open file://{(out / "index.html").absolute()}')
+
+def index_html(
+        folders: 'list[Path]',
+        out: Path,
+        copy_files: bool = True,
+):
+    """
+    Creates an index.html file with an overview table for multiple visualizations.
+
+    Uses the system names stored in the HTML files prefixed by the folder names.
+
+    WARNING: Does not work with files generated with the --js-debug flag!
+    """
+    import shutil
+    out = Path(out)
+    avs = []
+    for folder_index, folder in enumerate(folders):
+        if copy_files:
+            (out / str(folder_index)).mkdir(parents=True, exist_ok=True)
+        for f in folder.rglob('*.html'):
+            # Skip helper files
+            if f.name in ('index.html', 'side_by_side_sync.html'):
+                continue
+
+            with open(f, 'r') as text_file:
+                html_text = text_file.read()
+            try:
+                data = get_data_from_html(html_text)
+            except json.JSONDecodeError as e:
+                print(f'Error extracting data from {f}. Skipping. {e}')
+                continue
+
+            # Add the file name to the data
+            if copy_files:
+                # Copy the file to the output folder
+                # Create a new folder for each source folder to make sure that
+                # the files are not overwritten
+                f_new = out / str(folder_index) / f.name
+                shutil.copy(f, f_new)
+                data['save_path'] = str(f_new.relative_to(out))
+            else:
+                data['save_path'] = str(f.absolute())
+
+            # Disambiguate system names by appending folder path
+            if 'system_name' in data['info']:
+                data['info']['system_name'] = f'{str(folder)}/{data["info"]["system_name"]}'
+            else:
+                data['info']['system_name'] = str(folder)
+            avs.append(data)
+
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    create_index_html(avs, out)
 
 
 def html(
@@ -249,6 +204,7 @@ def html(
         out='viz',
         js_debug=False,
         per_reco_file=None,
+        file_format='{system_name}/{alignment}/{session_id}.html',
 ):
     """
     Creates a visualization of the alignment between reference and hypothesis for the specified WER algorithm.
@@ -258,8 +214,6 @@ def html(
     First, compute the WER and assignment, i.e. the mapping of utterances/segments to streams. Any WER algorithm 
     from meeteval can be used for this. Depending on the algorithm, the labels of the reference or 
     hypothesis utterances or streams are modified.
-
-    
     
     Second, compute the alignment, i.e. the matching of words between reference and hypothesis (insertion, 
     deletion, substitution). This is done with a time-constrained algorithm if the assignment was 
@@ -292,6 +246,7 @@ def html(
         normalizer=normalizer,
         js_debug=js_debug,
         per_reco_file=per_reco_file,
+        file_format=file_format,
     )
 
 
@@ -335,11 +290,38 @@ def cli():
                     default=None,
                     nargs='+',
                 )
+            elif name == 'file_format':
+                command_parser.add_argument(
+                    '--file-format',
+                    help='The format of the file paths in the index.html file. '
+                         'The following placeholders are available: '
+                         '{system_name}, {alignment}, {session_id}.\n'
+                         'The default splits by system name and alignment type to make it'
+                         'easy to create comparisons between different systems and alignments. '
+                         'using "meeteval-viz index_html".',
+                )
+            elif name == 'folders':
+                command_parser.add_argument(
+                    '--folders',
+                    help='A list of folders containing the visualizations.',
+                    nargs='+',
+                    type=Path,
+                    required=True,
+                )
+            elif name == 'copy_files':
+                command_parser.add_argument(
+                    '--copy-files',
+                    type=bool,
+                    help='If true, the HTML files are copied to the output '
+                         'folder and links in index.html are relative. '
+                         'If false, the original files are used and links are absolute.'
+                )
             else:
                 return super().add_argument(command_parser, name, p)
 
     cli = VizCLI()
     cli.add_command(html)
+    cli.add_command(index_html)
     cli.run()
 
 
