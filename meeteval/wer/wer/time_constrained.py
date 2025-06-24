@@ -105,7 +105,8 @@ def phoneme_based(interval, words, language):
     elif len(words) == 1:
         return [interval]
     import numpy as np
-    word_lengths = np.asarray([len(g2p.tokenizer(w)) for w in words])
+
+    word_lengths = np.asarray([len(g2p.tokenize(w)) for w in words])
     end_points = np.cumsum(word_lengths)
     total_num_characters = end_points[-1]
     character_length = (interval[1] - interval[0]) / total_num_characters
@@ -620,8 +621,7 @@ def time_constrained_siso_word_error_rate(
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment',
-        hypothesis_sort='segment',
-):
+        hypothesis_sort='segment'):
     """
     Time-constrained word error rate for single-speaker transcripts.
 
