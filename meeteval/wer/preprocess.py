@@ -17,6 +17,7 @@ def split_words(
         keys=('words',),
         word_level_timing_strategy=None,
         segment_representation='word',  # 'segment', 'word', 'speaker'
+        language=None
 ):
     """
     Splits segments into words and copies all other entries.
@@ -77,8 +78,7 @@ def split_words(
             words = s['words'] or ['']
             timestamps = word_level_timing_strategy(
                 (s['start_time'], s['end_time']),
-                words
-            )
+                words, language)
             s['start_time'] = [s for s, _ in timestamps]
             s['end_time'] = [s for _, s in timestamps]
 
@@ -263,6 +263,7 @@ def _preprocess_single(
         name=None,
         segment_index=False,  # 'segment', 'word', False
         segment_representation='word',  # 'segment', 'word', 'speaker'
+        language=None
 ):
     """
     >>> from paderbox.utils.pretty import pprint
@@ -428,7 +429,8 @@ def _preprocess_single(
     words = split_words(
         segments,
         word_level_timing_strategy=word_level_timing_strategy,
-        segment_representation=segment_representation
+        segment_representation=segment_representation,
+        language=language
     )
 
     # Warn or raise an exception if the order of the words contradicts the
@@ -517,6 +519,7 @@ def preprocess(
         hypothesis_pseudo_word_level_timing=None,
         segment_representation='segment',  # 'segment', 'word', 'speaker'
         ensure_single_session=True,
+        language=None
 ):
     """
     Preprocessing.
@@ -538,6 +541,7 @@ def preprocess(
         collar=None,   # collar is not applied to the reference
         word_level_timing_strategy=reference_pseudo_word_level_timing,
         segment_representation=segment_representation,
+        language=language
     )
     hypothesis, hypothesis_self_overlap = _preprocess_single(
         hypothesis,
@@ -549,6 +553,7 @@ def preprocess(
         collar=collar,
         word_level_timing_strategy=hypothesis_pseudo_word_level_timing,
         segment_representation=segment_representation,
+        language=language
     )
 
 
