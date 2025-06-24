@@ -48,7 +48,8 @@ def generate_overview_table(data: 'list[dict | AlignmentVisualization]') -> str:
                 'session_details': {
                     session_id: {
                         'error_rate': session_data['info']['wer']['error_rate'],
-                        'link': session_data['save_path'],
+                        'link': str(session_data['save_path']),
+                        'absolute_path': str(session_data['absolute_path']),
                     }
                     for session_id, session_data in sessions.items()
                 }

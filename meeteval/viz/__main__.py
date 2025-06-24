@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import collections
 import itertools
@@ -7,6 +8,7 @@ import meeteval
 from meeteval.viz.visualize import AlignmentVisualization
 from meeteval.wer.api import _load_texts
 import tqdm
+import logging
 
 from meeteval.viz.overview_table import dump_overview_table
 
@@ -29,8 +31,6 @@ def create_viz_folder(
         reference,
         hypothesiss,
         out,
-        file_format='{system_name}/{alignment}/{session_id}.html',
-        # file_format='{session_id}_{system_name}_{alignment}.html',
         alignments='tcp',
         regex=None,
         normalizer=None,
@@ -105,46 +105,36 @@ def create_viz_folder(
                 precomputed_error_rate=per_reco[alignment][session_id],
                 system_name=system_name,
             )   
-            save_name = file_format.format(
-                session_id=session_id,
-                system_name=system_name,
-                alignment=alignment,
-            )
+            save_name = _get_av_file_path(av.data)
             save_path = out / save_name
             save_path.parent.mkdir(parents=True, exist_ok=True)
             av.dump(save_path)
             # Make the save_path relative to the index.html file such that
             # the links work when moving the folder
             av.data['save_path'] = str(save_name)
+            av.data['absolute_path'] = save_path.absolute()
             avs.append(av.data)
 
-    create_index_html(avs, out)
+    dump_overview_table(avs, out / 'index.html')
+    _copy_side_by_side(out)
 
-def create_index_html(
-    data: 'list[dict]',
-    out,
-    generate_side_by_side='auto',
-    system_names=None,
-    alignment_types=None,
-    session_ids=None,
-):
-    """
-    Args:
-        data: A list of visualization data. The info must contain the keys
-            - session_id
-            - system
-            - alignment_type
-            - wer
-    """
-    dump_overview_table(data, out / 'index.html')
+
+def _copy_side_by_side(out: Path):
     import shutil
     shutil.copy(Path(__file__).parent / 'side_by_side_sync.html', out / 'side_by_side_sync.html')
 
 
+def _get_av_file_path(av_data):
+    return (
+        f'{av_data["info"]["session_id"]}'
+        f'_{av_data["info"]["system_name"]}'
+        f'_{av_data["info"]["alignment_type"]}.html'
+    )
+
 def index_html(
         folders: 'list[Path]',
         out: Path,
-        copy_files: bool = True,
+        copy: 'bool | str | Path' = False,
 ):
     """
     Creates an index.html file with an overview table for multiple visualizations.
@@ -155,11 +145,24 @@ def index_html(
     """
     import shutil
     out = Path(out)
+
+    if out.suffix != '.html':
+        out = out / 'index.html'
+
+    if copy:
+        if isinstance(copy, (str, Path)):
+            copy = Path(copy)
+        else:
+            copy = out.parent
+
     avs = []
-    for folder_index, folder in enumerate(folders):
-        if copy_files:
-            (out / str(folder_index)).mkdir(parents=True, exist_ok=True)
-        for f in folder.rglob('*.html'):
+    for folder in folders:
+        folder = Path(folder)
+        if folder.is_dir():
+            folder = folder.glob('*.html')
+        else:
+            folder = [folder]
+        for f in folder:
             # Skip helper files
             if f.name in ('index.html', 'side_by_side_sync.html'):
                 continue
@@ -169,30 +172,46 @@ def index_html(
             try:
                 data = get_data_from_html(html_text)
             except json.JSONDecodeError as e:
-                print(f'Error extracting data from {f}. Skipping. {e}')
+                logging.warning(f'Error extracting data from {f}. Skipping. {e}')
                 continue
+    
+            data['absolute_path'] = f.absolute()
 
-            # Add the file name to the data
-            if copy_files:
-                # Copy the file to the output folder
-                # Create a new folder for each source folder to make sure that
-                # the files are not overwritten
-                f_new = out / str(folder_index) / f.name
-                shutil.copy(f, f_new)
-                data['save_path'] = str(f_new.relative_to(out))
-            else:
-                data['save_path'] = str(f.absolute())
-
-            # Disambiguate system names by appending folder path
-            if 'system_name' in data['info']:
-                data['info']['system_name'] = f'{str(folder)}/{data["info"]["system_name"]}'
-            else:
-                data['info']['system_name'] = str(folder)
             avs.append(data)
+    
+    def resolve_system_names(avs):
+        filenames = [av['absolute_path'].parts for av in avs]
+        prefix = os.path.commonprefix(filenames)
+        for group, grouped_avs in itertools.groupby(
+            avs, 
+            key=lambda x: x['absolute_path'].parts[len(prefix)] 
+                if len(prefix) < len(x['absolute_path'].parts) - 1 
+                else None
+        ):
+            grouped_avs = list(grouped_avs)
+            if group is not None:
+                for av in grouped_avs:
+                    av['info']['system_name'] = f'{group}_{av["info"]["system_name"]}'
+                resolve_system_names(grouped_avs)
+    avs = sorted(avs, key=lambda x: x['absolute_path'])
+    resolve_system_names(avs)
+        
+    if copy:
+        copy.mkdir(parents=True, exist_ok=True)
+
+    for av in avs:
+        if copy:
+            f_new = copy / _get_av_file_path(av)
+            av.pop('path', None)
+            shutil.copy(av['absolute_path'], f_new)
+            av['absolute_path'] = f_new
+        
+        av['save_path'] = os.path.relpath(av['absolute_path'], out.parent)
 
     out = Path(out)
-    out.mkdir(parents=True, exist_ok=True)
-    create_index_html(avs, out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    dump_overview_table(avs, out)
+    _copy_side_by_side(out.parent)
 
 
 def html(
@@ -204,7 +223,6 @@ def html(
         out='viz',
         js_debug=False,
         per_reco_file=None,
-        file_format='{system_name}/{alignment}/{session_id}.html',
 ):
     """
     Creates a visualization of the alignment between reference and hypothesis for the specified WER algorithm.
@@ -246,7 +264,6 @@ def html(
         normalizer=normalizer,
         js_debug=js_debug,
         per_reco_file=per_reco_file,
-        file_format=file_format,
     )
 
 
@@ -290,31 +307,19 @@ def cli():
                     default=None,
                     nargs='+',
                 )
-            elif name == 'file_format':
-                command_parser.add_argument(
-                    '--file-format',
-                    help='The format of the file paths in the index.html file. '
-                         'The following placeholders are available: '
-                         '{system_name}, {alignment}, {session_id}.\n'
-                         'The default splits by system name and alignment type to make it'
-                         'easy to create comparisons between different systems and alignments. '
-                         'using "meeteval-viz index_html".',
-                )
             elif name == 'folders':
                 command_parser.add_argument(
-                    '--folders',
-                    help='A list of folders containing the visualizations.',
+                    'folders',
+                    help='A list of visualization files or folders containing visualization files.',
                     nargs='+',
                     type=Path,
-                    required=True,
                 )
-            elif name == 'copy_files':
+            elif name == 'copy':
                 command_parser.add_argument(
-                    '--copy-files',
-                    type=bool,
-                    help='If true, the HTML files are copied to the output '
-                         'folder and links in index.html are relative. '
-                         'If false, the original files are used and links are absolute.'
+                    '--copy',
+                    nargs='?',
+                    const=True,
+                    help=''
                 )
             else:
                 return super().add_argument(command_parser, name, p)

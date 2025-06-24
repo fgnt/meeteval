@@ -36,7 +36,14 @@
     </head>
     <body>
         <table id="table" class="tablesorter" style="width: auto;">
-            <thead></thead>
+            <thead>
+                <tr id="header1">
+                    <th data-sorter="false"></th>
+                </tr>
+                <tr id="header2">
+                    <th>Session ID</th>
+                </tr>
+            </thead>
             <tbody></tbody>
         </table>
 
@@ -45,11 +52,11 @@
             // This example data will be replaced by the real data when 
             // the overview table is generated for a real visualization
             const data = [
-                {system_name: 'System A', metric: 'cpWER', average: 0.5, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html"}}},
-                {system_name: 'System A', metric: 'tcpWER', average: 0.5, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html"}}},
-                {system_name: 'System B', metric: 'cpWER', average: 0.6, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html"}}},
-                {system_name: 'System C', metric: 'cpWER', average: 0.7, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session4': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html"}}},
-                {system_name: 'System D', metric: 'cpWER', average: 0.8, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html"}}},
+                {system_name: 'System A', metric: 'cpWER', average: 0.5, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System A', metric: 'tcpWER', average: 0.5, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System B', metric: 'cpWER', average: 0.6, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System C', metric: 'cpWER', average: 0.7, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session4': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System D', metric: 'cpWER', average: 0.8, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
             ];
             // DATA END
 
@@ -64,20 +71,16 @@
             function buildTable(selector, data) {
                 const hasSideByside = data.length > 1;
                 const table = document.querySelector(selector);
-                const thead = table.querySelector('thead');
                 const tbody = table.querySelector('tbody');
-                var headerRow = createTag(thead, "tr");
-
+                
                 // First row: system names
-                createTag(headerRow, "th").setAttribute("data-sorter", "false");
+                var headerRow = table.querySelector("#header1");
                 data.forEach((item, index) => {
                     if (index > 0 && item.system_name === data[index - 1].system_name) {
                         headerRow.lastChild.colSpan++;
                     } else {
                         const cell = createTag(headerRow, "th", `${item.system_name}`);
-                        if (data[index - 1]?.system_name !== item.system_name) {
-                            cell.classList.add("pad");
-                        }
+                        cell.classList.add("pad");
                         cell.setAttribute("data-sorter", "false");
                     }
                 });
@@ -86,8 +89,7 @@
                 }
 
                 // Second row: metric names & averages
-                headerRow = createTag(thead, "tr");
-                createTag(headerRow, "th", "Session ID");
+                headerRow = table.querySelector('#header2');
                 data.forEach((item, index) => {
                     const cell = createTag(headerRow, "th", item.metric);
                     createTag(cell, 'br');
@@ -121,7 +123,9 @@
                         }
                         createTag(cell, "span", `${(100*item.session_details[sessionID].error_rate).toFixed(2)} %`).className = "number";
                         cell.append(" (");
-                        createTag(cell, "a", "View").href = item.session_details[sessionID].link;
+                        const a = createTag(cell, "a", "View");
+                        a.href = item.session_details[sessionID].link;
+                        a.title = item.session_details[sessionID].absolute_path;
                         cell.append(")");
 
                         if (data[index - 1]?.system_name !== item.system_name) {
