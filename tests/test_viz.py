@@ -77,3 +77,62 @@ def test_viz_precompute_wer(alignment):
         text = (example_files / f'viz/test-{k}-{alignment}.html').read_text()
         text = re.sub(r'viz-[0-9a-f\-]*', '#viz-XXXX', text)
         assert text == precomputed_text
+
+
+def test_viz_index_html(tmp_path):
+    (tmp_path / 'viz').mkdir()
+    from meeteval.viz.__main__ import index_html
+
+    ref = meeteval.io.asseglst(meeteval.io.load(example_files / 'hyp.stm')).groupby('session_id')
+    hyp = meeteval.io.asseglst(meeteval.io.load(example_files / 'ref.stm')).groupby('session_id')
+
+    for k in ref.keys():
+        meeteval.viz.AlignmentVisualization(
+            ref[k],
+            hyp[k],
+            alignment='cp',
+            system_name='System1',
+        ).dump(tmp_path / 'viz' / f'test_{k}_cp.html')
+
+        meeteval.viz.AlignmentVisualization(
+            ref[k],
+            hyp[k],
+            alignment='tcp',
+            system_name='System1',
+        ).dump(tmp_path / 'viz' / f'test_{k}_tcp.html')
+
+    def get_index_html_data(path):
+        import re
+        import yaml
+        content = path.read_text()
+        data = re.search('data = (\[\n(.|\n)*\n\s*]);', content).groups(1)[0]
+        data = yaml.safe_load(data) # JSON complains about trailing comma
+        return data
+    
+    # Default case: Generate index file for folder
+    index_html(
+        list((tmp_path / 'viz').glob('*.html')),
+        out=tmp_path / 'viz',
+        copy=False,
+    )
+    data = get_index_html_data(tmp_path / 'viz' / 'index.html')
+    assert len(data) == 2
+
+    # Generate index file only for one metric
+    index_html(
+        list((tmp_path / 'viz').glob('*_tcp.html')),
+        out=tmp_path / 'viz' / 'index_tcp.html',
+        copy=False,
+    )
+    assert (tmp_path / 'viz' / 'index_tcp.html').exists()
+    data = get_index_html_data(tmp_path / 'viz' / 'index_tcp.html')
+    assert len(data) == 1
+
+    # Test that the copy option copies the correct number of files
+    index_html(
+        list((tmp_path / 'viz').glob('*_cp.html')),
+        out=tmp_path / 'viz_cp' / 'index_cp.html',
+        copy=True,
+    )
+    assert (tmp_path / 'viz_cp' / 'index_cp.html').exists()
+    assert len(list((tmp_path / 'viz_cp').iterdir())) == len(ref.keys()) + 2

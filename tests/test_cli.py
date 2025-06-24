@@ -217,6 +217,11 @@ def test_viz_html():
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --per-reco-out hyp_tcorcwer_per_reco.json --collar 5')
     run(f'meeteval-viz html -h hyp.stm -r ref.stm --alignment cp tcorc --per-reco-file hyp_cpwer_per_reco.json hyp_tcorcwer_per_reco.json')
 
+def test_viz_index():
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm -o viz')
+    run(f'python -m meeteval.viz index_html viz --out viz/index.html')
+    run(f'python -m meeteval.viz index_html viz --out viz2 --copy')
+    run(f'python -m meeteval.viz index_html viz --out viz3.html --copy viz3')
 
 def test_normalize():
     run(f'python -m meeteval.wer normalize hyp.stm -o - --normalizer="lower,rm(.?!,)"')
