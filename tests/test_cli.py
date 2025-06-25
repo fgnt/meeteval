@@ -1,10 +1,12 @@
 import subprocess
 from pathlib import Path
+import shutil
+import pytest
 
 example_files = (Path(__file__).parent.parent / 'example_files').absolute()
 
 
-def run(cmd):
+def run(cmd, cwd=example_files):
     cp = subprocess.run(
         cmd,
         shell=True,
@@ -12,7 +14,7 @@ def run(cmd):
         stderr=subprocess.PIPE,
         check=False,
         universal_newlines=True,
-        cwd=example_files,
+        cwd=cwd,
         executable='bash',  # echo "<(cat hyp.stm)" requires bash not sh.
     )
 
@@ -28,7 +30,16 @@ def run(cmd):
             f'\n\nstdout:\n{cp.stdout}'
             f'\n\nstderr:\n{cp.stderr}'
         )
+    
 
+@pytest.fixture
+def tmp_examples(tmpdir):
+    """
+    Creates a temporary directoy with the example files. Used for tests
+    that create many files so that the directory is not polluted.
+    """
+    shutil.copytree(example_files, tmpdir, dirs_exist_ok=True)
+    return tmpdir
 
 def test_burn_orc():
     # Normal test with stm files
@@ -204,28 +215,29 @@ def test_burn_siso():
     run(f'python -m meeteval.wer wer -h text_hyp -r text_ref')
 
 
-def test_viz_html():
-    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm')
-    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --normalizer="lower,rm(.?!,)"')
-    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=tcp')
-    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=cp')
-    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --out=viz')
-    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment cp tcorc')
+def test_viz_html(tmp_examples):
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm', tmp_examples)
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --normalizer="lower,rm(.?!,)"', tmp_examples)
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=tcp', tmp_examples)
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment=cp', tmp_examples)
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --out=viz', tmp_examples)
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment cp tcorc', tmp_examples)
 
     # Test loading a precomputed assignment
-    run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --per-reco-out hyp_cpwer_per_reco.json')
-    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --per-reco-out hyp_tcorcwer_per_reco.json --collar 5')
-    run(f'meeteval-viz html -h hyp.stm -r ref.stm --alignment cp tcorc --per-reco-file hyp_cpwer_per_reco.json hyp_tcorcwer_per_reco.json')
+    run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --per-reco-out hyp_cpwer_per_reco.json', tmp_examples)
+    run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --per-reco-out hyp_tcorcwer_per_reco.json --collar 5', tmp_examples)
+    run(f'meeteval-viz html -h hyp.stm -r ref.stm --alignment cp tcorc --per-reco-file hyp_cpwer_per_reco.json hyp_tcorcwer_per_reco.json', tmp_examples)
 
-def test_viz_index():
-    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm -o viz')
-    run(f'python -m meeteval.viz index_html viz --out viz/index.html')
-    run(f'python -m meeteval.viz index_html viz --out viz2 --copy')
-    run(f'python -m meeteval.viz index_html viz --out viz3.html --copy viz3')
+def test_viz_index(tmp_examples):
+    run('python -m meeteval.viz html -h hyp.stm -r ref.stm ', tmp_examples)
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm -o viz', tmp_examples)
+    run(f'python -m meeteval.viz index_html viz --out viz/index.html', tmp_examples)
+    run(f'python -m meeteval.viz index_html viz --out viz2 --copy', tmp_examples)
+    run(f'python -m meeteval.viz index_html viz --out viz3.html --copy viz3', tmp_examples)
 
-def test_normalize():
+def test_normalize(tmp_examples):
     run(f'python -m meeteval.wer normalize hyp.stm -o - --normalizer="lower,rm(.?!,)"')
-    run(f'python -m meeteval.wer normalize hyp.stm -o hyp_normalized.stm --normalizer="lower,rm([^a-z0-9 ])"')
+    run(f'python -m meeteval.wer normalize hyp.stm -o hyp_normalized.stm --normalizer="lower,rm([^a-z0-9 ])"', tmp_examples)
 
     # Test that chaining normalizer and wer scripts is equal to using the normalizer option on the script
     chained = run('python -m meeteval.wer cpwer -r <(python -m meeteval.wer normalize ref.stm -o - --normalizer "lower,rm(.?!,)") -h <(python -m meeteval.wer normalize hyp.stm -o - --normalizer "lower,rm(.?!,)") --average-out - --per-reco-out -')
