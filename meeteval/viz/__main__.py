@@ -133,7 +133,7 @@ def _get_av_file_path(av_data):
 
 def index_html(
         folders: 'list[Path]',
-        out: Path,
+        out: 'Path | str' = 'viz/index.html',
         copy: 'bool | str | Path' = False,
 ):
     """
@@ -142,6 +142,21 @@ def index_html(
     Uses the system names stored in the HTML files prefixed by the folder names.
 
     WARNING: Does not work with files generated with the --js-debug flag!
+
+    Examples:
+
+        # Re-generate the index_html file for a visualization folder
+        
+        meeteval-viz index_html viz
+
+        # Generate an overview table for a sub-set of visualizations
+
+        meeteval-viz index_html viz/*_tcp.html --out viz/index_tcp.html
+
+        # Create a sharable folder with copies of the original visualizations
+
+        meeteval-viz index_html viz/*_tcp.html --out share --copy
+
     """
     import shutil
     out = Path(out)
@@ -180,8 +195,14 @@ def index_html(
             avs.append(data)
     
     def resolve_system_names(avs):
+        """
+        Prepends parts of the file paths that differ between file storage paths
+        to the system name to disambiguate visualizations with for systems
+        with the same name but in different folders
+        """
         filenames = [av['absolute_path'].parts for av in avs]
         prefix = os.path.commonprefix(filenames)
+        # Group by the first folder name that differs. Ignore filenames
         for group, grouped_avs in itertools.groupby(
             avs, 
             key=lambda x: x['absolute_path'].parts[len(prefix)] 
@@ -190,9 +211,9 @@ def index_html(
         ):
             grouped_avs = list(grouped_avs)
             if group is not None:
+                resolve_system_names(grouped_avs)
                 for av in grouped_avs:
                     av['info']['system_name'] = f'{group}_{av["info"]["system_name"]}'
-                resolve_system_names(grouped_avs)
     avs = sorted(avs, key=lambda x: x['absolute_path'])
     resolve_system_names(avs)
         
@@ -272,7 +293,7 @@ def cli():
 
     class VizCLI(CLI):
 
-        def add_argument(self, command_parser, name, p):
+        def add_argument(self, command_parser, name, p, command_name):
             if name == 'alignment':
                 command_parser.add_argument(
                     '--alignment',
@@ -310,7 +331,10 @@ def cli():
             elif name == 'folders':
                 command_parser.add_argument(
                     'folders',
-                    help='A list of visualization files or folders containing visualization files.',
+                    help='A list of folders containing visualization html files. '
+                         'Alternatively, files can be given explicitly which '
+                         'allows for shell wildcards for filtering, e.g. '
+                         '`viz/*_tcp.html`.',
                     nargs='+',
                     type=Path,
                 )
@@ -319,10 +343,19 @@ def cli():
                     '--copy',
                     nargs='?',
                     const=True,
-                    help=''
+                    help='Copy the visualization HTML files to the specified directory. '
+                         'If the --copy option is used without an argument, it defaults '
+                         'to the parent directoy of the generated index html '
+                         'specified with `--out`.'
+                )
+            elif name == 'out' and command_name == 'index_html':
+                command_parser.add_argument(
+                    '-o', '--out',
+                    help='Path of the generated html file or a folder in which to '
+                         'create the index.html file.'
                 )
             else:
-                return super().add_argument(command_parser, name, p)
+                return super().add_argument(command_parser, name, p, command_name)
 
     cli = VizCLI()
     cli.add_command(html)

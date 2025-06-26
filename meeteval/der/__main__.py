@@ -59,7 +59,7 @@ def cli():
     from meeteval.wer.__main__ import CLI
 
     class DerCLI(CLI):
-        def add_argument(self, command_parser, name, p):
+        def add_argument(self, command_parser, name, p, command_name):
             if name == 'regions':
                 command_parser.add_argument(
                     '--regions',
@@ -82,7 +82,7 @@ def cli():
                          'results in an overoptimistic score.'
                 )
             else:
-                super().add_argument(command_parser, name, p)
+                super().add_argument(command_parser, name, p, command_name)
 
     cli = DerCLI()
 
