@@ -254,43 +254,44 @@ def _select_keys(d: 'SegLST', keys=(), strict=True):
 
 def _preprocess_single(
         segments: 'SegLST',
+        *,
+        collar,
         keep_keys=None,
         sort='segment',
         remove_empty_segments=True,
         word_level_timing_strategy=None,
         name=None,
-        collar=0,
         segment_index=False,  # 'segment', 'word', False
         segment_representation='word',  # 'segment', 'word', 'speaker'
 ):
     """
     >>> from paderbox.utils.pretty import pprint
     >>> segments = SegLST([{'words': 'c d', 'start_time': 1, 'end_time': 3}, {'words': 'a b', 'start_time': 0, 'end_time': 3}])
-    >>> _preprocess_single(segments, sort=True, word_level_timing_strategy='character_based', name='test')
+    >>> _preprocess_single(segments, sort=True, word_level_timing_strategy='character_based', name='test', collar=0)
     Traceback (most recent call last):
         ...
     ValueError: The order of word-level timings contradicts the segment-level order in test: 2 of 4 times.
     Consider setting sort to False or "segment" or "word".
-    >>> pprint(_preprocess_single(segments, sort=False, word_level_timing_strategy='character_based'))
+    >>> pprint(_preprocess_single(segments, sort=False, word_level_timing_strategy='character_based', collar=0))
     (SegLST([{'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
              {'words': 'd', 'start_time': 2.0, 'end_time': 3.0},
              {'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
              {'words': 'b', 'start_time': 1.5, 'end_time': 3.0}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
-    >>> pprint(_preprocess_single(segments, sort='segment', word_level_timing_strategy='character_based'))
+    >>> pprint(_preprocess_single(segments, sort='segment', word_level_timing_strategy='character_based', collar=0))
     (SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
              {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
              {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
              {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
-    >>> pprint(_preprocess_single(segments, sort='word', word_level_timing_strategy='character_based'))
+    >>> pprint(_preprocess_single(segments, sort='word', word_level_timing_strategy='character_based', collar=0))
     (SegLST([{'words': 'a', 'start_time': 0.0, 'end_time': 1.5},
              {'words': 'c', 'start_time': 1.0, 'end_time': 2.0},
              {'words': 'b', 'start_time': 1.5, 'end_time': 3.0},
              {'words': 'd', 'start_time': 2.0, 'end_time': 3.0}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
 
-    >>> pprint(_preprocess_single(segments, sort='word', keep_keys=('words',)))
+    >>> pprint(_preprocess_single(segments, sort='word', keep_keys=('words',), collar=0))
     (SegLST([{'words': 'a'}, {'words': 'b'}, {'words': 'c'}, {'words': 'd'}]),
      SelfOverlap(overlap_rate=0.6666666666666666, overlap_time=2, total_time=3))
     """
@@ -388,6 +389,39 @@ def _preprocess_single(
             # words matches
             keep_keys1.update({'start_time', 'end_time'})
         segments = _select_keys(segments, keep_keys1, strict=False)
+
+    if collar is not None:
+        if collar == 0:
+            logger.warning(
+                'Collar is set to 0, which means that no collar is applied.\n'
+                'This is probably not what you want.\n' \
+                'You may want to set the collar to 5 seconds.'
+            )
+        else:
+            # words may be a list of words.
+            # In that case, the start and end times are also lists.
+            word_lengths = segments.flatmap(
+                lambda s: (
+                    [end - start for start, end in zip(
+                        s['start_time'], s['end_time']
+                        # strict=True,  # enable, once py310 is the minimum version
+                    )] if isinstance(s['start_time'], (tuple, list)) else
+                    [s['end_time'] - s['start_time']]
+                )
+            )
+            if word_lengths:
+                words = sum([
+                    len(words.split()) if isinstance(words, str) else len(words)
+                    for words in segments.T['words']
+                ], start=0)
+                mean_word_lengths = sum(word_lengths) / len(word_lengths)
+                if mean_word_lengths > collar:
+                    # Probably the unit of start and end times is not seconds.
+                    # e.g., samples
+                    logger.warning(
+                        f'The mean word length is {mean_word_lengths:.2f} seconds, '
+                        f'which is more than the collar length of {collar} seconds.'
+                    )
 
     # Split into words. After this, the 'words' key contains a list of words
     # instead of a string
@@ -501,6 +535,7 @@ def preprocess(
         remove_empty_segments=remove_empty_segments,
         sort=reference_sort,
         name='reference',
+        collar=None,   # collar is not applied to the reference
         word_level_timing_strategy=reference_pseudo_word_level_timing,
         segment_representation=segment_representation,
     )
@@ -515,6 +550,7 @@ def preprocess(
         word_level_timing_strategy=hypothesis_pseudo_word_level_timing,
         segment_representation=segment_representation,
     )
+
 
     # Conversion to integer must be done across reference and hypothesis
     # for a consistent mapping.

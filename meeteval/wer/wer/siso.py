@@ -128,7 +128,8 @@ def siso_word_error_rate(reference: 'SegLST', hypothesis: 'SegLST') -> ErrorRate
 
 def siso_word_error_rate_multifile(
         reference,
-        hypothesis
+        hypothesis,
+        partial=False,
 ) -> 'dict[str, ErrorRate]':
     """
     Computes the standard WER for each example in the reference and hypothesis
@@ -138,9 +139,43 @@ def siso_word_error_rate_multifile(
     `sum(siso_word_error_rate_multifile(r, h).values())`.
     """
     from meeteval.io.seglst import apply_multi_file
+
+    def groupby(r, h):
+        """
+        Checks whether the session IDs or (session ID, speaker) tuples are 
+        unique in the reference and hypothesis and then groups by the 
+        respective keys. `apply_multi_file` will then check whether the grouped
+        keys match between reference and hypothesis.
+        """
+        if (
+            len(r.unique('session_id')) == len(r)
+            and len(h.unique('session_id')) == len(h)
+        ):
+            return r.groupby('session_id'), h.groupby('session_id')
+        
+        if 'speaker' not in r.T.keys() or 'speaker' not in h.T.keys():
+            raise ValueError(
+                f'The filenames / session ids are not unique and speaker IDs '
+                f'are not present. The SISO-WER needs unique session IDs or '
+                f'(session ID, speaker) pairs. '
+            )
+        
+        if (
+            len(r.unique(('session_id', 'speaker'))) == len(r)
+            and len(h.unique(('session_id', 'speaker'))) == len(h)
+        ):
+            return r.groupby(('session_id', 'speaker')), h.groupby(('session_id', 'speaker'))
+    
+        raise ValueError(
+            f'(session ID, speaker) pairs are not unique. The SISO-WER needs '
+            f'unique session IDs or (session ID, speaker) pairs. '
+        )
+
     return apply_multi_file(
         siso_word_error_rate, reference, hypothesis,
-        allowed_empty_examples_ratio=0
+        allowed_empty_examples_ratio=0,
+        partial=partial,
+        _groupby=groupby,
     )
 
 

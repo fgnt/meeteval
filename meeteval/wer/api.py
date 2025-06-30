@@ -7,6 +7,7 @@ import meeteval.io
 from meeteval.wer.wer import ErrorRate
 
 __all__ = [
+    'sisower',
     'cpwer',
     'orcwer',
     'greedy_orcwer',
@@ -96,6 +97,22 @@ def _load_texts(
         hypothesis = normalize(hypothesis, normalizer=normalizer)
 
     return reference, hypothesis
+
+
+def sisower(
+    reference, hypothesis,
+    regex=None,
+    normalizer=None,
+    partial=False,
+):
+    """Computes the (standard) Word Error Rate (WER)"""
+    from meeteval.wer.wer import siso_word_error_rate_multifile
+    reference, hypothesis = _load_texts(
+        reference, hypothesis, regex=regex,
+        normalizer=normalizer,
+    )
+    results = siso_word_error_rate_multifile(reference, hypothesis, partial=partial)
+    return results
 
 
 def orcwer(
@@ -194,7 +211,8 @@ def mimower(
 
 def tcmimower(
         reference, hypothesis,
-        collar=0,
+        *,
+        collar,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -225,7 +243,8 @@ def tcmimower(
 
 def tcpwer(
         reference, hypothesis,
-        collar=0,
+        *,
+        collar,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -258,8 +277,9 @@ def tcpwer(
 
 def tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -315,8 +335,9 @@ def greedy_dicpwer(
 
 def greedy_ditcpwer(
         reference, hypothesis,
+        *,
+        collar,
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -352,8 +373,9 @@ def greedy_ditcpwer(
 
 def greedy_tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
