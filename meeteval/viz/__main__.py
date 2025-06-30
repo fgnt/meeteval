@@ -144,17 +144,14 @@ def index_html(
     WARNING: Does not work with files generated with the --js-debug flag!
 
     Examples:
-
+    
         # Re-generate the index_html file for a visualization folder
-        
         meeteval-viz index_html viz
 
         # Generate an overview table for a sub-set of visualizations
-
         meeteval-viz index_html viz/*_tcp.html --out viz/index_tcp.html
 
         # Create a sharable folder with copies of the original visualizations
-
         meeteval-viz index_html viz/*_tcp.html --out share --copy
 
     """
@@ -197,7 +194,7 @@ def index_html(
     def resolve_system_names(avs):
         """
         Prepends parts of the file paths that differ between file storage paths
-        to the system name to disambiguate visualizations with for systems
+        to the system name to disambiguate visualizations for systems
         with the same name but in different folders
         """
         filenames = [av['absolute_path'].parts for av in avs]
