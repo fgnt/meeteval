@@ -503,15 +503,20 @@ class SmartFormatter(argparse.ArgumentDefaultsHelpFormatter):
     def _fill_text(self, text: str, width: int, indent: str) -> str:
         """
         Extends `_fill_text` to work with multiple paragraphs, separated by \n\n.
+        Does not wrap indented paragraphs.
         This function is used to format the (long) command descriptions at the top of 
         the help text.
         """
         import textwrap
         text = textwrap.dedent(text)
-        return '\n\n'.join(
+        paragraphs = text.split('\n\n')
+        paragraphs = [
+            p
+            if p.startswith(' ') else
             textwrap.fill(p, width, initial_indent=indent, subsequent_indent=indent)
-            for p in text.split('\n\n')
-        )
+            for p in paragraphs
+        ]
+        return '\n\n'.join(paragraphs)
 
 class CLI:
     def __init__(self):
@@ -568,7 +573,7 @@ class CLI:
             current = getattr(namespace, self.dest, []) or []
             setattr(namespace, self.dest, current + values)
 
-    def add_argument(self, command_parser, name, p):
+    def add_argument(self, command_parser, name, p, command_name):
         if name == 'reference':
             command_parser.add_argument(
                 '-r', '--reference',
@@ -732,7 +737,7 @@ class CLI:
         parameters = inspect.signature(fn).parameters
 
         for name, p in parameters.items():
-            self.add_argument(command_parser, name, p)
+            self.add_argument(command_parser, name, p, command_name)
 
         # Get defaults from signature
         command_parser.set_defaults(

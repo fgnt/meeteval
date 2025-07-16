@@ -1268,8 +1268,9 @@ class CanvasPlot {
             return l;
         }
 
-        label("ID:", info.filename);
+        label("ID:", info.session_id);
         label("Length:", info.length.toFixed(2) + "s");
+        if (info.system_name) label("System:", info.system_name);
         label("WER:", (info.wer.error_rate * 100).toFixed(2) + "%", null, c => {
             const wer = info.wer;
             const wer_by_speakers = info.wer_by_speakers;

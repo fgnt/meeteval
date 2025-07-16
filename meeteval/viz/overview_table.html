@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview Table</title>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/js/jquery.tablesorter.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.2/css/theme.default.min.css">
+
+    <style>
+        /* Center table */
+        body {
+            width: fit-content;
+            margin: 0 auto;
+        }
+        /* Make numbers monospace and right-aligned (aligns the decimal point) */
+        .number {
+            font-family: monospace;
+            text-align: right;
+        }
+        td {
+            text-align: right;
+        }
+        td:nth-child(1) {
+            text-align: left;
+        }
+        tbody tr:nth-child(odd) td {
+            background-color: #f2f2f2;
+        }
+        .pad {
+            padding-left: 3em !important;
+        }
+    </style>
+    
+    </head>
+    <body>
+        <table id="table" class="tablesorter" style="width: auto;">
+            <thead>
+                <tr id="header1">
+                    <th data-sorter="false"></th>
+                </tr>
+                <tr id="header2">
+                    <th>Session ID</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <script>
+            // DATA START
+            // This example data will be replaced by the real data when 
+            // the overview table is generated for a real visualization
+            const data = [
+                {system_name: 'System A', metric: 'cpWER', average: 0.5, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System A', metric: 'tcpWER', average: 0.5, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System B', metric: 'cpWER', average: 0.6, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System C', metric: 'cpWER', average: 0.7, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session4': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+                {system_name: 'System D', metric: 'cpWER', average: 0.8, session_details: {'session1': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session2': {"error_rate": Math.random().toFixed(2), link: "index.html"}, 'session3': {"error_rate": Math.random().toFixed(2), link: "index.html", absolute_path: "index.html"}}},
+            ];
+            // DATA END
+
+            function createTag(parent, tagName, content) {
+                const element = document.createElement(tagName);
+                if (content) element.append(content)
+                parent.append(element);
+                return element;
+            }
+
+            // Build table from data in plain JS so that it works offline
+            function buildTable(selector, data) {
+                const hasSideByside = data.length > 1;
+                const table = document.querySelector(selector);
+                const tbody = table.querySelector('tbody');
+                
+                // First row: system names
+                var headerRow = table.querySelector("#header1");
+                data.forEach((item, index) => {
+                    if (index > 0 && item.system_name === data[index - 1].system_name) {
+                        headerRow.lastChild.colSpan++;
+                    } else {
+                        const cell = createTag(headerRow, "th", `${item.system_name}`);
+                        cell.classList.add("pad");
+                        cell.setAttribute("data-sorter", "false");
+                    }
+                });
+                if (hasSideByside) {
+                    createTag(headerRow, "th").setAttribute("data-sorter", "false");
+                }
+
+                // Second row: metric names & averages
+                headerRow = table.querySelector('#header2');
+                data.forEach((item, index) => {
+                    const cell = createTag(headerRow, "th", item.metric);
+                    createTag(cell, 'br');
+                    createTag(cell, 'span', `${(item.average*100).toFixed(2)} %`).className = 'number';
+
+                    if (data[index - 1]?.system_name !== item.system_name) {
+                        cell.classList.add("pad");
+                    }
+                });
+                if (hasSideByside) {
+                    const cell = createTag(headerRow, "th", "Side-by-side view")
+                    cell.setAttribute("data-sorter", "false");
+                    cell.classList.add("pad");
+                }
+
+                // Body: session details
+                const allSessionIDs = new Set();
+                data.forEach((item) => {
+                    Object.keys(item.session_details).forEach((sessionID) => {
+                        allSessionIDs.add(sessionID);
+                    });
+                });
+                allSessionIDs.forEach((sessionID) => {
+                    const row = createTag(tbody, "tr");
+                    createTag(row, "td", sessionID);
+                    data.forEach((item, index) => {
+                        const cell = createTag(row, "td");
+                        if (item.session_details[sessionID] === undefined) {
+                            createTag(cell, "span", "N/A");
+                            return;
+                        }
+                        createTag(cell, "span", `${(100*item.session_details[sessionID].error_rate).toFixed(2)} %`).className = "number";
+                        cell.append(" (");
+                        const a = createTag(cell, "a", "View");
+                        a.href = item.session_details[sessionID].link;
+                        a.title = item.session_details[sessionID].absolute_path;
+                        cell.append(")");
+
+                        if (data[index - 1]?.system_name !== item.system_name) {
+                            cell.classList.add("pad");
+                        }
+                    });
+
+                    // Create a side-by-side view link
+                    if (data.length > 1) {
+                        const cell = createTag(row, "td");
+                        const link = createTag(cell, "a", "Side-by-side");
+                        const options = data.map(item => item.session_details[sessionID]?.link).filter(x => x !== undefined);
+                        link.href = `side_by_side_sync.html?${options.join('&')}`;
+                        cell.classList.add("pad");
+                    }
+                });
+            }
+
+            buildTable('#table', data);
+
+            $(document).ready(function() {
+                // Initialize tablesorter on the table
+                $("#table")
+                // Read the sorting information from the URL after the tablesorter has been initialized
+                .bind("tablesorter-initialized", (e, t) => {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.has('sort')) {
+                        const idx = urlParams.get('sort');
+                        const order = urlParams.get('order', 'ascending');
+                        $("#table").trigger('sorton', [[[idx, order]]]);
+                    }
+                })
+                // Store sorting information in URL
+                .bind("sortEnd", (e, t) => {
+                    const cols = $(t).find('[aria-sort][aria-sort!="none"]');
+                    if (cols.length > 0) {
+                        const col = cols[0];
+                        const url = new URL(window.location);
+                        url.searchParams.set('sort', col.cellIndex);
+                        url.searchParams.set('order', col.getAttribute('aria-sort'));
+                        window.history.replaceState({}, '', url);
+                    }
+                })
+                .tablesorter();
+            });
+        </script>
+    </body>
+</html>

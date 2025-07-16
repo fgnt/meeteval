@@ -283,7 +283,14 @@ def add_overlap_shift(utterances: SegLST):
 
 
 
-def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment_transform=None, precomputed_error_rate=None):
+def get_visualization_data(
+        ref: SegLST, 
+        hyp: SegLST, 
+        assignment='tcp', 
+        alignment_transform=None,
+        precomputed_error_rate=None,
+        system_name=None,
+    ):
     """
     Generates the data structure as required by the visualization frontend.
 
@@ -301,7 +308,8 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
 
     data = {
         'info': {
-            'filename': ref[0]['session_id'],
+            'session_id': ref[0]['session_id'],
+            'system_name': system_name,
             'alignment_type': assignment,
             'end_time': max([e['end_time'] for e in hyp + ref]),
             'sart_time': min([e['start_time'] for e in hyp + ref]),
@@ -499,6 +507,7 @@ class AlignmentVisualization:
             sync_id=None,
             precomputed_error_rate=None,   # A precomputed assignment. Saves computation
             show_playhead=True,
+            system_name=None,   # Name of the system to display in the visualization
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -528,6 +537,7 @@ class AlignmentVisualization:
         self.sync_id = sync_id
         self.precomputed_error_rate = precomputed_error_rate
         self.show_playhead = show_playhead
+        self.system_name = system_name
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -556,6 +566,7 @@ class AlignmentVisualization:
             assignment=self.alignment,
             alignment_transform=self.alignment_transform,
             precomputed_error_rate=self.precomputed_error_rate,
+            system_name=self.system_name,
         )
         d['markers'] = self.markers
         return d
