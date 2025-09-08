@@ -666,6 +666,13 @@ function alignment_visualization(
 
     let root_element = d3.select(element_id);
 
+    /* Clear the HTML element.
+     * Use-case: Somebody downloads the a page from the browser for later offline
+     * use. The downloaded HTML contains a rendered version of the visualization
+     * and a second one will be appended when the element is not deleted
+     */
+    root_element.html(null);
+
     /* Mouse drag */
     let dragActive = false; // We can only have one drag at a time globally
 

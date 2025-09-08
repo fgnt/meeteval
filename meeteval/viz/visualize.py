@@ -709,7 +709,7 @@ class AlignmentVisualization:
             {d3}
             {font_awesome}
             {css}
-            <div class="meeteval-viz" id='{element_id}'><div>
+            <div class="meeteval-viz" id='{element_id}'></div>
             {visualize_js}
             <script>
 
