@@ -145,7 +145,7 @@ def overlaps(a_begin, a_end, b_begin, b_end, collar):
     """Checks whether two words overlap temporally based on their begin and end times"""
     return a_begin < b_end + collar and b_begin < a_end + collar
 
-def time_constrained_levenshtein_distance(a, b, collar: float):
+def time_constrained_levenshtein_distance(a, b, collar):
     """
     Args:
         a: [(word, start, end), ...]

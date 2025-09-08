@@ -1,4 +1,6 @@
 import os
+import pprint
+
 from meeteval.wer.wer.utils import check_single_filename
 import urllib.request
 import meeteval
@@ -132,11 +134,20 @@ def get_alignment(data, alignment_type, collar=5):
         raise NotImplementedError(alignment_type)
 
     # Compute alignment and extract words
-    ref = ref.sorted('start_time').groupby('speaker')
-    hyp = hyp.sorted('start_time').groupby('speaker')
+    ref = ref.groupby('speaker')
+    hyp = hyp.groupby('speaker')
 
     for k in set(ref.keys()) | set(hyp.keys()):
-        a = align(ref.get(k, SegLST([])), hyp.get(k, SegLST([])))
+        a = align(
+            ref.get(k, SegLST([])),
+            hyp.get(k, SegLST([])).map(
+                lambda s: {
+                    **s,
+                    'start_time': (s['end_time'] + s['start_time']) / 2,
+                    'end_time': (s['end_time'] + s['start_time']) / 2,
+                }
+            )
+        )
 
         # Add a list of matches to each word. This assumes that `align` keeps the
         # identity of the segments
@@ -272,7 +283,14 @@ def add_overlap_shift(utterances: SegLST):
 
 
 
-def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment_transform=None, precomputed_error_rate=None):
+def get_visualization_data(
+        ref: SegLST, 
+        hyp: SegLST, 
+        assignment='tcp', 
+        alignment_transform=None,
+        precomputed_error_rate=None,
+        system_name=None,
+    ):
     """
     Generates the data structure as required by the visualization frontend.
 
@@ -290,7 +308,8 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
 
     data = {
         'info': {
-            'filename': ref[0]['session_id'],
+            'session_id': ref[0]['session_id'],
+            'system_name': system_name,
             'alignment_type': assignment,
             'end_time': max([e['end_time'] for e in hyp + ref]),
             'sart_time': min([e['start_time'] for e in hyp + ref]),
@@ -425,8 +444,29 @@ def get_visualization_data(ref: SegLST, hyp: SegLST, assignment='tcp', alignment
 
     data['info']['wer_by_speakers'] = {
         speaker: wer_by_speaker(speaker)
-        for speaker in list(ref.unique('speaker'))
+        for speaker in list((ref + hyp).unique('speaker'))
     }
+    for k in [
+        'errors', 'length', 'insertions', 'deletions', 'substitutions'
+    ]:
+        stats_of_by_speaker = sum(
+            [wer_of_speaker[k] for _, wer_of_speaker in data['info']['wer_by_speakers'].items()],
+            0
+        )
+        if stats_of_by_speaker != data['info']['wer'][k]:
+            def indent(s, prefix):
+                indent = ' ' * len(prefix)
+                return prefix + s.replace('\n', '\n' + indent)
+            wer_details = indent(pprint.pformat(data['info']['wer']), '  WER details: ')
+            alignments_details = indent(pprint.pformat(data['info']['wer_by_speakers']), '  Alignment details: ')
+            raise RuntimeError(
+                f'Inconsistent WER statistics between WER and alignment calculation for {k!r}:\n'
+                f'  {k} from WER: {data["info"]["wer"][k]}\n'
+                f'  {k} from alignment calculation: {stats_of_by_speaker}\n'
+                f'{wer_details}\n'
+                f'{alignments_details}'
+            )
+
     return data
 
 
@@ -467,6 +507,7 @@ class AlignmentVisualization:
             sync_id=None,
             precomputed_error_rate=None,   # A precomputed assignment. Saves computation
             show_playhead=True,
+            system_name=None,   # Name of the system to display in the visualization
     ):
         if isinstance(reference, (str, Path)):
             reference = meeteval.io.load(reference)
@@ -496,6 +537,7 @@ class AlignmentVisualization:
         self.sync_id = sync_id
         self.precomputed_error_rate = precomputed_error_rate
         self.show_playhead = show_playhead
+        self.system_name = system_name
 
     def _get_colormap(self):
         if isinstance(self.colormap, str):
@@ -524,6 +566,7 @@ class AlignmentVisualization:
             assignment=self.alignment,
             alignment_transform=self.alignment_transform,
             precomputed_error_rate=self.precomputed_error_rate,
+            system_name=self.system_name,
         )
         d['markers'] = self.markers
         return d
@@ -709,7 +752,9 @@ class AlignmentVisualization:
         # For standalone HTML, we have to
         #   - disable zooming for mobile devices (viewport setting)
         #   - Scale the visualization to the full window size
-        Path(filename).write_text(
+        filename = Path(filename)
+        filename.parent.mkdir(parents=True, exist_ok=True)
+        filename.write_text(
             f'''
             <!DOCTYPE html>
             <html lang="en">

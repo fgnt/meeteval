@@ -53,6 +53,7 @@ def test_preprocess_sort_false(example_seglst):
         example_seglst,
         sort=False,
         segment_representation='segment',
+        collar=None,
     )
     assert processed.T['start_time'] == example_seglst.T['start_time']
 
@@ -61,6 +62,7 @@ def test_preprocess_sort_segment(example_seglst):
     processed, _ = _preprocess_single(
         example_seglst, sort='segment',
         segment_representation='segment',
+        collar=None,
 
     )
     assert processed.T['start_time'] == sorted(example_seglst.T['start_time'])
@@ -70,6 +72,7 @@ def test_preprocess_sort_word(example_seglst):
     processed, _ = _preprocess_single(
         example_seglst, sort='word',
         segment_representation='word',
+        collar=None,
 
     )
     assert processed.T['start_time'] == sorted(processed.T['start_time'])
@@ -77,21 +80,21 @@ def test_preprocess_sort_word(example_seglst):
 
 def test_preprocess_segment_representation_word(example_seglst):
     processed, _ = _preprocess_single(
-        example_seglst, segment_representation='word',
+        example_seglst, segment_representation='word', collar=None,
     )
     assert not any(' ' in words for words in processed.T['words'])
 
 
 def test_preprocess_segment_representation_segment(example_seglst):
     processed, _ = _preprocess_single(
-        example_seglst, segment_representation='segment',
+        example_seglst, segment_representation='segment', collar=None,
     )
     assert len(example_seglst) == len(processed)
 
 
 def test_preprocess_segment_representation_speaker(example_seglst):
     processed, _ = _preprocess_single(
-        example_seglst, segment_representation='speaker',
+        example_seglst, segment_representation='speaker', collar=None,
     )
     assert set(processed.T['speaker']) == set(example_seglst.T['speaker'])
     assert len(processed) == len(set(example_seglst.T['speaker']))
@@ -102,6 +105,7 @@ def test_preprocess_remove_empty_segments(example_seglst):
         example_seglst,
         remove_empty_segments=True,
         segment_representation='segment',
+        collar=None,
     )
     # No empty segments in example
     assert len(example_seglst) == len(processed)
@@ -137,6 +141,28 @@ def test_preprocess_remove_empty_segments(example_seglst):
         example_seglst_empty,
         remove_empty_segments=False,
         segment_representation='segment',
+        collar=None,
     )
     # No empty segments in example
     assert len(example_seglst_empty) == len(processed)
+
+def test_preprocess_zero_collar_warn(example_seglst, caplog):
+    import logging
+    with caplog.at_level(logging.WARNING):
+        _preprocess_single(
+            example_seglst, sort='segment',
+            segment_representation='word',
+            collar=0,
+        )
+    assert 'Collar is set to 0' in caplog.text
+
+
+def test_preprocess_small_collar_warn(example_seglst, caplog):
+    import logging
+    with caplog.at_level(logging.WARNING):
+        _preprocess_single(
+            example_seglst, sort='segment',
+            segment_representation='word',
+            collar=1,
+        )
+    assert 'The mean word length is 1.13 seconds, which is more than the collar length of 1 seconds.' in caplog.text, caplog.text

@@ -10,7 +10,7 @@ from meeteval.wer.preprocess import preprocess
 def time_constrained_mimo_word_error_rate(
         reference, 
         hypothesis,
-        collar=0,
+        collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment',
@@ -209,8 +209,9 @@ def _tcmimower(reference, hypothesis):
 def time_constrained_mimo_word_error_rate_multifile(
         reference,
         hypothesis,
+        *,
+        collar,
         partial=False,
-        collar=0,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment_if_available',

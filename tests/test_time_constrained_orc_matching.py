@@ -129,7 +129,7 @@ def test_tcorc_bound_by_tcp(reference, hypothesis):
     from meeteval.wer.wer.time_constrained import time_constrained_minimum_permutation_word_error_rate
     from meeteval.wer.wer.time_constrained_orc import time_constrained_orc_wer
 
-    tcp = time_constrained_minimum_permutation_word_error_rate(reference, hypothesis)
+    tcp = time_constrained_minimum_permutation_word_error_rate(reference, hypothesis, collar=0)  # use collar=5 for real data
     tcorc = time_constrained_orc_wer(reference, hypothesis, collar=0.1)
 
     # error_rate can be None when length is None
@@ -194,6 +194,7 @@ def test_assignment_keeps_order():
             {'words': 'a2', 'session_id': 'a', 'speaker': 'A2', 'start_time': 0, 'end_time': 1}
         ]),
         reference_sort='segment',
+        collar=5,
     )
     assert tcorc.assignment == ('A1', 'A1', 'A2'), tcorc.assignment
 

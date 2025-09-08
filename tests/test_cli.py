@@ -1,10 +1,12 @@
 import subprocess
 from pathlib import Path
+import shutil
+import pytest
 
 example_files = (Path(__file__).parent.parent / 'example_files').absolute()
 
 
-def run(cmd):
+def run(cmd, cwd=example_files):
     cp = subprocess.run(
         cmd,
         shell=True,
@@ -12,7 +14,7 @@ def run(cmd):
         stderr=subprocess.PIPE,
         check=False,
         universal_newlines=True,
-        cwd=example_files,
+        cwd=cwd,
         executable='bash',  # echo "<(cat hyp.stm)" requires bash not sh.
     )
 
@@ -28,8 +30,7 @@ def run(cmd):
             f'\n\nstdout:\n{cp.stdout}'
             f'\n\nstderr:\n{cp.stderr}'
         )
-
-
+    
 def test_burn_orc():
     # Normal test with stm files
     run(f'python -m meeteval.wer orcwer -h hyp.stm -r ref.stm')
@@ -220,10 +221,15 @@ def test_viz_html():
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --per-reco-out hyp_tcorcwer_per_reco.json --collar 5')
     run(f'meeteval-viz html -h hyp.stm -r ref.stm --alignment cp tcorc --per-reco-file hyp_cpwer_per_reco.json hyp_tcorcwer_per_reco.json')
 
+def test_viz_index_html(tmpdir):
+    run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm -o {tmpdir / "viz"}')
+    run(f'python -m meeteval.viz index_html viz --out {tmpdir / "viz/index.html"}')
+    run(f'python -m meeteval.viz index_html viz --out {tmpdir / "viz2"} --copy')
+    run(f'python -m meeteval.viz index_html viz --out {tmpdir / "viz3.html"} --copy {tmpdir / "viz3"}')
 
-def test_normalize():
+def test_normalize(tmpdir):
     run(f'python -m meeteval.wer normalize hyp.stm -o - --normalizer="lower,rm(.?!,)"')
-    run(f'python -m meeteval.wer normalize hyp.stm -o hyp_normalized.stm --normalizer="lower,rm([^a-z0-9 ])"')
+    run(f'python -m meeteval.wer normalize hyp.stm -o {tmpdir / "hyp_normalized.stm"} --normalizer="lower,rm([^a-z0-9 ])"')
 
     # Test that chaining normalizer and wer scripts is equal to using the normalizer option on the script
     chained = run('python -m meeteval.wer cpwer -r <(python -m meeteval.wer normalize ref.stm -o - --normalizer "lower,rm(.?!,)") -h <(python -m meeteval.wer normalize hyp.stm -o - --normalizer "lower,rm(.?!,)") --average-out - --per-reco-out -')

@@ -259,9 +259,10 @@ def mimower(
 
 def tcmimower(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_tcmimower.json',
         per_reco_out='{parent}/{stem}_tcmimower_per_reco.json',
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -289,9 +290,10 @@ def tcmimower(
 
 def tcpwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_tcpwer.json',
         per_reco_out='{parent}/{stem}_tcpwer_per_reco.json',
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         regex=None,
@@ -316,10 +318,11 @@ def tcpwer(
 
 def tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_tcorcwer.json',
         per_reco_out='{parent}/{stem}_tcorcwer_per_reco.json',
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -344,10 +347,11 @@ def tcorcwer(
 
 def greedy_tcorcwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_greedy_tcorcwer.json',
         per_reco_out='{parent}/{stem}_greedy_tcorcwer_per_reco.json',
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -394,10 +398,11 @@ def greedy_dicpwer(
 
 def greedy_ditcpwer(
         reference, hypothesis,
+        *,
+        collar,
         average_out='{parent}/{stem}_greedy_ditcpwer.json',
         per_reco_out='{parent}/{stem}_greedy_ditcpwer_per_reco.json',
         regex=None,
-        collar=0,
         hyp_pseudo_word_timing='character_based_points',
         ref_pseudo_word_timing='character_based',
         hypothesis_sort='segment',
@@ -498,15 +503,20 @@ class SmartFormatter(argparse.ArgumentDefaultsHelpFormatter):
     def _fill_text(self, text: str, width: int, indent: str) -> str:
         """
         Extends `_fill_text` to work with multiple paragraphs, separated by \n\n.
+        Does not wrap indented paragraphs.
         This function is used to format the (long) command descriptions at the top of 
         the help text.
         """
         import textwrap
         text = textwrap.dedent(text)
-        return '\n\n'.join(
+        paragraphs = text.split('\n\n')
+        paragraphs = [
+            p
+            if p.startswith(' ') else
             textwrap.fill(p, width, initial_indent=indent, subsequent_indent=indent)
-            for p in text.split('\n\n')
-        )
+            for p in paragraphs
+        ]
+        return '\n\n'.join(paragraphs)
 
 class CLI:
     def __init__(self):
@@ -563,7 +573,7 @@ class CLI:
             current = getattr(namespace, self.dest, []) or []
             setattr(namespace, self.dest, current + values)
 
-    def add_argument(self, command_parser, name, p):
+    def add_argument(self, command_parser, name, p, command_name):
         if name == 'reference':
             command_parser.add_argument(
                 '-r', '--reference',
@@ -727,7 +737,7 @@ class CLI:
         parameters = inspect.signature(fn).parameters
 
         for name, p in parameters.items():
-            self.add_argument(command_parser, name, p)
+            self.add_argument(command_parser, name, p, command_name)
 
         # Get defaults from signature
         command_parser.set_defaults(
