@@ -224,7 +224,14 @@ def index_html(
             shutil.copy(av['absolute_path'], f_new)
             av['absolute_path'] = f_new
         
-        av['save_path'] = os.path.relpath(av['absolute_path'], out.parent)
+        try:
+            av['save_path'] = os.path.relpath(av['absolute_path'], out.parent)
+        except ValueError:
+            # Fails on windows when the files are located on different mount 
+            # points. Use the absolute path then. The relative path is meant for
+            # scenarios where the folders are copied or moved to another 
+            # location. This breaks with absolute paths!
+            av['save_path'] = av['absolute_path']
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
