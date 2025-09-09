@@ -62,7 +62,6 @@ extras_require['cli'] = [
     'aiohttp',
     'soundfile',
     'tqdm',  # Used in meeteval.viz.__main__.py
-    'yattag',  # Used in meeteval.viz.__main__.py
     'platformdirs',  # Used in meeteval.viz.visualize.py
 ]
 extras_require['test'] = [

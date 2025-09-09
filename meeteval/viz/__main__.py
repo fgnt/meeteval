@@ -112,7 +112,7 @@ def create_viz_folder(
             # Make the save_path relative to the index.html file such that
             # the links work when moving the folder
             av.data['save_path'] = str(save_name)
-            av.data['absolute_path'] = save_path.absolute()
+            av.data['absolute_path'] = str(save_path.absolute())
             avs.append(av.data)
 
     dump_overview_table(avs, out / 'index.html')
@@ -225,13 +225,14 @@ def index_html(
             av['absolute_path'] = f_new
         
         try:
-            av['save_path'] = os.path.relpath(av['absolute_path'], out.parent)
+            av['save_path'] = str(os.path.relpath(av['absolute_path'], out.parent))
         except ValueError:
             # Fails on windows when the files are located on different mount 
             # points. Use the absolute path then. The relative path is meant for
             # scenarios where the folders are copied or moved to another 
             # location. This breaks with absolute paths!
-            av['save_path'] = av['absolute_path']
+            av['save_path'] = str(av['absolute_path'])
+        av['absolute_path'] = str(av['absolute_path'])
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)

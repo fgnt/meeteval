@@ -20,7 +20,7 @@ jobs:
         runs-on: [ubuntu-latest]
         # Run tests on Windows only for a single Python version
         include:
-          - python-version: '3.13'
+          - python-version: '3.12'
             runs-on: windows-latest
 
     steps:
