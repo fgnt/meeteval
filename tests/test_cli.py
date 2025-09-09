@@ -9,10 +9,9 @@ example_files = (Path(__file__).parent.parent / 'example_files').absolute()
 on_windows = sys.platform.startswith('win')
 
 def run(cmd, cwd=example_files):
-    is_windows = sys.platform.startswith('win')
 
     # Translate file paths for windows
-    if is_windows:
+    if on_windows:
         cmd = cmd.replace('/', '\\')
 
     cp = subprocess.run(
@@ -23,7 +22,7 @@ def run(cmd, cwd=example_files):
         check=False,
         universal_newlines=True,
         cwd=cwd,
-        executable='bash',  # echo "<(cat hyp.stm)" requires bash not sh.
+        executable=None if on_windows else 'bash',  # echo "<(cat hyp.stm)" requires bash not sh.
     )
 
     if cp.returncode == 0:
