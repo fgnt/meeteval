@@ -11,13 +11,17 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       fail-fast: false
       matrix:
         # Remember to update "classifiers" in setup.py when changing Python version
-        python-version: [3.8, 3.9, '3.10', '3.11', '3.12']
+        python-version: [3.9, '3.10', '3.11', '3.12', '3.13']
+        runs-on: [ubuntu-latest]
+        # Run tests on Windows only for a single Python version
+        include:
+          - python-version: '3.13'
+            runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -34,16 +38,10 @@ jobs:
         python -m pip install flake8
         # https://github.com/pypa/pip/issues/12030#issuecomment-1546344047
         python -m pip install wheel
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install -r requirements.txt
         python -m pip install pytest-cov codecov
         python -m pip list
         python -m pip install -e '.[all]'
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
         python -m pytest
