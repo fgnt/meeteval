@@ -75,18 +75,15 @@ def _guess_format(path: 'Path | io.TextIOBase'):
     'keyed_text'
     >>> _guess_format(Path('hyp.json'))
     'json'
+    >>> _guess_format(Path('/dev/fd/63'))
+    'stm'
+    >>> _guess_format(Path('/proc/self/fd/63'))
+    'stm'
     >>> from io import StringIO
     >>> example_files = (Path(__file__).parent.parent.parent / 'example_files').absolute()
     >>> with open(example_files / 'hyp.stm') as f:
     ...     print(_guess_format(f))
     stm
-
-    Tests using special paths do not work on windows
-    >>> import sys
-    >>> _guess_format(Path('/dev/fd/63')) if not sys.platform.startswith('win') else 'stm'
-    'stm'
-    >>> _guess_format(Path('/proc/self/fd/63')) if not sys.platform.startswith('win') else 'stm'
-    'stm'
     """
     if isinstance(path, io.TextIOBase):
         path = Path(path.name)
