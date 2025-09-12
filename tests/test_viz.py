@@ -99,7 +99,7 @@ def test_viz_index_html(tmp_path):
         import re
         import yaml
         content = path.read_text()
-        data = re.search('data = (\[\n(.|\n)*\n\s*]);', content).groups(1)[0]
+        data = re.search('data = (\[\n(.|\n)*\n\s*\]);', content).groups(1)[0]
         data = yaml.safe_load(data) # JSON complains about trailing comma
         return data
     

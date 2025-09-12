@@ -1,46 +1,55 @@
+import sys
 from distutils.extension import Extension
 import numpy
 
 from setuptools import setup, find_packages
 
 from Cython.Build import cythonize
+
+is_windows = sys.platform.startswith('win')
+
+if is_windows:
+    cythonize_args = dict(
+        extra_compile_args=['/std:c++20', '/O2'],
+        extra_link_args=['/std:c++20'],
+    )
+else:
+    cythonize_args = dict(
+        extra_compile_args=['-std=c++11', '-O3'],
+        extra_link_args=['-std=c++11'],
+    )
+
 ext_modules = cythonize(
     [
         Extension(
             'meeteval.wer.matching.cy_orc_matching',
             ['meeteval/wer/matching/cy_orc_matching.pyx'],
-            extra_compile_args=['-std=c++11'],
-            extra_link_args=['-std=c++11'],
+            **cythonize_args,
         ),
         Extension(
             'meeteval.wer.matching.cy_mimo_matching',
             ['meeteval/wer/matching/cy_mimo_matching.pyx'],
-            extra_compile_args=['-std=c++11'],
-            extra_link_args=['-std=c++11'],
+            **cythonize_args,
         ),
         Extension(
             'meeteval.wer.matching.cy_levenshtein',
             ['meeteval/wer/matching/cy_levenshtein.pyx'],
-            extra_compile_args=['-std=c++11'],
-            extra_link_args=['-std=c++11'],
+            **cythonize_args,
         ),
         Extension(
             'meeteval.wer.matching.cy_time_constrained_orc_matching',
             ['meeteval/wer/matching/cy_time_constrained_orc_matching.pyx'],
-            extra_compile_args=['-std=c++11', '-O3'],
-            extra_link_args=['-std=c++11'],
+            **cythonize_args,
         ),
         Extension(
             'meeteval.wer.matching.cy_greedy_combination_matching',
             ['meeteval/wer/matching/cy_greedy_combination_matching.pyx'],
-            extra_compile_args=['-std=c++11', '-O3'],
-            extra_link_args=['-std=c++11'],
+            **cythonize_args,
         ),
         Extension(
             'meeteval.wer.matching.cy_time_constrained_mimo_matching',
             ['meeteval/wer/matching/cy_time_constrained_mimo_matching.pyx'],
-            extra_compile_args=['-std=c++11'],
-            extra_link_args=['-std=c++11'],
+            **cythonize_args,
         ),
      ]
 )
@@ -53,7 +62,6 @@ extras_require['cli'] = [
     'aiohttp',
     'soundfile',
     'tqdm',  # Used in meeteval.viz.__main__.py
-    'yattag',  # Used in meeteval.viz.__main__.py
     'platformdirs',  # Used in meeteval.viz.visualize.py
 ]
 extras_require['test'] = [

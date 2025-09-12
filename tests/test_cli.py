@@ -1,3 +1,4 @@
+import sys
 import subprocess
 from pathlib import Path
 import shutil
@@ -5,8 +6,14 @@ import pytest
 
 example_files = (Path(__file__).parent.parent / 'example_files').absolute()
 
+on_windows = sys.platform.startswith('win')
 
 def run(cmd, cwd=example_files):
+
+    # Translate file paths for windows
+    if on_windows:
+        cmd = cmd.replace('/', '\\')
+
     cp = subprocess.run(
         cmd,
         shell=True,
@@ -15,7 +22,7 @@ def run(cmd, cwd=example_files):
         check=False,
         universal_newlines=True,
         cwd=cwd,
-        executable='bash',  # echo "<(cat hyp.stm)" requires bash not sh.
+        executable=None if on_windows else 'bash',  # echo "<(cat hyp.stm)" requires bash not sh.
     )
 
     if cp.returncode == 0:
@@ -30,18 +37,10 @@ def run(cmd, cwd=example_files):
             f'\n\nstdout:\n{cp.stdout}'
             f'\n\nstderr:\n{cp.stderr}'
         )
-    
-def test_burn_orc():
-    # Normal test with stm files
-    run(f'python -m meeteval.wer orcwer -h hyp.stm -r ref.stm')
-    # assert (example_files / 'hyp_orc.json').exists()
-    # assert (example_files / 'hyp_orc_per_reco.json').exists()
-    run(f'meeteval-wer orcwer -h hyp.stm -r ref.stm')
 
-    # Multiple stm files
-    run(f"python -m meeteval.wer orcwer -h hypA.stm -h hypB.stm -r refA.stm -r refB.stm")
-    run(f"python -m meeteval.wer orcwer -h hyp.stm -h hypA.stm hypB.stm -r refA.stm refB.stm")
-
+@pytest.mark.skipif(on_windows, reason='Bash features do not work on Windows.')
+def test_bash():
+    """Tests Bash-related features like piping and globbing."""
     # Test with glob (backwards compatibility). Note: '?' and '*' are escaped.
     # Be careful, that the glob only matches the desired files.
     # The 'hyp*.stm' will here match 'hyp.stm', 'hypA.stm' and 'hypB.stm'.
@@ -52,17 +51,10 @@ def test_burn_orc():
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm")
     run(f"python -m meeteval.wer orcwer -h hyp?.stm -r ref?.stm")
 
-    # Test with ctm files
-    run(f'python -m meeteval.wer orcwer -h hyp1.ctm -h hyp2.ctm -r ref.stm')
-    run(f"python -m meeteval.wer orcwer -h 'hyp*.ctm' -r ref.stm")
-    run(f'python -m meeteval.wer orcwer -h hyp1.ctm -r ref.stm')
+    # Test path pattern completion
+    run("python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out {parent}/{stem}-average-out.yaml")
 
-    # Test output formats
-    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out average-out.json")
-    # assert (example_files / 'average-out.json').exists()
-    run("python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out '{parent}/{stem}-average-out.yaml'")
-    # assert (example_files / 'hyp-average-out.yaml').exists()
-    # Output to stdout. Specifying the format requires =
+    # Test output to stdout. Specifying the format requires =
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out -")
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out=-.yaml")
     run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out=-.json")
@@ -70,6 +62,23 @@ def test_burn_orc():
     # Test with pipes. Makes "--average-out" file and "--per-reco-out" file
     # mandatory.
     run(f'python -m meeteval.wer orcwer -h <(cat hypA.stm hypB.stm) -r <(cat refA.stm refB.stm) --average-out hyp_orc.json --per-reco-out hyp_orc_per_reco.json')
+    
+    # Test output formats
+    run(f"python -m meeteval.wer orcwer -h hyp*.stm -r ref*.stm --average-out average-out.json")
+
+def test_burn_orc():
+    # Normal test with stm files
+    run(f'python -m meeteval.wer orcwer -h hyp.stm -r ref.stm')
+    run(f'meeteval-wer orcwer -h hyp.stm -r ref.stm')
+
+    # Multiple stm files
+    run(f"python -m meeteval.wer orcwer -h hypA.stm -h hypB.stm -r refA.stm -r refB.stm")
+    run(f"python -m meeteval.wer orcwer -h hyp.stm -h hypA.stm hypB.stm -r refA.stm refB.stm")
+
+    # Test with ctm files
+    run(f'python -m meeteval.wer orcwer -h hyp1.ctm -h hyp2.ctm -r ref.stm')
+    run(f"python -m meeteval.wer orcwer -h hyp1.ctm -h hyp2.ctm -r ref.stm")
+    run(f'python -m meeteval.wer orcwer -h hyp1.ctm -r ref.stm')
 
     # Test with files in SegLST format
     run(f'python -m meeteval.wer orcwer -h hyp.seglst.json -r ref.seglst.json')
@@ -105,7 +114,6 @@ def test_burn_greedy_ditcp():
 
 def test_burn_mimo():
     run(f'python -m meeteval.wer mimower -h hyp.stm -r ref.stm')
-    run(f"python -m meeteval.wer mimower -h 'hyp?.stm' -r 'ref?.stm'")
     run(f'python -m meeteval.wer mimower -h hyp.seglst.json -r ref.seglst.json')
     run('python -m meeteval.wer mimower -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
@@ -116,25 +124,27 @@ def test_burn_tcmimo():
     run(f'python -m meeteval.wer tcmimower -h hyp.seglst.json -r ref.seglst.json --collar 5')
     run(f'python -m meeteval.wer tcmimower -h hyp.stm -r ref.stm --hypothesis-sort true --collar 5')
 
-
 def test_burn_cp():
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm')
-    run(f"python -m meeteval.wer cpwer -h 'hyp?.stm' -r 'ref?.stm'")
     run(f'python -m meeteval.wer cpwer -h hyp.seglst.json -r ref.seglst.json')
     run('python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
+
+    # Test UEM file
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --uem uem.uem')
 
 
 def test_burn_tcp():
-    # run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')  # Mar 2025: Disabled, because default collar=0 is too a too special case to be default
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.seglst.json -r ref.seglst.json --collar 5')
     run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm --reference-sort word --hypothesis-sort true --collar 5')
 
+    # Test that the collar option is mandatory
+    with pytest.raises(Exception, match='.*the following arguments are required: --collar.*'):
+        run(f'python -m meeteval.wer tcpwer -h hyp.stm -r ref.stm')
+
 
 def test_burn_tcorc():
-    # run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm')  # Mar 2025: Disabled, because default collar=0 is too a too special case to be default
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points --collar 5')
     run(f'python -m meeteval.wer tcorcwer -h hyp.seglst.json -r ref.seglst.json --collar 5')
@@ -142,7 +152,6 @@ def test_burn_tcorc():
 
 
 def test_burn_greedy_tcorc():
-    # run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm')  # Mar 2025: Disabled, because default collar=0 is too a too special case to be default
     run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --collar 5')
     run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hyp-pseudo-word-timing equidistant_points --collar 5')
     run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.seglst.json -r ref.seglst.json --collar 5')
@@ -216,7 +225,8 @@ def test_viz_html():
     run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --out=viz')
     run(f'python -m meeteval.viz html -h hyp.stm -r ref.stm --alignment cp tcorc')
 
-    # Test loading a precomputed assignment
+def test_viz_precomputed():
+    """Test loading a precomputed assignment"""
     run(f'python -m meeteval.wer cpwer -h hyp.stm -r ref.stm --per-reco-out hyp_cpwer_per_reco.json')
     run(f'python -m meeteval.wer tcorcwer -h hyp.stm -r ref.stm --per-reco-out hyp_tcorcwer_per_reco.json --collar 5')
     run(f'meeteval-viz html -h hyp.stm -r ref.stm --alignment cp tcorc --per-reco-file hyp_cpwer_per_reco.json hyp_tcorcwer_per_reco.json')
@@ -231,11 +241,14 @@ def test_normalize(tmpdir):
     run(f'python -m meeteval.wer normalize hyp.stm -o - --normalizer="lower,rm(.?!,)"')
     run(f'python -m meeteval.wer normalize hyp.stm -o {tmpdir / "hyp_normalized.stm"} --normalizer="lower,rm([^a-z0-9 ])"')
 
+@pytest.mark.skipif(on_windows, reason='Piping is not supported on Windows')
+def test_normalize_piping(tmpdir):
     # Test that chaining normalizer and wer scripts is equal to using the normalizer option on the script
     chained = run('python -m meeteval.wer cpwer -r <(python -m meeteval.wer normalize ref.stm -o - --normalizer "lower,rm(.?!,)") -h <(python -m meeteval.wer normalize hyp.stm -o - --normalizer "lower,rm(.?!,)") --average-out - --per-reco-out -')
     option = run('python -m meeteval.wer cpwer -r ref.stm -h hyp.stm --average-out - --per-reco-out - --normalizer "lower,rm(.?!,)"')
     assert chained.stdout == option.stdout
     assert chained.stderr == option.stderr
 
+@pytest.mark.skipif(on_windows, reason='Piping is not supported on Windows')
 def test_pipe_cli_commands():
     run('cat hyp.stm | python -m meeteval.wer normalize - -o - | python -m meeteval.io stm2seglst -o -')

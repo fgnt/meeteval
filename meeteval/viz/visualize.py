@@ -81,7 +81,9 @@ def dump_json(
 
     if isinstance(path, io.IOBase):
         simplejson.dump(obj, path, indent=indent,
-                        sort_keys=sort_keys, **kwargs)
+                        sort_keys=sort_keys,
+                        for_json=True,
+                        **kwargs)
     elif isinstance(path, (str, Path)):
         path = Path(path).expanduser()
 
