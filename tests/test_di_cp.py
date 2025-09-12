@@ -1,9 +1,10 @@
 from hypothesis import given, strategies as st, assume, settings
 import pytest
 import meeteval
+from meeteval.io import SegLST
 
 seglst = st.builds(
-    meeteval.io.SegLST,
+    SegLST,
     st.lists(
         st.builds(
             lambda **x: {
