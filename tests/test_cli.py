@@ -158,7 +158,6 @@ def test_burn_greedy_tcorc():
     run(f'python -m meeteval.wer greedy_tcorcwer -h hyp.stm -r ref.stm --hypothesis-sort true --collar 5')
 
 
-@pytest.mark.skipif(on_windows, reason='Requires Perl')
 def test_burn_md_eval_22():
     run(f'python -m meeteval.der md_eval_22 -h hyp.stm -r ref.stm')
     run(f'meeteval-der md_eval_22 -h hyp.stm -r ref.stm')
@@ -174,7 +173,6 @@ def test_burn_md_eval_22():
     # ToDo: Table 2 of https://arxiv.org/pdf/2312.04324.pdf lists collars for
     #       datsets. Add them here.
 
-@pytest.mark.skipif(on_windows, reason='Requires Perl')
 def test_burn_dscore():
     run(f'python -m meeteval.der dscore -h hyp.stm -r ref.stm')
     run(f'meeteval-der dscore -h hyp.stm -r ref.stm')
