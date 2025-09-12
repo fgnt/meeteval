@@ -10,19 +10,13 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
-    runs-on: ${{ matrix.runs-on }}
+  test-ubuntu:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         # Remember to update "classifiers" in setup.py when changing Python version
         python-version: [3.9, '3.10', '3.11', '3.12', '3.13']
-        runs-on: [ubuntu-latest]
-        # Run tests on Windows only for a single Python version
-        include:
-          - python-version: '3.12'
-            runs-on: windows-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -45,3 +39,37 @@ jobs:
     - name: Test with pytest
       run: |
         python -m pytest
+  test-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Remember to update "classifiers" in setup.py when changing Python version
+        python-version: ['3.12']
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    - name: Install Perl
+      uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: "5.38"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade cython
+        python -m pip install --upgrade setuptools
+        python -m pip install flake8
+        # https://github.com/pypa/pip/issues/12030#issuecomment-1546344047
+        python -m pip install wheel
+        pip install -r requirements.txt
+        python -m pip install pytest-cov codecov
+        python -m pip list
+        python -m pip install -e '.[all]'
+    - name: Test with pytest
+      run: |
+        # Ignore doctests on Windows. They are hard to guard w.r.t. file paths
+        python -m pytest tests
