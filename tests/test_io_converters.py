@@ -1,3 +1,4 @@
+import sys
 import itertools
 from pathlib import Path
 import pytest
@@ -13,7 +14,14 @@ test_files = {
     'seglst': 'hyp.seglst.json',
 }
 
-def run(cmd):
+on_windows = sys.platform.startswith('win')
+
+def run(cmd, cwd=example_files):
+
+    # Translate file paths for windows
+    if on_windows:
+        cmd = cmd.replace('/', '\\')
+
     cp = subprocess.run(
         cmd,
         shell=True,
@@ -21,8 +29,8 @@ def run(cmd):
         stderr=subprocess.PIPE,
         check=False,
         universal_newlines=True,
-        cwd=example_files,
-        executable='bash',  # echo "<(cat hyp.stm)" requires bash not sh.
+        cwd=cwd,
+        executable=None if on_windows else 'bash',  # echo "<(cat hyp.stm)" requires bash not sh.
     )
 
     if cp.returncode == 0:
@@ -62,6 +70,7 @@ def test_merge_ctm_speaker_arg(tmp_path):
     assert (tmp_path / "hyp.stm").exists()
     meeteval.io.load(tmp_path / "hyp.stm").to_seglst().unique('speaker') == {'spk-A'}
 
+@pytest.mark.skipif(on_windows, reason='Piping does not work on Windows')
 def test_piping(tmp_path):
     run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm {tmp_path / "hyp.rttm"}')
     run(f'cat {example_files / "hyp.stm"} | meeteval-io stm2rttm -')
@@ -92,6 +101,7 @@ def test_convert_file_exists(tmp_path):
     run(f'meeteval-io stm2rttm --force {example_files / "hyp.stm"} {tmp_path / "hyp.rttm"}')
     run(f'meeteval-io stm2rttm -f {example_files / "hyp.stm"} {tmp_path / "hyp.rttm"}')
 
+@pytest.mark.skipif(on_windows, reason='Piping does not work on Windows')
 def test_ctm_piping():
     run(f'cat {example_files / "hyp1.ctm"} | meeteval-io ctm2stm --speaker spk-A - > /dev/null')
     with pytest.raises(Exception, match='.*the following arguments are required: --speaker.*'):

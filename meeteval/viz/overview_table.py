@@ -62,8 +62,10 @@ def generate_overview_table(data: 'list[dict | AlignmentVisualization]') -> str:
         f',\n{indent}]'
     )
     html = (Path(__file__).parent / 'overview_table.html').read_text()
-
     import re
+    
+    # Escape backslashes for windows paths. re.escape escapes too much
+    html_data = html_data.replace('\\', '\\\\')
     html, n = re.subn(f'// DATA START((.|\n)*)// DATA END', f'const data = {html_data};', html)
     assert n == 1, (html, n)
     return html
