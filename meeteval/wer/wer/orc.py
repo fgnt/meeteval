@@ -33,7 +33,12 @@ class OrcErrorRate(ErrorRate):
     >>> OrcErrorRate(0, 10, 0, 0, 0, None, None, (0, 1)) + OrcErrorRate(10, 10, 0, 0, 10, None, None, (1, 0, 1))
     ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
+    identifier = 'orc-error-rate'
     assignment: 'tuple[int, ...]'
+
+    @classmethod
+    def zero(cls):
+        return OrcErrorRate(0, 0, 0, 0, 0, None, None, ())
 
     def apply_assignment(self, reference, hypothesis):
         """

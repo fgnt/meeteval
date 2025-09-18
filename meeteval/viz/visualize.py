@@ -414,7 +414,7 @@ def get_visualization_data(
     # Add utterances to data. Add total number of words to each utterance
     data['utterances'] = [{**l, 'total': len(l['words'].split())} for l in u]
 
-    data['info']['wer'] = dataclasses.asdict(wer)
+    data['info']['wer'] = wer.asdict()
 
     def wer_by_speaker(speaker):
         # Get all words from this speaker
@@ -434,7 +434,7 @@ def get_visualization_data(
         deletions = len(ref_words.filter(
             lambda s: not [w for w, _ in s['matches'] if w is not None and words[w]['source'] == 'hypothesis']))
 
-        return dataclasses.asdict(ErrorRate(
+        return ErrorRate(
             errors=insertions + deletions + substitutions,
             length=len(ref_words),
             insertions=insertions,
@@ -442,7 +442,7 @@ def get_visualization_data(
             substitutions=substitutions,
             reference_self_overlap=None,
             hypothesis_self_overlap=None,
-        ))
+        ).asdict()
 
     data['info']['wer_by_speakers'] = {
         speaker: wer_by_speaker(speaker)

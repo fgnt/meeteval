@@ -24,7 +24,12 @@ class MimoErrorRate(ErrorRate):
     >>> MimoErrorRate(0, 10, 0, 0, 0, None, None, [(0, 0)]) + MimoErrorRate(10, 10, 0, 0, 10, None, None, [(0, 0)])
     ErrorRate(error_rate=0.5, errors=10, length=20, insertions=0, deletions=0, substitutions=10)
     """
+    identifier = 'mimo-error-rate'
     assignment: 'tuple[int, ...]'
+
+    @classmethod
+    def zero(cls):
+        return MimoErrorRate(0, 0, 0, 0, 0, None, None, ())
 
     def apply_assignment(self, reference, hypothesis):
         return apply_mimo_assignment(
