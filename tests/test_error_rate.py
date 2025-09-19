@@ -116,7 +116,7 @@ def test_zero(cls: ErrorRate):
     """Test that the zero function returns the right type and an error_rate of 0"""
     er = cls.zero()
     assert isinstance(er, cls)
-    assert er.error_rate == 0
+    assert er.error_rate is None or er.error_rate == 0
 
 @given(random_error_rate(all_error_rates))
 def test_serialize(error_rate):

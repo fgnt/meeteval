@@ -135,9 +135,7 @@ class ErrorRate(BaseErrorRate):
         if self.length < 0:
             raise ValueError()
 
-        if self.errors == 0:
-            error_rate = 0
-        elif self.length == 0:
+        if self.length == 0:
             error_rate = None
         else:
             error_rate = self.errors / self.length

@@ -8,7 +8,7 @@ import dataclasses
 from pathlib import Path
 
 import meeteval.io
-from meeteval.wer.wer.error_rate import BaseErrorRate
+from meeteval.wer.wer.error_rate import BaseErrorRate, ErrorRate
 
 
 def _fix_channel(r):
@@ -39,7 +39,7 @@ class DiaErrorRate(BaseErrorRate):
         return cls(0, 0, 0, 0, 0)
 
     @classmethod
-    def from_dict(cls, d: dict) -> 'Self':
+    def from_dict(cls, d: dict) -> 'DiaErrorRate':
         return cls(
             d['error_rate'],
             d['scored_speaker_time'],
@@ -73,13 +73,13 @@ class DiaErrorRate(BaseErrorRate):
             # Hence, we allow a small difference.
             assert abs(self.error_rate - error_rate) < 0.00007, (error_rate, self)
 
-    def __radd__(self, other: 'int') -> 'ErrorRate':
+    def __radd__(self, other: 'int') -> 'DiaErrorRate':
         if isinstance(other, int) and other == 0:
             # Special case to support sum.
             return self
         return NotImplemented
 
-    def __add__(self, other: 'DiaErrorRate'):
+    def __add__(self, other: 'DiaErrorRate') -> 'DiaErrorRate':
         if not isinstance(other, self.__class__):
             raise ValueError()
 
