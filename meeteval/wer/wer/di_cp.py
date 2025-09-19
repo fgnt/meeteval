@@ -19,7 +19,12 @@ __all__ = [
 
 @dataclasses.dataclass(frozen=True)
 class DICPErrorRate(ErrorRate):
+    identifier = 'di-cp-error-rate'
     assignment: Tuple[int, ...]
+
+    @classmethod
+    def zero(cls):
+        return DICPErrorRate(0, 0, 0, 0, 0, None, None, ())
 
     def apply_assignment(self, reference, hypothesis):
         return apply_dicp_assignment(self.assignment, reference, hypothesis)

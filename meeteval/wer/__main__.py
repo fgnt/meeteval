@@ -119,14 +119,14 @@ def _save_results(
         
     # Save details
     _dump({
-        to_str(example_id): dataclasses.asdict(error_rate)
+        to_str(example_id): error_rate.asdict()
         for example_id, error_rate in per_reco.items()
     }, per_reco_out.format(parent=parent, stem=stem))
 
     # Compute and save average
     average = combine_error_rates(*per_reco.values())
     _dump(
-        dataclasses.asdict(average),
+        average.asdict(),
         average_out.format(parent=parent, stem=stem),
     )
     if hasattr(average, 'scored_speaker_time'):
@@ -455,10 +455,10 @@ def _merge(
 
     if average:
         er = meeteval.wer.combine_error_rates(*[er for _, er in ers])
-        out_data = dataclasses.asdict(er)
+        out_data = er.asdict()
     else:
         out_data = {
-            k: dataclasses.asdict(er)
+            k: er.asdict()
             for k, er in ers
         }
         assert len(out_data) == len(ers), (len(out_data), len(ers), 'Duplicate filenames')

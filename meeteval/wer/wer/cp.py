@@ -36,6 +36,8 @@ class CPErrorRate(ErrorRate):
     >>> combine_error_rates(CPErrorRate(0, 10, 0, 0, 0, None, None, 1, 0, 3), CPErrorRate(5, 10, 0, 0, 5, None, None, 0, 1, 3))
     CPErrorRate(error_rate=0.25, errors=5, length=20, insertions=0, deletions=0, substitutions=5, missed_speaker=1, falarm_speaker=1, scored_speaker=6)
     """
+    identifier = 'cp-error-rate'
+
     missed_speaker: int
     falarm_speaker: int
     scored_speaker: int

@@ -898,34 +898,6 @@ def align(
         segment_index='word' if style == 'index' else False,
         remove_empty_segments=True,
     )
-    # reference = sort_and_validate(
-    #     reference,
-    #     reference_sort,
-    #     reference_pseudo_word_level_timing,
-    #     'reference'
-    # )
-    # hypothesis = sort_and_validate(
-    #     hypothesis,
-    #     hypothesis_sort,
-    #     hypothesis_pseudo_word_level_timing,
-    #     'hypothesis'
-    # )
-
-    # Add index for tracking across filtering operations. This is only required
-    # for the index style since all other styles can be constructed from seglst
-    # without the index. Especially for `style = 'seglst'` we want to keep
-    # identity
-    # if style == 'index':
-    #     reference = SegLST(
-    #         [{**s, '__align_index': i} for i, s in enumerate(reference)]
-    #     )
-    #     hypothesis = SegLST(
-    #         [{**s, '__align_index': i} for i, s in enumerate(hypothesis)]
-    #     )
-
-    # Ignore empty segments
-    # reference = reference.filter(lambda s: s['words'])
-    # hypothesis = hypothesis.filter(lambda s: s['words'])
 
     hypothesis_ = apply_collar(hypothesis, collar=collar)
 

@@ -8,7 +8,7 @@ import dataclasses
 from pathlib import Path
 
 import meeteval.io
-from meeteval.wer.wer.error_rate import ErrorRate
+from meeteval.wer.wer.error_rate import BaseErrorRate, ErrorRate
 
 
 def _fix_channel(r):
@@ -21,10 +21,12 @@ def _fix_channel(r):
 
 
 @dataclasses.dataclass(frozen=True)
-class DiaErrorRate:
+class DiaErrorRate(BaseErrorRate):
     """
 
     """
+    identifier = 'diarization-error-rate'
+
     error_rate: 'float | decimal.Decimal'
 
     scored_speaker_time: 'float | decimal.Decimal'
@@ -36,16 +38,29 @@ class DiaErrorRate:
     def zero(cls):
         return cls(0, 0, 0, 0, 0)
 
+    @classmethod
+    def from_dict(cls, d: dict) -> 'DiaErrorRate':
+        return cls(
+            d['error_rate'],
+            d['scored_speaker_time'],
+            d['missed_speaker_time'],
+            d['falarm_speaker_time'],
+            d['speaker_error_time'],
+        )
+
     def __post_init__(self):
         assert self.scored_speaker_time >= 0
         assert self.missed_speaker_time >= 0
         assert self.falarm_speaker_time >= 0
         assert self.speaker_error_time >= 0
         errors = self.speaker_error_time + self.falarm_speaker_time + self.missed_speaker_time
-        error_rate = errors / self.scored_speaker_time
+        if self.scored_speaker_time > 0:
+            error_rate = errors / self.scored_speaker_time
+        else:
+            error_rate = None
         if self.error_rate is None:
             object.__setattr__(self, 'error_rate', error_rate)
-        else:
+        elif error_rate is not None:
             # Since md-eval uses float internally, and the printed numbers are
             # rounded, it is in corner cases not possible to reproduce the
             # exact error rate, that is calculated internally by md-eval.
@@ -58,13 +73,13 @@ class DiaErrorRate:
             # Hence, we allow a small difference.
             assert abs(self.error_rate - error_rate) < 0.00007, (error_rate, self)
 
-    def __radd__(self, other: 'int') -> 'ErrorRate':
+    def __radd__(self, other: 'int') -> 'DiaErrorRate':
         if isinstance(other, int) and other == 0:
             # Special case to support sum.
             return self
         return NotImplemented
 
-    def __add__(self, other: 'DiaErrorRate'):
+    def __add__(self, other: 'DiaErrorRate') -> 'DiaErrorRate':
         if not isinstance(other, self.__class__):
             raise ValueError()
 
@@ -75,6 +90,11 @@ class DiaErrorRate:
             falarm_speaker_time=self.falarm_speaker_time + other.falarm_speaker_time,
             speaker_error_time=self.speaker_error_time + other.speaker_error_time,
         )
+
+    def asdict(self):
+        d = dataclasses.asdict(self)
+        d['type'] = self.identifier
+        return d
 
 
 class _FilenameEscaper:
