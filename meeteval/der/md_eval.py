@@ -324,6 +324,8 @@ def md_eval_22_multifile(
 
         md_eval, per_reco = _parse_md_eval_22_output(cp.stdout)
 
+        assert per_reco.keys() == keys, (per_reco.keys(), keys)
+
         summary = sum(per_reco.values())
         
         # Due to floating point precision, the output of md-eval-22.pl is not
