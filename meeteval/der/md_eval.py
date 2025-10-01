@@ -330,13 +330,26 @@ def md_eval_22_multifile(
         
         # Due to floating point precision, the output of md-eval-22.pl is not
         # always reproduced exactly by average across the per-recording numbers.
-        # Therefore, the last digit may change.
+        # We'll raise an error if the difference is large and print a warning
+        # when it only differs slightly.
         if abs(summary.error_rate - md_eval.error_rate) > 0.00007:
             raise RuntimeError(
                 f'The error rate of md-eval-22.pl on all recordings '
                 f'({md_eval.error_rate})\n'
-                f'does not match the averaged error rate across '
-                f'all sessions ({summary.error_rate}).'
+                f'differs from the the averaged error rate across '
+                f'all sessions ({summary.error_rate}) by more than 0.00007 '
+                f'({abs(summary.error_rate - md_eval.error_rate)}.'
+            )
+
+        quantized_error_rate = summary.error_rate.quantize(
+            md_eval.error_rate, rounding='ROUND_HALF_UP'
+        )
+        if quantized_error_rate != md_eval.error_rate:
+            logging.warning(
+                f'The error rate of md-eval-22.pl on all recordings '
+                f'({md_eval.error_rate}) does not match the averaged error '
+                f'rate across all sessions ({quantized_error_rate}). This can '
+                f'happen due to floating point inaccuracies.'
             )
 
         per_reco = {escaper.restore(k): v for k, v in per_reco.items()}
