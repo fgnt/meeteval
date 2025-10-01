@@ -316,13 +316,16 @@ def md_eval_22_multifile(
             uem,
         )
         summary = sum(per_reco.values())
-        error_rate = summary.error_rate.quantize(md_eval.error_rate)
-        if error_rate != md_eval.error_rate:
+        
+        # Due to floating point precision, the output of md-eval-22.pl is not
+        # always reproduced exactly by average across the per-recording numbers.
+        # Therefore, the last digit may change.
+        if abs(summary.error_rate - md_eval.error_rate) > 0.00007:
             raise RuntimeError(
                 f'The error rate of md-eval-22.pl on all recordings '
-                f'({summary.error_rate})\n'
-                f'does not match the average error rate of md-eval-22.pl '
-                f'applied to each recording ({md_eval.error_rate}).'
+                f'({md_eval.error_rate})\n'
+                f'does not match the averaged error rate across '
+                f'all sessions ({summary.error_rate}).'
             )
 
     return per_reco
