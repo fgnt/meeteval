@@ -5,6 +5,8 @@ import itertools
 import typing
 from dataclasses import dataclass, replace
 
+import transphone
+
 from meeteval.io.pbjson import zip_strict
 from meeteval.io.stm import STM
 from meeteval.io.seglst import SegLST, seglst_map, asseglst, SegLstSegment
@@ -40,7 +42,7 @@ __all__ = [
 
 
 # pseudo-timestamp strategies
-def equidistant_intervals(interval, words):
+def equidistant_intervals(interval, words, *args):
     """Divides the interval into `count` equally sized intervals
     """
     count = len(words)
@@ -57,7 +59,7 @@ def equidistant_intervals(interval, words):
     ]
 
 
-def equidistant_points(interval, words):
+def equidistant_points(interval, words, *args):
     """Places `count` points (intervals of size zero) in `interval` with equal distance"""
     count = len(words)
     if count == 0:
@@ -72,7 +74,7 @@ def equidistant_points(interval, words):
     ]
 
 
-def character_based(interval, words):
+def character_based(interval, words, *args):
     """Divides the interval into one interval per word where the size of the interval is
     proportional to the word length in characters."""
     if len(words) == 0:
@@ -93,7 +95,30 @@ def character_based(interval, words):
     ]
 
 
-def character_based_points(interval, words):
+def phoneme_based(interval, words, language):
+    """Divides the interval into one interval per word where the size of the interval is
+    proportional to the number of phonemes in the word."""
+
+    g2p = transphone.read_tokenizer(language)
+    if len(words) == 0:
+        return []
+    elif len(words) == 1:
+        return [interval]
+    import numpy as np
+
+    word_lengths = np.asarray([len(g2p.tokenize(w)) for w in words])
+    end_points = np.cumsum(word_lengths)
+    total_num_characters = end_points[-1]
+    character_length = (interval[1] - interval[0]) / total_num_characters
+    return [
+        (
+            interval[0] + character_length * start,
+            interval[0] + character_length * end
+        )
+        for start, end in zip([0] + list(end_points[:-1]), end_points)
+    ]
+
+def character_based_points(interval, words, *args):
     """Places points in the center of the character-based intervals"""
     intervals = character_based(interval, words)
     intervals = [
@@ -102,13 +127,22 @@ def character_based_points(interval, words):
     ]
     return intervals
 
+def phoneme_based_points(interval, words, language):
+    """Places points in the center of the phoneme-based intervals"""
+    intervals = phoneme_based(interval, words, language)
+    intervals = [
+        ((interval[1] + interval[0]) / 2,) * 2
+        for interval in intervals
+    ]
+    return intervals
 
-def full_segment(interval, words):
+
+def full_segment(interval, words, *args):
     """Outputs `interval` for each word"""
     return [interval] * len(words)
 
 
-def no_segmentation(interval, words):
+def no_segmentation(interval, words, *args):
     if len(words) != 1:
         if len(words) > 1:
             raise ValueError(
@@ -131,6 +165,8 @@ pseudo_word_level_strategies = {
     'equidistant_intervals': equidistant_intervals,
     'equidistant_points': equidistant_points,
     'full_segment': full_segment,
+    'phoneme_based': phoneme_based,
+    'phoneme_based_points': phoneme_based_points,
     'character_based': character_based,
     'character_based_points': character_based_points,
     'none': no_segmentation,
@@ -585,8 +621,7 @@ def time_constrained_siso_word_error_rate(
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
         reference_sort='segment',
-        hypothesis_sort='segment',
-):
+        hypothesis_sort='segment'):
     """
     Time-constrained word error rate for single-speaker transcripts.
 
@@ -669,6 +704,7 @@ def time_constrained_minimum_permutation_word_error_rate(
         collar,
         reference_pseudo_word_level_timing='character_based',
         hypothesis_pseudo_word_level_timing='character_based_points',
+        language=None,
         reference_sort='segment',
         hypothesis_sort='segment',
 ) -> CPErrorRate:
@@ -707,7 +743,7 @@ def time_constrained_minimum_permutation_word_error_rate(
         collar=collar,
         reference_pseudo_word_level_timing=reference_pseudo_word_level_timing,
         hypothesis_pseudo_word_level_timing=hypothesis_pseudo_word_level_timing,
-        segment_representation='word',
+        segment_representation='word', language=language
     )
 
     er = _minimum_permutation_word_error_rate(
