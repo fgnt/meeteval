@@ -329,7 +329,7 @@ def get_visualization_data(
     else:
         wer = get_error_rate(ref, hyp, assignment)
     ref, hyp = wer.apply_assignment(ref, hyp)
-    align_type = 'time_constrained' if assignment in ['tcp', 'tcorc'] else 'levenshtein'
+    align_type = 'time_constrained' if assignment in ['tcp', 'tcorc', 'greedy_tcorc', 'greedy_ditcp'] else 'levenshtein'
 
     if alignment_transform is None:
         alignment_transform = lambda x: x
