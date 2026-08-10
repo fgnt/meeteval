@@ -144,7 +144,6 @@ setup(
         "cached_property; python_version<'3.8'",  # Missing functools.cached_property in py37
         'Cython',
         'packaging',  # commonly used to compare python versions, e.g., used by jupyter, matplotlib, pytest, ...
-        'setuptools<82',  # chime-utils requirement, since pkg_resources is removed for setuptools>=82. Fix proposed in https://stackoverflow.com/a/79888812
     ],
     extras_require=extras_require,
     package_data={'meeteval': ['**/*.pyx', '**/*.h', '**/*.js', '**/*.css', '**/*.html']},  # https://stackoverflow.com/a/60751886
