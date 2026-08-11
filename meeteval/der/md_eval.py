@@ -275,8 +275,8 @@ def md_eval_22_multifile(
     keys = set(r.keys()) & set(h.keys())
     missing = set(r.keys()) ^ set(h.keys())
     if len(missing) > 0:
-        logging.warning(f'Missing {len(missing)} filenames:', missing)
-        logging.warning(f'Found {len(keys)} filenames:', keys)
+        logging.warning("Missing %d filenames: %s", len(missing), missing)
+        logging.warning("Found %d filenames: %s", len(keys), keys)
 
     md_eval_22 = shutil.which('md-eval-22.pl')
     if not md_eval_22:
