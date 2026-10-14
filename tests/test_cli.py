@@ -100,6 +100,22 @@ def test_burn_greedy_orc():
     run('python -m meeteval.wer greedy_orcwer -h hyp.stm -r ref.stm --reference-sort "segment" --hypothesis-sort "false"')
 
 
+def test_greedy_orc_does_not_overwrite_orc_output(tmp_path):
+    """The default output files of `orcwer` and `greedy_orcwer` must differ."""
+    for name in ('hyp.stm', 'ref.stm'):
+        shutil.copy(example_files / name, tmp_path / name)
+    run('python -m meeteval.wer orcwer -h hyp.stm -r ref.stm', cwd=tmp_path)
+    exact_results = {
+        name: (tmp_path / name).read_bytes()
+        for name in ('hyp_orcwer.json', 'hyp_orcwer_per_reco.json')
+    }
+    run('python -m meeteval.wer greedy_orcwer -h hyp.stm -r ref.stm', cwd=tmp_path)
+    for name, content in exact_results.items():
+        assert (tmp_path / name).read_bytes() == content
+    assert (tmp_path / 'hyp_greedy_orcwer.json').exists()
+    assert (tmp_path / 'hyp_greedy_orcwer_per_reco.json').exists()
+
+
 def test_burn_greedy_dicp():
     # Normal test with stm files
     run(f'python -m meeteval.wer greedy_dicpwer -h hyp.stm -r ref.stm')

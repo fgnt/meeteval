@@ -195,8 +195,8 @@ def orcwer(
 
 def greedy_orcwer(
         reference, hypothesis,
-        average_out='{parent}/{stem}_orcwer.json',
-        per_reco_out='{parent}/{stem}_orcwer_per_reco.json',
+        average_out='{parent}/{stem}_greedy_orcwer.json',
+        per_reco_out='{parent}/{stem}_greedy_orcwer_per_reco.json',
         regex=None,
         reference_sort='segment_if_available',
         hypothesis_sort='segment_if_available',
