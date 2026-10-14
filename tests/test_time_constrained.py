@@ -204,6 +204,15 @@ def test_time_constrained_sorting_options():
     )
     assert er.error_rate == 0
 
+    er = time_constrained_minimum_permutation_word_error_rate(
+        r1, r1, reference_sort='word',
+        reference_pseudo_word_level_timing='phoneme_based',
+        hypothesis_pseudo_word_level_timing='phoneme_based',
+        language="eng",
+        collar=0,
+    )
+    assert er.error_rate == 0
+
     r1 = SegLST([
         {'words': 'a b c d', 'start_time': 0, 'end_time': 4, 'speaker': 'A'},
         {'words': 'e f g h', 'start_time': 2, 'end_time': 6, 'speaker': 'A'},
@@ -216,6 +225,16 @@ def test_time_constrained_sorting_options():
         collar=0,
     )
     assert er.error_rate == 0.75
+
+    er = time_constrained_minimum_permutation_word_error_rate(
+        r1, r2, reference_sort='word',
+        reference_pseudo_word_level_timing='phoneme_based',
+        hypothesis_pseudo_word_level_timing='phoneme_based_points',
+        language="eng",
+        collar=0,
+    )
+    # reference will be: ['ʌ'], ['b', 'i'], ['s', 'i'], ['d', 'i'], ['i'], ['ɛ', 'f'], ['d͡ʒ', 'i'], ['e', 'j', 't͡ʃ']
+    assert er.error_rate == 0.625
 
     er = time_constrained_minimum_permutation_word_error_rate(
         r1, r2, reference_sort='segment',
@@ -254,6 +273,26 @@ def test_time_constrained_sorting_options():
         collar=0,
     )
     assert er.error_rate == 1
+
+    # japanese testing with kanji char
+    # whitespace on characters
+    r1 = SegLST([
+        {'words': '\u4f11 \u65e5', 'start_time': 4, 'end_time': 8, 'speaker': 'A'}, # holiday
+        {'words': '\u4eca \u65e5', 'start_time': 0, 'end_time': 4, 'speaker': 'A'}, # today
+    ])
+    r2 = SegLST([
+        {'words': '\u4f11 \u65e5 \u4eca \u65e5', 'start_time': 0, 'end_time': 8, 'speaker': 'A'},
+    ])
+
+    er = time_constrained_minimum_permutation_word_error_rate(
+        r1, r2, reference_sort='word',
+        reference_pseudo_word_level_timing='phoneme_based',
+        hypothesis_pseudo_word_level_timing='phoneme_based_points',
+        language="jpn",
+        collar=5,
+    )
+    assert er.error_rate == 0.5
+
 
 
 def test_examples_zero_self_overlap():
