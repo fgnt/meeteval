@@ -109,7 +109,10 @@ class SegLST(BaseABC):
             """Convert common float keys to decimal"""
             for k in ('start_time', 'end_time'):
                 if k in s:
-                    s[k] = parse_float(s[k])
+                    s[k] = (
+                        [parse_float(t) for t in s[k]]
+                        if isinstance(s[k], list) else parse_float(s[k])
+                    )
             return s
 
         loaded = simplejson.loads(s, parse_float=parse_float)
